@@ -6,7 +6,7 @@ plugins {
 group 'org.bold'
 version '0.2.0'
 
-sourceCompatibility = 1.8
+//sourceCompatibility = 1.8
 
 repositories {
     mavenCentral()
@@ -26,7 +26,9 @@ dependencies {
     implementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
 }
 
-mainClassName = 'org.bold.Configurator'
+application {
+    mainClass = 'org.bold.Configurator'
+}
 
 distributions {
     main {
@@ -38,4 +40,11 @@ distributions {
             from('.') { include('*.properties') }
         }
     }
+}
+
+tasks.register('runBold', JavaExec) {
+    group = 'application'
+    description = 'Run the application.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set(application.mainClass)
 }
