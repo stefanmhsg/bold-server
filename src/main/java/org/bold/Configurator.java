@@ -22,7 +22,9 @@ import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
+import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
+import de.fau.rw.ti.LDPInferencer; // adjust FQCN if your jar uses a different package
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.slf4j.Logger;
@@ -63,6 +65,8 @@ public class Configurator {
 	public static final String RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL = "gsp/";
 	public static final String SIMULATION_RESOURCE_TARGET = "sim"; // TODO make configurable
 
+    private static final String SERVER_PROTOCOL_KEY = "bold.server.protocol";
+
     public static void main(String[] args) throws Exception {
         // TODO more advanced CLI
         String task = args.length > 0 ? args[0] : "sim";
@@ -87,8 +91,9 @@ public class Configurator {
 		URI rdfBaseURI = serverBaseURI.resolve(RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL);
 		log.info("Base URI for RDF Graphs after considering environment variable: " + rdfBaseURI.toString());
 
-		MemoryStore store = new MemoryStore();
-		SailRepository repo = new SailRepository(store);
+		// Choose Sail implementation (defaults to MemoryStore)
+		Sail sail = createSail(config);
+		SailRepository repo = new SailRepository(sail);
 
 		try (RepositoryConnection conn = repo.getConnection()) {
 			for (String filename : FileUtils.listFiles(config.getProperty(INIT_DATASET_KEY))) {
@@ -185,7 +190,16 @@ public class Configurator {
 
 		server.join();
 		return;
-
     }
 
+    // Instantiate Sail from configuration; falls back to MemoryStore on error/missing config.
+    private static Sail createSail(Properties config) {
+        String protocol = config.getProperty(SERVER_PROTOCOL_KEY);
+        if ("ldp".equalsIgnoreCase(protocol)) {
+            log.info("Using LDPInferencer over MemoryStore.");
+            return new LDPInferencer(new MemoryStore());
+        }
+        log.info("Using default MemoryStore Sail.");
+        return new MemoryStore();
+    }
 }

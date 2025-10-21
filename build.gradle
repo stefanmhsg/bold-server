@@ -24,6 +24,8 @@ dependencies {
 
     implementation group: 'org.antlr', name: 'antlr4', version: '4.12.0'
     implementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
+
+    implementation files('libs/ldp-sail-0.1.0.jar')
 }
 
 application {
@@ -38,6 +40,7 @@ distributions {
             from('query') { into('query') }
             from('doc') { into('doc') }
             from('.') { include('*.properties') }
+            from('libs') { into('libs') }
         }
     }
 }
