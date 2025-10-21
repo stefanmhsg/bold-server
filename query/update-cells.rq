@@ -1,0 +1,10 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX sim: <http://ti.rw.fau.de/sim#>
+
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+
+
+
+#Update the map to reflect the current state of the maze

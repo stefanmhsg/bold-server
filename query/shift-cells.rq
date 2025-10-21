@@ -1,0 +1,227 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX ex: <https://www.example.org/ex#>
+PREFIX sim: <http://ti.rw.fau.de/sim#>
+
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX http: <http://www.w3.org/2011/http#> 
+PREFIX xhv: <http://www.w3.org/1999/xhtml/vocab#> 
+
+#counter
+DELETE {
+    GRAPH </counter>  {
+        </counter> rdf:value ?o .
+    }
+}
+INSERT {
+    GRAPH </counter>  {
+        </counter> rdf:value ?time .
+    }
+}
+WHERE {
+    <sim> sim:currentIteration ?time .
+    </counter> rdf:value ?o .
+};
+
+#Take any two cells and switch their position
+DELETE {
+    GRAPH ?cell1{
+        ?cell1 maze:north ?c1n ;
+        maze:south ?c1s ;
+        maze:east ?c1e ;
+        maze:west ?c1w .
+    }
+
+    # delete former possible stigmergy
+    GRAPH ?cell1{
+        ?cell1 maze:green ?c1green .
+    }
+
+    GRAPH ?cell2{
+        ?cell2 maze:green ?c2green .
+    }
+
+    # delete former possible connections to locks
+    GRAPH ?cell1{
+        ?cell1  maze:blockedfrom  ?c1blocker .
+    }
+    
+    GRAPH ?cell2{
+        ?cell2  maze:blockedfrom  ?c2blocker .
+    }
+
+    GRAPH ?cell2{
+        ?cell2 maze:north ?c2n ;
+        maze:south ?c2s ;
+        maze:east ?c2e ;
+        maze:west ?c2w .
+    }
+
+    GRAPH ?anycell1{
+        ?anycell1 ?p1 ?cell1 .
+    }
+
+    GRAPH ?anycell2{
+        ?anycell2 ?p2 ?cell2 .
+    }
+
+    GRAPH ?anycell{
+        ?anycell a maze:Cell; ?p3 ?cell1; ?p4 ?cell2 .
+    }
+} INSERT {
+    GRAPH ?cell2{
+        ?cell2 maze:green ?c1green ;
+        maze:blockedfrom  ?c1blocker ;
+        maze:north ?c1n ;
+        maze:south ?c1s ;
+        maze:east ?c1e ;
+        maze:west ?c1w .
+    }
+
+    GRAPH ?cell1{
+        ?cell1 maze:green ?c2green ;
+        maze:blockedfrom ?c2blocker ;
+        maze:north ?c2n ;
+        maze:south ?c2s ;
+        maze:east ?c2e ;
+        maze:west ?c2w .
+    }
+
+    GRAPH ?anycell1{
+        ?anycell1 ?p1 ?cell2 .
+    }
+
+    GRAPH ?anycell2{
+        ?anycell2 ?p2 ?cell1 .
+    }
+
+    GRAPH ?anycell{
+        ?anycell a maze:Cell; ?p4 ?cell1; ?p2 ?cell2 .
+    }
+
+} WHERE {
+    #only if a connection from anycell1 to cell1 exists it will be replaced by a connection from anycell2
+    {
+        ?anycell1 a maze:Cell; ?p1 ?cell1 .
+        ?cell1 ?p1inv ?anycell1 .    
+        #ignore locks that are still locked 
+        FILTER NOT EXISTS { ?anycell1 a maze:Lock}
+    }UNION{
+        ?anycell2 a maze:Cell; ?p2 ?cell2 .
+        ?cell2 ?p2inv ?anycell2 .
+        #ignore locks that are still locked
+        FILTER NOT EXISTS { ?anycell2 a maze:Lock}
+    }UNION{
+        ?anycell a maze:Cell; ?p3 ?cell1; ?p4 ?cell2 . 
+        ?cell1 ?p3inv ?anycell .
+        ?cell2 ?p4inv ?anycell .
+        #ignore locks that are still locked
+        FILTER NOT EXISTS { ?anycell a maze:Lock}
+    }
+
+    {
+        SELECT ?cell1 ?cell2 ?c1n ?c1s ?c1e ?c1w ?c2n ?c2s ?c2e ?c2w ?c1green ?c2green ?c1blocker ?c2blocker
+        WHERE {
+            <sim> sim:currentIteration ?time .
+
+            GRAPH ?cell1{
+                ?cell1 a maze:Cell ;
+                maze:north ?c1n ;
+                maze:south ?c1s ;
+                maze:east ?c1e ;
+                maze:west ?c1w .
+            }
+
+            GRAPH ?cell2{
+                ?cell2 a maze:Cell ;
+                maze:north ?c2n ;
+                maze:south ?c2s ;
+                maze:east ?c2e ;
+                maze:west ?c2w .
+            }
+
+            OPTIONAL { ?cell1  maze:green  ?c1green }
+            OPTIONAL { ?cell2  maze:green  ?c2green }
+
+            OPTIONAL { ?cell1  maze:blockedfrom  ?c1blocker }
+            OPTIONAL { ?cell2  maze:blockedfrom  ?c2blocker }
+
+            BIND (2 as ?interval)
+            #emulates the modulo opertator -> matches every ?interval iterations 
+            BIND(xsd:integer(?time) / ?interval AS ?division)
+            FILTER(xsd:integer(?division) * ?interval = xsd:integer(?time))
+
+            #just to keep changing cells simple, else connections get messy
+            FILTER (?cell1 != ?cell2)
+            FILTER NOT EXISTS { ?cell1 ?r1 ?cell2 } 
+            FILTER NOT EXISTS { ?cell2 ?r2 ?cell1 }
+
+            #as condition we require stability for entry and exit s.t. they do not change
+            ?maze xhv:start ?entryCell .
+            ?lastCell maze:exit ?exitCell .
+
+            FILTER(?cell1 != ?entryCell)
+            FILTER(?cell1 != ?lastCell) 
+            FILTER(?cell1 != ?exitCell) 
+            FILTER(?cell2 != ?entryCell)
+            FILTER(?cell2 != ?lastCell) 
+            FILTER(?cell2 != ?exitCell) 
+
+            # FILTER(?cell1 != <http://127.0.1.1:8080/cells/0>)
+            # FILTER(?cell1 != <http://127.0.1.1:8080/cells/24>) 
+            # FILTER(?cell1 != <http://127.0.1.1:8080/cells/999>) 
+            # FILTER(?cell2 != <http://127.0.1.1:8080/cells/0>)
+            # FILTER(?cell2 != <http://127.0.1.1:8080/cells/24>) 
+            # FILTER(?cell2 != <http://127.0.1.1:8080/cells/999>) 
+
+            #  do not switch Locks 
+            FILTER NOT EXISTS { ?cell1 a maze:Lock } 
+            FILTER NOT EXISTS { ?cell2 a maze:Lock }
+            
+            BIND(SHA512(CONCAT(STR(RAND()), STR(?cell1))) AS ?random) .
+        }
+        ORDER BY ?random
+        LIMIT 1    }
+};
+
+
+# update map to current state
+DELETE {
+    GRAPH ?map  {
+        ?cellmap maze:north ?c1nmap ;
+            maze:south ?c1smap ;
+            maze:east ?c1emap ;
+            maze:west ?c1wmap .
+    }
+} INSERT {
+    GRAPH ?map  {
+        ?cellmap a maze:Cell ;
+         maze:north ?c1n ;
+         maze:south ?c1s ;
+         maze:east ?c1e ;
+         maze:west ?c1w .
+    }
+}
+WHERE {
+
+    GRAPH ?map{
+        ?map rdf:type maze:Map .
+
+        ?cellmap a maze:Cell ;
+            maze:north ?c1nmap ;
+            maze:south ?c1smap ;
+            maze:east ?c1emap ;
+            maze:west ?c1wmap .
+    }
+
+    ?cell a maze:Cell ;
+        maze:north ?c1n ;
+        maze:south ?c1s ;
+        maze:east ?c1e ;
+        maze:west ?c1w .
+
+    FILTER(?cell = ?cellmap)
+
+};
+

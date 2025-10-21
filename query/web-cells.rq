@@ -1,0 +1,442 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX ex: <https://www.example.org/ex#>
+PREFIX sim: <http://ti.rw.fau.de/sim#>
+
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX http: <http://www.w3.org/2011/http#> 
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX xhv: <http://www.w3.org/1999/xhtml/vocab#> 
+
+#counter
+DELETE {
+    GRAPH </counter>  {
+        </counter> rdf:value ?o .
+    }
+}
+INSERT {
+    GRAPH </counter>  {
+        </counter> rdf:value ?time .
+    }
+}
+WHERE {
+    <sim> sim:currentIteration ?time .
+    </counter> rdf:value ?o .
+};
+
+#If a lock received dyn:keyValue with the matching Keyphrase, set the lock to unlocked and create a link to connected, but not displayed, cells - also, add a maze:green stigmergy mark.
+#Create connection: south
+DELETE {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:locked .
+    }
+
+    GRAPH ?cell {
+        ?cell maze:blockedfrom ?lock . 
+    }
+} INSERT {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:unlocked ;
+              maze:green ?cell ;
+              maze:south ?cell .
+    }
+    
+} WHERE {
+    
+    ?lock a dyn:Lock ;
+        dyn:keyValue ?v1, ?v2 . #if a key has the magic word
+
+    ?cell a maze:Cell ; maze:blockedfrom ?lock ;
+        maze:north ?lock . #create the opposite connection to the cell that is pointing to the lock.  
+    
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/cells/5"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/cells/18") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/lock/1"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/lock/2") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+};
+
+#Create connection: north
+DELETE {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:locked .
+    }
+    GRAPH ?cell {
+        ?cell maze:blockedfrom ?lock . 
+    }
+} INSERT {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:unlocked ;
+              maze:green ?cell ;
+              maze:north ?cell .
+    }
+    
+} WHERE {
+    
+    ?lock a dyn:Lock ;
+        dyn:keyValue ?v1, ?v2 . #if a key has the magic word
+
+    ?cell a maze:Cell ; maze:blockedfrom ?lock ;
+        maze:south ?lock . #create the opposite connection to the cell that is pointing to the lock.  
+    
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/cells/5"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/cells/18") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+};
+
+#Create connection: west
+DELETE {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:locked .
+    }
+    GRAPH ?cell {
+        ?cell maze:blockedfrom ?lock . 
+    }
+} INSERT {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:unlocked ;
+              maze:green ?cell ;
+              maze:west ?cell .
+    }
+    
+} WHERE {
+    
+    ?lock a dyn:Lock ;
+        dyn:keyValue ?v1, ?v2 . #if a key has the magic word
+
+    ?cell a maze:Cell ; maze:blockedfrom ?lock ;
+        maze:east ?lock . #create the opposite connection to the cell that is pointing to the lock.  
+
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/cells/5"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/cells/18") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+};
+
+#Create connection: east
+DELETE {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:locked .
+    }
+    GRAPH ?cell {
+        ?cell maze:blockedfrom ?lock . 
+    }
+} INSERT {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:unlocked ;
+              maze:green ?cell ;
+              maze:east ?cell .
+    }
+    
+} WHERE {
+    
+    ?lock a dyn:Lock ;
+        dyn:keyValue ?v1, ?v2 .#"redkey", "bluekey" . #if a key has the magic word
+
+    ?cell a maze:Cell ; maze:blockedfrom ?lock ;
+        maze:west ?lock . #create the opposite connection to the cell that is pointing to the lock.  
+
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/cells/5"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/cells/18") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+        OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/lock/1"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/lock/2") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+};
+
+#Change fulfilled actions from lock from open to done
+DELETE {
+    GRAPH ?lock{
+        ?action dyn:hasStatus dyn:open .
+    }
+} INSERT { 
+    GRAPH ?lock{
+        ?action dyn:hasStatus dyn:done .
+    }
+} WHERE {
+    ?lock a dyn:Lock ;
+        dyn:needsAction ?action .
+
+    ?action http:requestURI ?reqUri ;
+            http:body ?body ;
+            ?p ?o .
+
+    ?body   dyn:foundAt ?class ;
+            dyn:needsProperty ?prop;
+            ?p1 ?o1 .
+
+    ?reqUri ?prop ?val .
+
+    ?classObj a ?class;
+           ?prop ?val .
+};
+
+#Take any two cells and switch their position
+DELETE {
+    GRAPH ?cell1{
+        ?cell1 maze:north ?c1n ;
+        maze:south ?c1s ;
+        maze:east ?c1e ;
+        maze:west ?c1w .
+    }
+
+    # delete former possible stigmergy
+    GRAPH ?cell1{
+        ?cell1 maze:green ?c1green .
+    }
+
+    GRAPH ?cell2{
+        ?cell2 maze:green ?c2green .
+    }
+
+    # delete former possible connections to locks
+    GRAPH ?cell1{
+        ?cell1  maze:blockedfrom  ?c1blocker .
+    }
+    
+    GRAPH ?cell2{
+        ?cell2  maze:blockedfrom  ?c2blocker .
+    }
+
+    GRAPH ?cell2{
+        ?cell2 maze:north ?c2n ;
+        maze:south ?c2s ;
+        maze:east ?c2e ;
+        maze:west ?c2w .
+    }
+
+    GRAPH ?anycell1{
+        ?anycell1 ?p1 ?cell1 .
+    }
+
+    GRAPH ?anycell2{
+        ?anycell2 ?p2 ?cell2 .
+    }
+
+    GRAPH ?anycell{
+        ?anycell a maze:Cell; ?p3 ?cell1; ?p4 ?cell2 .
+    }
+} INSERT {
+    GRAPH ?cell2{
+        ?cell2 maze:green ?c1green ;
+        maze:blockedfrom  ?c1blocker ;
+        maze:north ?c1n ;
+        maze:south ?c1s ;
+        maze:east ?c1e ;
+        maze:west ?c1w .
+    }
+
+    GRAPH ?cell1{
+        ?cell1 maze:green ?c2green ;
+        maze:blockedfrom ?c2blocker ;
+        maze:north ?c2n ;
+        maze:south ?c2s ;
+        maze:east ?c2e ;
+        maze:west ?c2w .
+    }
+
+    GRAPH ?anycell1{
+        ?anycell1 ?p1 ?cell2 .
+    }
+
+    GRAPH ?anycell2{
+        ?anycell2 ?p2 ?cell1 .
+    }
+
+    GRAPH ?anycell{
+        ?anycell a maze:Cell; ?p4 ?cell1; ?p2 ?cell2 .
+    }
+
+    GRAPH </counter>  {
+        ?cell2 ex:changedConnection ?cell1 .
+    }
+} WHERE {
+    #only if a connection from anycell1 to cell1 exists it will be replaced by a connection from anycell2
+    {
+        ?anycell1 a maze:Cell; ?p1 ?cell1 .
+        ?cell1 ?p1inv ?anycell1 .    
+        #ignore locks that are still locked 
+        FILTER NOT EXISTS { ?anycell1 a dyn:Lock}
+    }UNION{
+        ?anycell2 a maze:Cell; ?p2 ?cell2 .
+        ?cell2 ?p2inv ?anycell2 .
+        #ignore locks that are still locked
+        FILTER NOT EXISTS { ?anycell2 a dyn:Lock}
+    }UNION{
+        ?anycell a maze:Cell; ?p3 ?cell1; ?p4 ?cell2 . 
+        ?cell1 ?p3inv ?anycell .
+        ?cell2 ?p4inv ?anycell .
+        #ignore locks that are still locked
+        FILTER NOT EXISTS { ?anycell a dyn:Lock}
+    }
+
+    {
+        SELECT ?cell1 ?cell2 ?c1n ?c1s ?c1e ?c1w ?c2n ?c2s ?c2e ?c2w ?c1green ?c2green ?c1blocker ?c2blocker
+        WHERE {
+            <sim> sim:currentIteration ?time .
+
+            GRAPH ?cell1{
+                ?cell1 a maze:Cell ;
+                maze:north ?c1n ;
+                maze:south ?c1s ;
+                maze:east ?c1e ;
+                maze:west ?c1w .
+            }
+
+            GRAPH ?cell2{
+                ?cell2 a maze:Cell ;
+                maze:north ?c2n ;
+                maze:south ?c2s ;
+                maze:east ?c2e ;
+                maze:west ?c2w .
+            }
+
+            OPTIONAL { ?cell1  maze:green  ?c1green }
+            OPTIONAL { ?cell2  maze:green  ?c2green }
+
+            OPTIONAL { ?cell1  maze:blockedfrom  ?c1blocker }
+            OPTIONAL { ?cell2  maze:blockedfrom  ?c2blocker }
+
+            BIND (2 as ?interval)
+            #emulates the modulo opertator -> matches every ?interval iterations 
+            BIND(xsd:integer(?time) / ?interval AS ?division)
+            FILTER(xsd:integer(?division) * ?interval = xsd:integer(?time))
+
+            #just to keep changing cells simple, else connections get messy
+            FILTER (?cell1 != ?cell2)
+            FILTER NOT EXISTS { ?cell1 ?r1 ?cell2 } 
+            FILTER NOT EXISTS { ?cell2 ?r2 ?cell1 }
+            #as condition we require stability for entry and exit s.t. they do not change
+            ?maze xhv:start ?entryCell .
+            ?lastCell maze:exit ?exitCell .
+
+            FILTER(?cell1 != ?entryCell)
+            FILTER(?cell1 != ?lastCell) 
+            FILTER(?cell1 != ?exitCell) 
+            FILTER(?cell2 != ?entryCell)
+            FILTER(?cell2 != ?lastCell) 
+            FILTER(?cell2 != ?exitCell) 
+
+            #  do not switch Locks 
+            FILTER NOT EXISTS { ?cell1 a dyn:Lock } 
+            FILTER NOT EXISTS { ?cell2 a dyn:Lock }
+
+            BIND(SHA512(CONCAT(STR(RAND()), STR(?cell1))) AS ?random) .
+        }
+        ORDER BY ?random
+        LIMIT 1    }
+};
+
+
+#reset all connections for locks and build them new - for LOCKED Locks
+DELETE {
+    GRAPH ?lock {
+        ?lock ?p ?o .
+    }
+
+} INSERT {
+    GRAPH ?lock {
+        ?lock ?invcon ?connectedCell . 
+    }
+} WHERE {
+    ?lock a dyn:Lock;
+        dyn:state dyn:locked ; ### THIS IS NEW @@@
+        ?p ?o .
+
+        ?o a maze:Cell . #thus, ?o binds all cells that have an ingoing arch from lock 
+
+    ?connectedCell a maze:Cell ;
+        ?direction ?lock . 
+
+    # make sure there is no weird self reference as locks are cells
+    FILTER (?lock != ?connectedCell)
+    FILTER (?direction != maze:green) # i have no clue if this prevents strange behaviour because of stigmergy..?
+
+    # filter connected cells that are blocked s.t. the ourgoing arch from lock is not inserted 
+    FILTER NOT EXISTS {?connectedCell dyn:blockedfrom ?lock}  
+
+    {
+        ?connectedCell maze:north ?lock.
+        BIND(maze:south AS ?invcon)
+    } UNION {
+        ?connectedCell maze:south ?lock.
+        BIND(maze:north AS ?invcon)
+    } UNION {
+        ?connectedCell maze:east ?lock.
+        BIND(maze:west AS ?invcon)
+    } UNION {
+        ?connectedCell maze:west ?lock.
+        BIND(maze:east AS ?invcon)
+    }
+};
+
+# update map to current state
+DELETE {
+    GRAPH ?map  {
+        ?cellmap maze:north ?c1nmap ;
+            maze:south ?c1smap ;
+            maze:east ?c1emap ;
+            maze:west ?c1wmap .
+    }
+} INSERT {
+    GRAPH ?map  {
+        ?cellmap a maze:Cell ;
+         maze:north ?c1n ;
+         maze:south ?c1s ;
+         maze:east ?c1e ;
+         maze:west ?c1w .
+    }
+}
+WHERE {
+
+    GRAPH ?map{
+        ?map rdf:type maze:Map .
+
+        ?cellmap a maze:Cell ;
+            maze:north ?c1nmap ;
+            maze:south ?c1smap ;
+            maze:east ?c1emap ;
+            maze:west ?c1wmap .
+    }
+
+    ?cell a maze:Cell ;
+        maze:north ?c1n ;
+        maze:south ?c1s ;
+        maze:east ?c1e ;
+        maze:west ?c1w .
+
+    FILTER(?cell = ?cellmap)
+
+};
+

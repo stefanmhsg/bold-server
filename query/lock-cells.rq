@@ -1,0 +1,191 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX ex: <https://www.example.org/ex#>
+PREFIX sim: <http://ti.rw.fau.de/sim#>
+
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+
+PREFIX http: <http://www.w3.org/2011/http#> 
+
+
+#Update counter
+DELETE {
+    GRAPH </counter>  {
+        </counter> rdf:value ?o .
+    }
+}
+INSERT {
+    GRAPH </counter>  {
+        </counter> rdf:value ?time .
+    }
+}
+WHERE {
+    <sim> sim:currentIteration ?time .
+    </counter> rdf:value ?o .
+};
+
+#If the a lock received dyn:keyValue with the matching Keyphrase, set the lock to unlocked and create a link to connected, but not displayed, cells - also, add a maze:green stigmergy mark.
+#Create connection: south
+DELETE {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:locked .
+    }
+} INSERT {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:unlocked ;
+              maze:green ?cell ;
+              maze:south ?cell .
+    }
+    
+} WHERE {
+    
+    ?lock a dyn:Lock ;
+        dyn:keyValue ?v1, ?v2 . #if a key has the magic word
+
+    ?cell a maze:Cell ;
+        maze:north ?lock . #create the opposite connection to the cell that is pointing to the lock.  
+    
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/cells/5"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/cells/18") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/lock/1"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/lock/2") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+};
+
+#Create connection: north
+DELETE {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:locked .
+    }
+} INSERT {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:unlocked ;
+              maze:green ?cell ;
+              maze:north ?cell .
+    }
+    
+} WHERE {
+    
+    ?lock a dyn:Lock ;
+        dyn:keyValue ?v1, ?v2 . #if a key has the magic word
+
+    ?cell a maze:Cell ;
+        maze:south ?lock . #create the opposite connection to the cell that is pointing to the lock.  
+    
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/cells/5"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/cells/18") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+};
+
+#Create connection: west
+DELETE {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:locked .
+    }
+} INSERT {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:unlocked ;
+              maze:green ?cell ;
+              maze:west ?cell .
+    }
+    
+} WHERE {
+    
+    ?lock a dyn:Lock ;
+        dyn:keyValue ?v1, ?v2 . #if a key has the magic word
+
+    ?cell a maze:Cell ;
+        maze:east ?lock . #create the opposite connection to the cell that is pointing to the lock.  
+    
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/cells/5"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/cells/18") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+};
+
+#Create connection: east
+DELETE {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:locked .
+    }
+} INSERT {
+    GRAPH ?lock{
+        ?lock dyn:state dyn:unlocked ;
+              maze:green ?cell ;
+              maze:east ?cell .
+    }
+    
+} WHERE {
+    
+    ?lock a dyn:Lock ;
+        dyn:keyValue ?v1, ?v2 .#"redkey", "bluekey" . #if a key has the magic word
+
+    ?cell a maze:Cell ;
+        maze:west ?lock . #create the opposite connection to the cell that is pointing to the lock.  
+
+    OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/cells/5"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/cells/18") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+        OPTIONAL { FILTER (?lock = URI("http://127.0.1.1:8080/lock/1"))
+        BIND("bluekey" AS ?v2)
+        BIND("redkey" AS ?v1)
+    }
+    OPTIONAL { FILTER ( ?lock = URI("http://127.0.1.1:8080/lock/2") )
+        BIND("greenkey" AS ?v2)
+        BIND("greenkey" AS ?v1)
+    }
+};
+
+#Change fulfilled actions from lock from open to done
+DELETE {
+    GRAPH ?lock{
+        ?action dyn:hasStatus dyn:open .
+    }
+} INSERT { 
+    GRAPH ?lock{
+        ?action dyn:hasStatus dyn:done .
+    }
+} WHERE {
+    ?lock a dyn:Lock ;
+        dyn:needsAction ?action .
+
+    ?action http:requestURI ?reqUri ;
+            http:body ?body ;
+            ?p ?o .
+
+    ?body   dyn:foundAt ?class ;
+            dyn:needsProperty ?prop;
+            ?p1 ?o1 .
+
+    ?reqUri ?prop ?val .
+
+    ?classObj a ?class;
+           ?prop ?val .
+}

@@ -1,0 +1,545 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ldp: <http://www.w3.org/ns/ldp#> .
+@prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
+@prefix xhv: <http://www.w3.org/1999/xhtml/vocab#> .
+@prefix http: <http://www.w3.org/2011/http#> .
+@prefix httpm: <http://www.w3.org/2011/http-methods#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>.
+
+#define the root of our scenario, where the maze exists
+</maze> {
+    </maze> a ldp:BasicContainer ;
+        a maze:BeginnerMaze ; 
+        ldp:contains </map> ;
+        xhv:start </cells/0> .
+}
+
+#counter for steps
+</counter> {
+    </counter>  a maze:Counter; 
+                rdf:value 0 .
+}
+
+# map of maze
+</map> {
+
+    </map> a maze:Map.
+
+    </cells/999> a maze:Cell ;
+        rdfs:label "Exit";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   maze:Wall.
+
+    </cells/0> a maze:Cell ;
+        rdfs:label "Entrance Hallway";
+        maze:north maze:Wall ;
+        maze:west  maze:Wall ;
+        maze:south maze:Wall ;
+        maze:east </cells/5> . 
+
+
+    </cells/5> a maze:Cell ;
+        rdfs:label "Kitchen";
+        maze:north maze:Wall ;
+        maze:west </cells/0> ;
+        maze:south maze:Wall ;
+        maze:east </cells/10> . 
+
+    </cells/10> a maze:Cell ;
+        rdfs:label "Nursery";
+        maze:north maze:Wall ;
+        maze:west  </cells/5> ;
+        maze:south </cells/11> ;
+        maze:east  maze:Wall .
+
+    </cells/11> a maze:Cell ;
+        rdfs:label "Laundry Room";
+        maze:north </cells/10> ;
+        maze:west  maze:Wall ;
+        maze:south maze:Wall ;
+        maze:east  </cells/16> .
+
+    </cells/16> a maze:Cell ;
+        rdfs:label "Hobby Room";
+        maze:north maze:Wall ;
+        maze:west  </cells/11> ;
+        maze:south maze:Wall ;
+        maze:east  </cells/21> .
+
+    </cells/21> a maze:Cell ;
+        rdfs:label "Garage";
+        maze:north  </cells/20>;
+        maze:west   </cells/16>;
+        maze:south  </cells/22>;
+        maze:east  maze:Wall .
+
+    </cells/20> a maze:Cell ;
+        rdfs:label "Servant's Quarters";
+        maze:north  maze:Wall;
+        maze:west   </cells/15>;
+        maze:south  </cells/21>;
+        maze:east  maze:Wall .
+
+    </cells/15> a maze:Cell ;
+        rdfs:label "Standing Room";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   </cells/20>.
+
+    </cells/22> a maze:Cell ;
+        rdfs:label "Tool Room";
+        maze:north  </cells/21>;
+        maze:west   </cells/17>;
+        maze:south  maze:Wall;
+        maze:east   maze:Wall.
+
+    </cells/17> a maze:Cell ;
+        rdfs:label "Observatory";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  </cells/18>;
+        maze:east   </cells/22>.
+
+    </cells/18> a maze:Cell ;
+        rdfs:label "Hot House";
+        maze:north  </cells/17>;
+        maze:west   maze:Wall;
+        maze:south  </cells/19>;
+        maze:east   maze:Wall.
+
+    </cells/19> a maze:Cell ;
+        rdfs:label "Guest Room";
+        maze:north  </cells/18>;
+        maze:west   </cells/14>;
+        maze:south  maze:Wall;
+        maze:east   </cells/24>.
+
+    </cells/14> a maze:Cell ;
+        rdfs:label "Sitting Room";
+        maze:north  </cells/13>;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   </cells/19>.
+
+    </cells/24> a maze:Cell ;
+        rdfs:label "Spoon Storage";
+        maze:north  </cells/23>;
+        maze:west   </cells/19>;
+        maze:exit  </cells/999>;
+        maze:east   maze:Wall.
+
+    </cells/23> a maze:Cell ;
+        rdfs:label "Banquet Hall";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  </cells/24>;
+        maze:east   maze:Wall.
+
+
+    </cells/13> a maze:Cell ;
+        rdfs:label "Dining Room";
+        maze:north  maze:Wall;
+        maze:west   </cells/8>;
+        maze:south  </cells/14>;
+        maze:east   maze:Wall.
+
+    </cells/8> a maze:Cell ;
+        rdfs:label "Fruit Closet";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  </cells/9>;
+        maze:east   </cells/13>.
+
+
+    </cells/9> a maze:Cell ;
+        rdfs:label "Den of Forks";
+        maze:north  </cells/8>;
+        maze:west   </cells/4>;
+        maze:south  maze:Wall;
+        maze:east   maze:Wall.
+
+
+    </cells/4> a maze:Cell ;
+        rdfs:label "Pantry";
+        maze:north  </cells/3>;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   </cells/9>.
+
+   </cells/3> a maze:Cell ;
+        rdfs:label "Trophy Room";
+        maze:north  </cells/2>;
+        maze:west   maze:Wall;
+        maze:south  </cells/4>;
+        maze:east   maze:Wall.
+
+
+    </cells/2> a maze:Cell ;
+        rdfs:label "Library";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  </cells/3>;
+        maze:east   </cells/7>.
+
+    </cells/7> a maze:Cell ;
+        rdfs:label "Master Bedroom";
+        maze:north  </cells/6>;
+        maze:west   </cells/2>;
+        maze:south  maze:Wall;
+        maze:east   </cells/12>.
+
+
+    </cells/12> a maze:Cell ;
+        rdfs:label "Smoking Room";
+        maze:north  maze:Wall;
+        maze:west   </cells/7>;
+        maze:south  maze:Wall;
+        maze:east   maze:Wall.
+
+    </cells/6> a maze:Cell ;
+        rdfs:label "Cloak Room";
+        maze:north  maze:Wall;
+        maze:west   </cells/1>;
+        maze:south  </cells/7>;
+        maze:east   maze:Wall.
+
+
+    </cells/1> a maze:Cell ;
+        rdfs:label "Hall of Knives";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   </cells/6>.
+
+}
+
+#the URIs for all used transporters
+</cells> {
+    </cells> a ldp:BasicContainer ;
+        ldp:contains </cells/0>,
+                     </cells/1>,
+                     </cells/2>,
+                     </cells/3>,
+                     </cells/4>,
+                     </cells/5>,
+                     </cells/6>,
+                     </cells/7>, 
+                     </cells/8>,
+                     </cells/9>,
+                     </cells/10>,
+                     </cells/11>,
+                     </cells/12>,
+                     </cells/13>,
+                     </cells/14>,
+                     </cells/15>,
+                     </cells/16>,
+                     </cells/17>,
+                     </cells/18>,
+                     </cells/19>,
+                     </cells/20>,
+                     </cells/21>,
+                     </cells/22>,
+                     </cells/23>,
+                     </cells/24> .
+}
+
+#initial information about cells 
+
+#NWSE
+#0-	-5-	-10	    15-	    -20
+#		|		        |
+#1-	-6	11-	    -16-	-21
+#	|			        |
+#2-	-7-	-12	    17-	    -22
+#|			    |	
+#3	8-	-13	    18	    23
+#|	|	|	    |	    |
+#4-	-9	14-	    -19-	-24
+#                       --> Exit
+
+
+
+</cells/999> {
+    </cells/999> a maze:Cell ;
+        rdfs:label "Exit";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   maze:Wall.
+}
+
+
+</cells/0> {
+    </cells/0> a maze:Cell ;
+        rdfs:label "Entrance Hallway";
+        dyn:hasKey  </cells/0#key> ;
+        dyn:hasKey  </cells/0#key2> ;
+        maze:north maze:Wall ;
+        maze:west  maze:Wall ;
+        maze:south maze:Wall ;
+        maze:green </cells/5> ;
+        maze:east </cells/5> .
+
+    </cells/0#key2> a dyn:RedKey;
+        dyn:keyValue "redkey" .
+}
+
+</cells/5> {
+    <http://127.0.1.1:8080/cells/5> a maze:Cell, dyn:Lock ;
+        rdfs:label "Kitchen";
+        maze:north maze:Wall ;
+        maze:west </cells/0> ;
+        maze:south maze:Wall ;
+        dyn:needsAction <http://127.0.1.1:8080/cells/5#redAction> ; 
+        dyn:state dyn:locked .
+
+    <http://127.0.1.1:8080/cells/5#redAction> dyn:hasStatus dyn:open ;
+            http:requestURI <http://127.0.1.1:8080/cells/5>; #where to perform the action
+            http:mthd httpm:POST; #how to enact the action
+            http:body [ 
+                dyn:foundAt dyn:RedKey ; #tells us where (in terms of class) to find an information
+                dyn:needsProperty dyn:keyValue #tells us what information we are looking for
+            ] .
+
+}
+
+
+</cells/10> {
+    </cells/10> a maze:Cell ;
+        rdfs:label "Nursery";
+        maze:north maze:Wall ;
+        maze:west  </cells/5> ; 
+        maze:green </cells/11> ;
+        maze:south </cells/11> ;
+        maze:east  maze:Wall .
+}
+
+</cells/11> {
+    </cells/11> a maze:Cell ;
+        rdfs:label "Laundry Room";
+        maze:north </cells/10> ;
+        maze:west  maze:Wall ;
+        maze:south maze:Wall ;
+        maze:green </cells/16> ;
+        maze:east  </cells/16> .
+}
+
+</cells/16> {
+    </cells/16> a maze:Cell ;
+        rdfs:label "Hobby Room";
+        maze:north maze:Wall ;
+        maze:west  </cells/11> ;
+        maze:south maze:Wall ;
+        maze:green </cells/21> ;
+        maze:east  </cells/21> .
+}
+
+</cells/21> {
+    </cells/21> a maze:Cell ;
+        rdfs:label "Garage";
+        maze:north  </cells/20>;
+        maze:west   </cells/16>;
+        maze:green </cells/22> ;
+        maze:south  </cells/22>;
+        maze:east  maze:Wall .
+}
+
+</cells/20> {
+    </cells/20> a maze:Cell ;
+        rdfs:label "Servant's Quarters";
+        maze:north  maze:Wall;
+        maze:west   </cells/15>;
+        maze:south  </cells/21>;
+        maze:east  maze:Wall .
+}
+
+</cells/15> {
+    </cells/15> a maze:Cell ;
+        rdfs:label "Standing Room";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   </cells/20>.
+}
+
+</cells/22> {
+    </cells/22> a maze:Cell ;
+        rdfs:label "Tool Room";
+        maze:north  </cells/21>;
+        maze:green </cells/17> ;
+        maze:west   </cells/17>;
+        maze:south  maze:Wall;
+        maze:east   maze:Wall.
+}
+
+</cells/17> {
+    </cells/17> a maze:Cell ;
+        dyn:hasKey  </cells/17#key> ;
+        rdfs:label "Observatory";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:green </cells/18> ;
+        maze:south  </cells/18>;
+        maze:east   </cells/22>.
+
+    </cells/17#key> a dyn:GreenKey;
+        dyn:fitsInLock </cells/18> ;
+        dyn:keyValue "greenkey" .
+}
+
+</cells/18> {
+    </cells/18> a dyn:Lock, maze:Cell ;
+        rdfs:label "Hot House";
+        maze:north  </cells/17>;
+        maze:west   maze:Wall;
+        maze:east   maze:Wall;
+        dyn:needsAction <http://127.0.1.1:8080/cells/18#greenAction>;
+        dyn:state dyn:locked .
+
+    <http://127.0.1.1:8080/cells/18#greenAction> dyn:hasStatus dyn:open ;
+        http:requestURI <http://127.0.1.1:8080/cells/18>;
+        http:mthd httpm:POST;
+        http:body [ 
+            dyn:foundAt dyn:GreenKey ; 
+            dyn:needsProperty dyn:keyValue 
+        ] .
+}
+
+
+</cells/19> {
+    </cells/19> a maze:Cell ;
+        rdfs:label "Guest Room";
+        maze:north  </cells/18>;
+        maze:west   </cells/14>;
+        maze:south  maze:Wall;
+        maze:green </cells/24> ;
+        maze:east   </cells/24>.
+}
+
+</cells/14> {
+    </cells/14> a maze:Cell ;
+        rdfs:label "Sitting Room";
+        maze:north  </cells/13>;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   </cells/19>.
+}
+
+</cells/24> {
+    </cells/24> a maze:Cell ;
+        rdfs:label "Spoon Storage";
+        maze:north  </cells/23>;
+        maze:west   </cells/19>;
+        maze:exit  </cells/999>;
+        maze:east   maze:Wall.
+}
+
+</cells/23> {
+    </cells/23> a maze:Cell ;
+        rdfs:label "Banquet Hall";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  </cells/24>;
+        maze:east   maze:Wall.
+}
+
+</cells/13> {
+    </cells/13> a maze:Cell ;
+        rdfs:label "Dining Room";
+        maze:north  maze:Wall;
+        maze:west   </cells/8>;
+        maze:south  </cells/14>;
+        maze:east   maze:Wall.
+}
+
+</cells/8> {
+    </cells/8> a maze:Cell ;
+        rdfs:label "Fruit Closet";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  </cells/9>;
+        maze:east   </cells/13>.
+}
+
+</cells/9> {
+    </cells/9> a maze:Cell ;
+        rdfs:label "Den of Forks";
+        maze:north  </cells/8>;
+        maze:west   </cells/4>;
+        maze:south  maze:Wall;
+        maze:east   maze:Wall.
+}
+
+</cells/4> {
+    </cells/4> a maze:Cell ;
+        rdfs:label "Pantry";
+        maze:north  </cells/3>;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   </cells/9>.
+}
+
+</cells/3> {
+    </cells/3> a maze:Cell ;
+        rdfs:label "Trophy Room";
+        maze:north  </cells/2>;
+        maze:west   maze:Wall;
+        maze:south  </cells/4>;
+        maze:east   maze:Wall.
+}
+
+</cells/2> {
+    </cells/2> a maze:Cell ;
+        rdfs:label "Library";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  </cells/3>;
+        maze:east   </cells/7>.
+}
+
+</cells/7> {
+    </cells/7> a maze:Cell ;
+        rdfs:label "Master Bedroom";
+        maze:north  </cells/6>;
+        maze:west   </cells/2>;
+        maze:south  maze:Wall;
+        maze:east   </cells/12>.
+}
+
+</cells/12> {
+    </cells/12> a maze:Cell ;
+        rdfs:label "Smoking Room";
+        maze:north  maze:Wall;
+        maze:west   </cells/7>;
+        maze:south  maze:Wall;
+        maze:east   maze:Wall.
+}
+
+</cells/6> {
+    </cells/6> a maze:Cell ;
+        rdfs:label "Cloak Room";
+        maze:north  maze:Wall;
+        maze:west   </cells/1>;
+        maze:south  </cells/7>;
+        maze:east   maze:Wall.
+}
+
+</cells/1> {
+    </cells/1> a maze:Cell ;
+        rdfs:label "Hall of Knives";
+        maze:north  maze:Wall;
+        maze:west   maze:Wall;
+        maze:south  maze:Wall;
+        maze:east   </cells/6>.
+}
+
+#the colors for stations and products
+</colors> {
+    maze:green a maze:Color .
+}
+
