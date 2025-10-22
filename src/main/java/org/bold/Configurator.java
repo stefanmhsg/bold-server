@@ -6,6 +6,8 @@ import org.bold.gsp.SimStateFilter;
 import org.bold.sim.SimulationResource;
 import org.bold.gsp.StatisticsApplicationEventListener;
 import org.bold.io.FileUtils;
+import org.bold.ld.CorsFilter;
+import org.bold.ld.LinkedDataDereferenceResource;
 import org.bold.sim.InteractionHistory;
 import org.bold.sim.SimulationEngine;
 import org.bold.sim.UpdateHistory;
@@ -79,7 +81,9 @@ public class Configurator {
 
         int port = Integer.parseInt(config.getProperty(SERVER_HTTP_PORT_KEY, SERVER_HTTP_PORT_DEFAULT));
 
+		// --------------------------------------------------
 		// static serving of dataset
+		// --------------------------------------------------
 
 		Server server = new Server(port);
 
@@ -92,12 +96,10 @@ public class Configurator {
 				: new URI(System.getenv("BOLD_SERVER_BASE_URI"));
 		log.info("Server base URI after considering environment variable: " + serverBaseURI.toString());
 		URI rdfBaseURI = serverBaseURI.resolve(RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL);
-
 		log.info("Base URI for RDF Graphs after considering environment variable: " + rdfBaseURI.toString());
 
 		// Choose Sail implementation (defaults to MemoryStore)
 		Sail sail = createSail(config);
-
 		SailRepository repo = new SailRepository(sail);
 
 		log.info("Opening repository connection...");
@@ -123,6 +125,7 @@ public class Configurator {
 				//}
 				conn.commit();
 
+				// Verification log output
 				try (SailRepositoryConnection conn2 = repo.getConnection()) {
 				
 				    log.info("=== Named Graph Inspection ===");
@@ -220,10 +223,15 @@ public class Configurator {
 		}
 		log.info("init dataset loaded");
 
+		// --------------------------------------------------
+		// Setting up the Graph Store Protocol REST resource at /gsp/* as Jersey servlet
+		// --------------------------------------------------
+
 		ResourceConfig resConfig = new ResourceConfig();
 
 		resConfig.register(GraphStoreProtocolRESTResource.class);
 		resConfig.register(IsPutOrNamedGraphInDatasetFilter.class);
+		resConfig.register(CorsFilter.class);
 
 		if (config.containsKey(INIT_UPDATE_KEY) || config.containsKey(RUNTIME_UPDATE_KEY)
 				|| config.containsKey(RUNTIME_QUERY_KEY) || config.containsKey(REPLAY_DUMP_KEY)) {
@@ -286,8 +294,26 @@ public class Configurator {
 			((HttpServlet) container).getServletContext().setAttribute(SIMULATION_ENGINE_SERVLET_ATTRIBUTE, engine);
 		}
 
-		// Some welcoming documentation at the root resource, implemented using Jersey's
-		// DefaultServlet.
+		// --------------------------------------------------
+		// Linked Data dereferencing servlet (must be after /gsp/* mapping and before DefaultServlet)
+		// --------------------------------------------------
+		ResourceConfig ldConfig = new ResourceConfig();
+		ldConfig.register(LinkedDataDereferenceResource.class);
+		ldConfig.register(CorsFilter.class);
+
+		Servlet ldContainer = new ServletContainer(ldConfig);
+		ServletHolder ldHolder = new ServletHolder("BOLD LD dereferencing servlet", ldContainer);
+
+		// Mount on /* so any non GSP path is dereferenced as RDF if it exists as a named graph
+		context.addServlet(ldHolder, "/*");
+
+		// Share the same repository handle with the LD container
+		((HttpServlet) ldContainer).getServletContext().setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repo);
+
+		// --------------------------------------------------
+		// Default servlet for serving static content
+		// --------------------------------------------------
+		// Some welcoming documentation at the root resource, implemented using Jersey's DefaultServlet.
 		String welcomeFilePath = (String) config.get(WELCOME_DIRECTORY_FILEPATH);
 		if (welcomeFilePath != null) {
 			holder = new ServletHolder("default", DefaultServlet.class);
