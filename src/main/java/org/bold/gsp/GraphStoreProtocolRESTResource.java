@@ -23,8 +23,8 @@ import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.core.UriInfo;
 
 import org.bold.Configurator;
-import org.eclipse.rdf4j.IsolationLevels;
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
@@ -33,7 +33,8 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 /**
  * Exposing the named graphs in the RDF Dataset as REST resources, in the style
  * of the SPARQL Graph Store Protocol.
@@ -48,6 +49,7 @@ import org.eclipse.rdf4j.rio.Rio;
 // Use IsPutOrNamedGraphInDatasetFilter to create 404 responses before we get here.
 @Path("/{id: .*}")
 public class GraphStoreProtocolRESTResource {
+	private static final Logger log = LoggerFactory.getLogger(GraphStoreProtocolRESTResource.class);
 
 	@Context
 	ServletContext _ctx;
@@ -57,38 +59,71 @@ public class GraphStoreProtocolRESTResource {
 	// eventually chosen media type is not retrievable programmatically, so we write
 	// several methods and thus access the choice.
 
+@GET
+@Path("/.debug-contexts")
+@Produces("text/plain")
+public String debugListContexts() {
+    SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
+    try (SailRepositoryConnection connection = repo.getConnection()) {
+        StringBuilder sb = new StringBuilder();
+
+        var contexts = connection.getContextIDs();   // type: RepositoryResult<Resource>
+        try {
+            while (contexts.hasNext()) {
+                Resource c = contexts.next();
+                long count = connection.size(c);
+                sb.append(c.stringValue()).append("  (").append(count).append(" triples)\n");
+            }
+        } finally {
+            contexts.close();
+        }
+
+        return sb.toString();
+    }
+}
+
+	
+
 	@GET
 	@Produces("text/turtle")
 	public StreamingOutput getTurtle(@Context UriInfo uriinfo) {
+		log.info("GET request for graph (text/turtle): {}", uriinfo.getAbsolutePath());
 		return getRDF(uriinfo, RDFFormat.TURTLE);
 	}
 
 	@GET
 	@Produces("application/rdf+xml")
 	public StreamingOutput getRDFXML(@Context UriInfo uriinfo) {
+		log.info("GET request for graph (application/rdf+xml): {}", uriinfo.getAbsolutePath());
 		return getRDF(uriinfo, RDFFormat.RDFXML);
 	}
 
 	@GET
 	@Produces("application/n-triples")
 	public StreamingOutput getNtriples(@Context UriInfo uriinfo) {
+		log.info("GET request for graph (application/n-triples): {}", uriinfo.getAbsolutePath());
 		return getRDF(uriinfo, RDFFormat.NTRIPLES);
 	}
 
 	private StreamingOutput getRDF(UriInfo uriinfo, RDFFormat finalOutputFormat) {
 
+		log.info("STM: Inside getRDF at GraphStoreProtocolRESTResource");
 		SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
 		SailRepositoryConnection connection = repo.getConnection();
 
 		ValueFactory vf = connection.getValueFactory();
 
 		IRI graphName = vf.createIRI(uriinfo.getAbsolutePath().toString());
+		log.info("Resolved graph IRI: {}", graphName);
 
 		// checking if graph exists in triple store
 		if (!connection.hasStatement(null, null, null, false, graphName)) {
+			log.warn("Graph not found in RDF dataset: {}", graphName);
 			connection.close();
-			throw new NotFoundException("Graph not found in RDF dataset: " + graphName);
+			throw new NotFoundException("STM: Graph not found in RDF dataset: " + graphName);
 		}
+
+		log.info("Graph found, exporting: {} with format {}", graphName, finalOutputFormat.getName());
 
 		// RIO wants to write to a stream, thus we have to wrap RIO's writer
 		StreamingOutput output = new StreamingOutput() {
@@ -113,18 +148,21 @@ public class GraphStoreProtocolRESTResource {
 	@PUT
 	@Consumes("text/turtle")
 	public Response putTurtle(@Context UriInfo uriinfo, @Context HttpServletRequest req, InputStream is) {
+		log.info("PUT request for graph (text/turtle): {}", uriinfo.getAbsolutePath());
 		return putRDF(uriinfo, req, is, RDFFormat.TURTLE);
 	}
 
 	@PUT
 	@Consumes("application/n-triples")
 	public Response putNtriples(@Context UriInfo uriinfo, @Context HttpServletRequest req, InputStream is) {
+		log.info("PUT request for graph (application/n-triples): {}", uriinfo.getAbsolutePath());
 		return putRDF(uriinfo, req, is, RDFFormat.NTRIPLES);
 	}
 
 	@PUT
 	@Consumes("application/rdf+xml")
 	public Response putRDFXML(@Context UriInfo uriinfo, @Context HttpServletRequest req, InputStream is) {
+		log.info("PUT request for graph (application/rdf+xml): {}", uriinfo.getAbsolutePath());
 		return putRDF(uriinfo, req, is, RDFFormat.RDFXML);
 	}
 
@@ -141,11 +179,13 @@ public class GraphStoreProtocolRESTResource {
 		ValueFactory vf = connection.getValueFactory();
 		IRI requestTargetUriIRI = vf.createIRI(requestTargetUriString);
 
+		log.info("PUT request for graph: {} with mime {}", requestTargetUriString, parsedMimeType.getName());
+
 		// Begin transaction
-		connection.begin(IsolationLevels.READ_COMMITTED);
-
+		// Begin transaction
+		connection.begin();
+		
 		boolean resourceExistedBeforeRequest = false;
-
 		// checking if graph exists in triple store
 		if (connection.hasStatement(null, null, null, false, requestTargetUriIRI)) {
 			resourceExistedBeforeRequest = true;
@@ -157,11 +197,14 @@ public class GraphStoreProtocolRESTResource {
         	// ...and then adding the new stuff.
 			connection.add(is, requestTargetUriString, parsedMimeType, requestTargetUriIRI);
 			connection.commit();
+			log.info("Successfully updated graph: {}", requestTargetUriString);
 		} catch (RDFParseException e) {
 			connection.rollback();
+			log.error("Failed to parse RDF data for graph: {}", requestTargetUriString, e);
 			throw new BadRequestException(e);
 		} catch (RepositoryException | IOException e) {
 			connection.rollback();
+			log.error("Failed to update graph: {}", requestTargetUriString, e);
 			throw new InternalServerErrorException(e);
 		} finally {
 			connection.close();
@@ -187,14 +230,17 @@ public class GraphStoreProtocolRESTResource {
 		ValueFactory vf = connection.getValueFactory();
 		IRI requestTargetUriIRI = vf.createIRI(requestTargetUriString);
 
+		log.info("DELETE request for graph: {}", requestTargetUriString);
 		// checking if graph exists in triple store
 		if (!connection.hasStatement(null, null, null, false, requestTargetUriIRI)) {
 			connection.close();
+			log.warn("Graph not found in RDF dataset: {}", requestTargetUriString);
 			throw new NotFoundException();
 		}
 
 		// Deleting the named graph
 		connection.clear(requestTargetUriIRI);
+		log.info("Deleted graph: {}", requestTargetUriString);
 
 		// Cleanup
 		connection.close();

@@ -1,0 +1,56 @@
+@prefix math: <http://www.w3.org/2000/10/swap/math#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix log: <http://www.w3.org/2000/10/swap/log#> .
+@prefix http: <http://www.w3.org/2011/http#> . 
+@prefix httpm: <http://www.w3.org/2011/http-methods#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .               
+@prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
+
+<#a> <#b> <#c> .
+
+{ 
+
+    <http://127.0.1.1:8080/cells/16> a maze:Cell ;
+        rdfs:label "Hobby Room";
+        maze:north maze:Wall ;
+        maze:west  <http://127.0.1.1:8080/cells/11> ;
+        maze:south maze:Wall ;
+        maze:green <http://127.0.1.1:8080/cells/21> ;
+        maze:east  <http://127.0.1.1:8080/cells/21> .
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/16> ;
+     http:body {
+<http://127.0.1.1:8080/cells/16> a maze:Cell ;
+        rdfs:label "Hobby Room";
+        maze:north maze:Wall ;
+        maze:west  <http://127.0.1.1:8080/cells/11> ;
+        maze:south maze:Wall ;
+        maze:green <http://127.0.1.1:8080/cells/1> ;
+        maze:east  <http://127.0.1.1:8080/cells/1> .
+     } .
+} .
+   
+{ 
+   <http://127.0.1.1:8080/cells/1> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+   rdfs:label "Hall of Knives" ;
+   <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/6> ;
+   <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+   <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+   <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/1> ;
+     http:body {
+      <http://127.0.1.1:8080/cells/1> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+      rdfs:label "Hall of Knives" ;
+      <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/22> ;
+      <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/22> ;
+      <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+      <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+      <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+     } .
+} .
+   

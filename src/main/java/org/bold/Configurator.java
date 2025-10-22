@@ -17,6 +17,7 @@ import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
+import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -24,7 +25,7 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import de.fau.rw.ti.LDPInferencer; // adjust FQCN if your jar uses a different package
+import de.fau.rw.ti.LDPInferencer;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.slf4j.Logger;
@@ -33,6 +34,8 @@ import org.slf4j.LoggerFactory;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 import javax.servlet.Servlet;
@@ -89,26 +92,130 @@ public class Configurator {
 				: new URI(System.getenv("BOLD_SERVER_BASE_URI"));
 		log.info("Server base URI after considering environment variable: " + serverBaseURI.toString());
 		URI rdfBaseURI = serverBaseURI.resolve(RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL);
+
 		log.info("Base URI for RDF Graphs after considering environment variable: " + rdfBaseURI.toString());
 
 		// Choose Sail implementation (defaults to MemoryStore)
 		Sail sail = createSail(config);
+
 		SailRepository repo = new SailRepository(sail);
 
+		log.info("Opening repository connection...");
 		try (RepositoryConnection conn = repo.getConnection()) {
+			log.info("Repository connection opened: {}", conn);
 			for (String filename : FileUtils.listFiles(config.getProperty(INIT_DATASET_KEY))) {
-				log.info("loading {}", filename);
+				log.info("Discovered RDF file {}", filename);
 				RDFFormat format = Rio.getParserFormatForFileName(filename).orElseThrow(() -> new IOException());
+				log.info("Parsing file '{}' with format '{}'", filename, format.getName());
 				Model ds = Rio.parse(FileUtils.getFileOrResource(filename), rdfBaseURI.toString(), format);
+				log.info("Parsed model has {} statements", ds.size());
+				
+				conn.begin();
 				conn.add(ds);
 
 				// Copying the default graph to where we would look for it on the REST API.
-				conn.begin();
-				Iterable<Statement> triplesFromDefaultGraph = ds.getStatements(null, null, null, (Resource) null);
-				for (Statement s : triplesFromDefaultGraph) {
-					conn.add(s, new Resource[] { conn.getValueFactory().createIRI(rdfBaseURI.toString()) });
-				}
+
+				//Iterable<Statement> triplesFromDefaultGraph = ds.getStatements(null, null, null, (Resource) null);
+				//for (Statement s : triplesFromDefaultGraph) {
+				//	log.info("Adding triple to named graph '{}': {} {} {} -> Context {}", rdfBaseURI, s.getSubject(), s.getPredicate(), s.getObject(), s.getContext());
+				//
+				//	conn.add(s, new Resource[] { conn.getValueFactory().createIRI(rdfBaseURI.toString()) });
+				//}
 				conn.commit();
+
+				try (SailRepositoryConnection conn2 = repo.getConnection()) {
+				
+				    log.info("=== Named Graph Inspection ===");
+				
+				    int total = 0;
+				    int mazeLike = 0;
+				    int gspPrefixed = 0;
+				    int hostPrefixMismatch = 0;
+				
+				    String expectedHost = "http://127.0.1.1:8080";
+				
+				    List<Resource> allContexts = new ArrayList<>();
+				    RepositoryResult<? extends Resource> ctxIt = conn2.getContextIDs();
+				    try {
+				        while (ctxIt.hasNext()) {
+				            allContexts.add(ctxIt.next());
+				        }
+				    } finally {
+				        ctxIt.close();
+				    }
+				    total = allContexts.size();
+				
+				    for (Resource c : allContexts) {
+				        String iri = c.stringValue();
+					
+				        if (iri.contains("/maze")) {
+				            mazeLike++;
+				        }
+				        if (iri.contains("/gsp/")) {
+				            gspPrefixed++;
+				        }
+				        if (!iri.startsWith(expectedHost)) {
+				            hostPrefixMismatch++;
+				        }
+				    }
+				
+				    log.info("Total contexts: {}", total);
+				    log.info("Contexts containing '/maze': {}", mazeLike);
+				    log.info("Contexts containing '/gsp/': {}", gspPrefixed);
+				    log.info("Contexts with HOST mismatch (not starting with {}): {}", expectedHost, hostPrefixMismatch);
+				
+				    if (mazeLike > 0) {
+				        log.info("Listing all graph contexts containing '/maze':");
+				        for (Resource c : allContexts) {
+				            if (c.stringValue().contains("/maze")) {
+				                long count = conn2.size(c);
+				                log.info("  {} ({} triples)", c, count);
+				            }
+				        }
+				    } else {
+				        log.warn("No /maze context found. Root maze graph not present as named graph.");
+				    }
+				
+				    log.info("Checking a sample of non-gsp prefixed graphs:");
+				    int printed = 0;
+				    for (Resource c : allContexts) {
+				        if (printed >= 5) break;
+				        String iri = c.stringValue();
+				        if (!iri.contains("/gsp/") && iri.startsWith(expectedHost)) {
+				            long count = conn2.size(c);
+				            log.info("  Non-gsp graph: {} ({} triples)", iri, count);
+				            printed++;
+				        }
+				    }
+
+					log.info("Checking a sample of gsp prefixed graphs:");
+					printed = 0;
+					for (Resource c : allContexts) {
+						if (printed >= 5) break;
+						String iri = c.stringValue();
+						if (iri.contains("/gsp/") && iri.startsWith(expectedHost)) {
+							long count = conn2.size(c);
+							log.info("  GSP graph: {} ({} triples)", iri, count);
+							printed++;
+						}
+					}
+
+					log.info("Checking a sample of host prefix mismatch graphs:");
+					printed = 0;
+					for (Resource c : allContexts) {
+						if (printed >= 5) break;
+						String iri = c.stringValue();
+						if (!iri.startsWith(expectedHost)) {
+							long count = conn2.size(c);
+							log.info("  Host prefix mismatch graph: {} ({} triples)", iri, count);
+							printed++;
+						}
+					}
+
+				    log.info("=== End Named Graph Inspection ===");
+				}
+
+
 			}
 		}
 		log.info("init dataset loaded");

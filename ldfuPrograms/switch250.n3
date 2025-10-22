@@ -1,0 +1,304 @@
+@prefix math: <http://www.w3.org/2000/10/swap/math#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix log: <http://www.w3.org/2000/10/swap/log#> .
+@prefix http: <http://www.w3.org/2011/http#> . 
+@prefix httpm: <http://www.w3.org/2011/http-methods#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .               
+@prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
+
+<#a> <#b> <#c> .
+
+<http://127.0.1.1:8080/cells/128/145> dyn:switchWith <http://127.0.1.1:8080/cells/129/145> .
+<http://127.0.1.1:8080/cells/230/173> dyn:switchWith <http://127.0.1.1:8080/cells/230/172> .
+
+
+
+#32/18
+
+
+{
+<http://127.0.1.1:8080/cells/32/18> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/32/19> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/32/19> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/32/17> .
+	
+
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/32/18> ;
+	http:body {
+		<http://127.0.1.1:8080/cells/32/18> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/42/1> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/42/1> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/32/17> .
+} .
+} .
+
+{
+	<http://127.0.1.1:8080/cells/42/1> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/42/2> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/42/1> ;
+	http:body {	
+	<http://127.0.1.1:8080/cells/42/1> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/33/19> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/33/19> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+	} .
+} .
+
+
+
+
+## 36/22 and 36/23
+
+
+
+{
+	<http://127.0.1.1:8080/cells/36/22> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/36/23> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/36/23> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/36/21> .
+
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/36/22> ;
+	http:body {
+		<http://127.0.1.1:8080/cells/36/22> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/41/3> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/35/23> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/37/23> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/41/3> .
+	} .
+} .
+
+{
+	<http://127.0.1.1:8080/cells/41/3> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/42/3> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/41/3> ;
+	http:body {
+		<http://127.0.1.1:8080/cells/41/3> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/37/23> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/37/23> ;
+		<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+	} .
+} .
+
+
+
+
+
+
+{
+<http://127.0.1.1:8080/cells/41/43> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/41/44> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/42/43> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/42/43> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/41/43> ;
+	http:body {
+	<http://127.0.1.1:8080/cells/41/43> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/17/1> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/17/1> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/43/43> ;
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/42/42> .
+	} .
+} .
+
+
+
+
+
+{
+	<http://127.0.1.1:8080/cells/17/1> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/16/1> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/17/1> ;
+	http:body {
+	<http://127.0.1.1:8080/cells/17/1> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/43/43> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/43/43> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+	} .
+} .
+
+
+
+
+
+{
+	<http://127.0.1.1:8080/cells/52/71> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/52/72> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/52/72> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/51/71> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/52/70> .
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/52/71> ;
+	http:body {
+
+	<http://127.0.1.1:8080/cells/52/71> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/17/4> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/17/4> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/51/71> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/52/70> .
+	} .
+} .
+
+
+
+
+{
+	<http://127.0.1.1:8080/cells/17/4> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/17/5> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/17/4> ;
+	http:body {
+
+	<http://127.0.1.1:8080/cells/17/4> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/53/72> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/53/72> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+	} .
+} .
+
+
+
+{
+
+	<http://127.0.1.1:8080/cells/62/89> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/62/90> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/62/90> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/61/89> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/62/88> .	
+
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/62/89> ;
+	http:body {
+	<http://127.0.1.1:8080/cells/62/89> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/1/243> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/1/243> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/61/89> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/62/88> .	
+	} .
+} .
+
+
+{
+	<http://127.0.1.1:8080/cells/1/243> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/2/243> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/1/243> ;
+	http:body {
+	<http://127.0.1.1:8080/cells/1/243> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;	
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/63/90> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/63/90> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+	} .
+} .
+
+
+
+
+
+
+
+
+
+
+{
+
+	<http://127.0.1.1:8080/cells/26/10> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/26/11> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/26/11> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/25/10> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/26/9> .	
+
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/26/10> ;
+	http:body {
+	<http://127.0.1.1:8080/cells/26/10> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <http://127.0.1.1:8080/cells/1/248> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/1/248> ;   
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <http://127.0.1.1:8080/cells/25/10> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <http://127.0.1.1:8080/cells/26/9> .	
+	} .
+} .
+
+
+{
+	<http://127.0.1.1:8080/cells/1/248> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/2/248> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+} => {
+  [] http:mthd httpm:PUT ;
+     http:requestURI <http://127.0.1.1:8080/cells/1/248> ;
+	http:body {
+	<http://127.0.1.1:8080/cells/1/248> rdf:type <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Cell> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#east> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#north> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#green> <http://127.0.1.1:8080/cells/27/11> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#south> <http://127.0.1.1:8080/cells/27/11> ;
+	<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#west> <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#Wall> .
+	} .
+} .
+
+
