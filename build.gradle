@@ -50,4 +50,6 @@ tasks.register('runBold', JavaExec) {
     description = 'Run the application.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set(application.mainClass)
+    environment 'BOLD_SERVER_BASE_URI', 'http://127.0.1.1:8080/'
+    dependsOn 'installDist'
 }

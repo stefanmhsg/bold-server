@@ -13,6 +13,15 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.core.UriInfo;
+import javax.ws.rs.POST;
+import javax.ws.rs.OPTIONS;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Request;
+import javax.ws.rs.core.Response.ResponseBuilder;
+
+import org.eclipse.rdf4j.rio.RDFParseException;
+import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
 
 import org.bold.Configurator;
 import org.eclipse.rdf4j.model.IRI;
@@ -109,4 +118,71 @@ public class LinkedDataDereferenceResource {
             throw e;
         }
     }
+
+    // -------------------------------------------
+    // Additional methods (e.g., POST, OPTIONS)
+    // -------------------------------------------
+    
+    @OPTIONS
+    public Response handleOptions(@Context UriInfo uriinfo) {
+        return Response.noContent()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+                .header("Access-Control-Allow-Headers", "Content-Type")
+                .build();
+    }
+
+    @POST
+    @Consumes({ "text/turtle", "application/n-triples", "application/ld+json", "application/rdf+xml" })
+    public Response postGraph(@Context UriInfo uriinfo, String body) {
+        String graphIRI = uriinfo.getAbsolutePath().toString();
+        log.info("LD POST merge into graph: {}", graphIRI);
+
+        SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
+        try (SailRepositoryConnection connection = repo.getConnection()) {
+
+            ValueFactory vf = connection.getValueFactory();
+            IRI graphName = vf.createIRI(graphIRI);
+
+            // check existence (same semantics as GET)
+            boolean exists = connection.hasStatement(null, null, null, false, graphName);
+            if (!exists) {
+                log.info("LD POST received but graph does not exist: {}", graphIRI);
+                return Response.status(Response.Status.NOT_FOUND).entity("Graph not found: " + graphIRI).build();
+            }
+
+            // Parse body into this graph context
+            java.util.Optional<RDFFormat> fmtOpt = Rio.getParserFormatForMIMEType(detectContentType(body));
+            RDFFormat fmt = fmtOpt.orElse(RDFFormat.TURTLE); // fallback
+            
+            connection.begin();
+            Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
+                      graphIRI,      // base URI → resolves relative URIs against the graph itself
+                      fmt,
+                      graphName);    // <-- merge into this same named graph
+            connection.commit();
+
+            log.info("LD POST merged triples into {}", graphIRI);
+            return Response.noContent()
+                    .header("Access-Control-Allow-Origin", "*")
+                    .header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+                    .build();
+
+        } catch (IOException | RDFParseException | UnsupportedRDFormatException e) {
+            log.error("LD POST failed parsing body for {}", graphIRI, e);
+            return Response.status(Response.Status.BAD_REQUEST).entity("Bad RDF payload").build();
+        } catch (Exception e) {
+            log.error("LD POST error while writing graph {}", graphIRI, e);
+            return Response.serverError().build();
+        }
+    }
+
+    // Helper to guess MIME if no Content-Type was set by LDFu (which it often doesn't)
+    private String detectContentType(String body) {
+        // ultra lightweight heuristic: N3/Turtle starts with @prefix or <> or <http...
+        String t = body.trim().toLowerCase();
+        if (t.startsWith("@prefix") || t.startsWith("<")) return "text/turtle";
+        return "text/turtle"; // fallback ok for ldfu
+    }
+
 }
