@@ -26,6 +26,7 @@ import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
 import org.bold.Configurator;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -154,15 +155,31 @@ public class LinkedDataDereferenceResource {
             // Parse body into this graph context
             java.util.Optional<RDFFormat> fmtOpt = Rio.getParserFormatForMIMEType(detectContentType(body));
             RDFFormat fmt = fmtOpt.orElse(RDFFormat.TURTLE); // fallback
-            
-            connection.begin();
-            Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
+
+            Model model = Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
                       graphIRI,      // base URI → resolves relative URIs against the graph itself
                       fmt,
                       graphName);    // <-- merge into this same named graph
+
+            connection.begin();
+            connection.add(model);
             connection.commit();
 
-            log.info("LD POST merged triples into {}", graphIRI);
+            log.info("LD POST merged triples: \n {} \n into: {}", body, graphIRI);
+            // verify body
+            try {
+                org.eclipse.rdf4j.query.GraphQuery query = connection.prepareGraphQuery(
+                    "CONSTRUCT { ?s ?p ?o } WHERE { GRAPH <" + graphIRI + "> { ?s ?p ?o } }");
+
+                java.io.StringWriter sw = new java.io.StringWriter();
+                RDFWriter writer = Rio.createWriter(RDFFormat.TURTLE, sw);
+                query.evaluate(writer);
+                log.info("\n Graph content: \n{}", sw.toString());
+            } catch (Exception e) {
+                log.error("LD POST error verifying graph {}", graphIRI, e);
+            }
+
+
             return Response.noContent()
                     .header("Access-Control-Allow-Origin", "*")
                     .header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
