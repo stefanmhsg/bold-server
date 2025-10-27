@@ -7,6 +7,11 @@ group 'org.bold'
 version '0.2.0'
 
 //sourceCompatibility = 1.8
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
 
 repositories {
     mavenCentral()

@@ -48,35 +48,34 @@ public class LinkedDataDereferenceResource {
     ServletContext _ctx;
 
     @GET
-    @Produces("text/turtle")
-    public StreamingOutput getTurtle(@Context UriInfo uriinfo,
-                                     @HeaderParam("Accept") String accept) {
-        log.info("LD GET request for graph (text/turtle): {}", uriinfo.getAbsolutePath());
-        return streamGraph(uriinfo, RDFFormat.TURTLE);
+    @Produces({ "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples" })
+    public Response getGraph(@Context UriInfo uriinfo,
+                             @HeaderParam("Accept") String accept) {
+        String ct = chooseContentType(accept);
+        RDFFormat fmt = toRDFFormat(ct);
+        log.info("LD GET request for graph ({}): {}", ct, uriinfo.getAbsolutePath());
+        StreamingOutput out = streamGraph(uriinfo, fmt);
+        return Response.ok(out, ct).build();
     }
 
-    @GET
-    @Produces("application/ld+json")
-    public StreamingOutput getJsonLd(@Context UriInfo uriinfo,
-                                     @HeaderParam("Accept") String accept) {
-        log.info("LD GET request for graph (application/ld+json): {}", uriinfo.getAbsolutePath());
-        return streamGraph(uriinfo, RDFFormat.JSONLD);
+    private String chooseContentType(String accept) {
+        if (accept == null) return "text/turtle";
+        String a = accept.trim().toLowerCase();
+        if (a.isEmpty() || "*/*".equals(a)) return "text/turtle";
+        if (a.contains("text/turtle")) return "text/turtle";
+        if (a.contains("application/ld+json")) return "application/ld+json";
+        if (a.contains("application/rdf+xml")) return "application/rdf+xml";
+        if (a.contains("application/n-triples")) return "application/n-triples";
+        return "text/turtle";
     }
 
-    @GET
-    @Produces("application/rdf+xml")
-    public StreamingOutput getRdfXml(@Context UriInfo uriinfo,
-                                     @HeaderParam("Accept") String accept) {
-        log.info("LD GET request for graph (application/rdf+xml): {}", uriinfo.getAbsolutePath());
-        return streamGraph(uriinfo, RDFFormat.RDFXML);
-    }
-
-    @GET
-    @Produces("application/n-triples")
-    public StreamingOutput getNTriples(@Context UriInfo uriinfo,
-                                       @HeaderParam("Accept") String accept) {
-        log.info("LD GET request for graph (application/n-triples): {}", uriinfo.getAbsolutePath());
-        return streamGraph(uriinfo, RDFFormat.NTRIPLES);
+    private RDFFormat toRDFFormat(String ct) {
+        switch (ct) {
+            case "application/ld+json": return RDFFormat.JSONLD;
+            case "application/rdf+xml": return RDFFormat.RDFXML;
+            case "application/n-triples": return RDFFormat.NTRIPLES;
+            default: return RDFFormat.TURTLE;
+        }
     }
 
     private StreamingOutput streamGraph(UriInfo uriinfo, RDFFormat outputFormat) {
