@@ -40,8 +40,8 @@ import org.slf4j.LoggerFactory;
  * 
  * <p>Location-based access control for maze navigation:</p>
  * <ul>
- *   <li>Agents must provide their name via the "X-Agent-Name" header</li>
- *   <li>Agents start at the entrance (/cells/0)</li>
+ *   <li>Agents must provide their name via the "Authorization" header (e.g., "Agent agentname" or just "agentname")</li>
+ *   <li>Agents start at the entrance (determined by xhv:start in /maze graph)</li>
  *   <li>GET requests are only allowed for cells reachable from the agent's current position</li>
  *   <li>Valid transitions are determined by querying the RDF graph for maze:north, maze:south, 
  *       maze:east, maze:west, and maze:exit predicates</li>
@@ -68,8 +68,11 @@ public class LinkedDataDereferenceResource {
     @Produces({ "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples" })
     public Response getGraph(@Context UriInfo uriinfo,
                              @HeaderParam("Accept") String accept,
-                             @HeaderParam("X-Agent-Name") String agentName) {
+                             @HeaderParam("Authorization") String authorization) {
         String requestedCellUri = uriinfo.getAbsolutePath().toString();
+        
+        // Extract agent name from Authorization header
+        String agentName = extractAgentName(authorization);
         
         // If agent name is provided, enforce location-based access control
         if (agentName != null && !agentName.trim().isEmpty()) {
@@ -120,6 +123,26 @@ public class LinkedDataDereferenceResource {
         if (a.contains("application/rdf+xml")) return "application/rdf+xml";
         if (a.contains("application/n-triples")) return "application/n-triples";
         return "text/turtle";
+    }
+
+    /**
+     * Extract agent name from Authorization header.
+     * Supports formats: "Agent agentname" or just "agentname"
+     */
+    private String extractAgentName(String authorization) {
+        if (authorization == null || authorization.trim().isEmpty()) {
+            return null;
+        }
+        
+        String auth = authorization.trim();
+        
+        // Support "Agent agentname" format
+        if (auth.toLowerCase().startsWith("agent ")) {
+            return auth.substring(6).trim();
+        }
+        
+        // Support plain agent name
+        return auth;
     }
 
     /**
