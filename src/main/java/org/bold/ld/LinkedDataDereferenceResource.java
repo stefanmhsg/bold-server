@@ -2,6 +2,8 @@ package org.bold.ld;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.GET;
@@ -16,9 +18,6 @@ import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.POST;
 import javax.ws.rs.OPTIONS;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Request;
-import javax.ws.rs.core.Response.ResponseBuilder;
 
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
@@ -38,6 +37,17 @@ import org.slf4j.LoggerFactory;
 /**
  * Dereference any request URI as an RDF named graph if present in the store.
  * Mounted at "/*" in Jetty, while /gsp/* still maps to the GSP resource.
+ * 
+ * <p>Location-based access control for maze navigation:</p>
+ * <ul>
+ *   <li>Agents must provide their name via the "X-Agent-Name" header</li>
+ *   <li>Agents start at the entrance (/cells/0)</li>
+ *   <li>GET requests are only allowed for cells reachable from the agent's current position</li>
+ *   <li>Valid transitions are determined by querying the RDF graph for maze:north, maze:south, 
+ *       maze:east, maze:west, and maze:exit predicates</li>
+ *   <li>Locked doors are respected - if a connection is not in the graph (e.g., not yet unlocked 
+ *       by posting a key), access is denied</li>
+ * </ul>
  */
 @Path("/{id: .*}")
 public class LinkedDataDereferenceResource {
@@ -47,10 +57,53 @@ public class LinkedDataDereferenceResource {
     @Context
     ServletContext _ctx;
 
+    // Track agent locations: agent name -> current cell URI
+    private static final Map<String, String> agentLocations = new ConcurrentHashMap<>();
+    
+    // Namespace constants for the maze vocabulary
+    private static final String MAZE_NS = "https://kaefer3000.github.io/2021-02-dagstuhl/vocab#";
+    private static final String XHV_NS = "http://www.w3.org/1999/xhtml/vocab#";
+
     @GET
     @Produces({ "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples" })
     public Response getGraph(@Context UriInfo uriinfo,
-                             @HeaderParam("Accept") String accept) {
+                             @HeaderParam("Accept") String accept,
+                             @HeaderParam("X-Agent-Name") String agentName) {
+        String requestedCellUri = uriinfo.getAbsolutePath().toString();
+        
+        // If agent name is provided, enforce location-based access control
+        if (agentName != null && !agentName.trim().isEmpty()) {
+            String currentLocation = agentLocations.get(agentName);
+            
+            // If agent has no location yet, check if they're requesting the entrance
+            if (currentLocation == null) {
+                // Validate that the requested cell is the entrance
+                if (!isEntranceCell(requestedCellUri)) {
+                    log.warn("Agent {} has no location, attempting to access {} - denied (not entrance)", 
+                             agentName, requestedCellUri);
+                    return Response.status(Response.Status.FORBIDDEN)
+                            .entity("Access denied. Agent must start at the entrance cell (check xhv:start in /maze).")
+                            .build();
+                }
+                // Allow first access to entrance
+                log.info("Agent {} starting at entrance: {}", agentName, requestedCellUri);
+                agentLocations.put(agentName, requestedCellUri);
+            } else {
+                // Validate that requested cell is accessible from current location
+                if (!isAccessAllowed(currentLocation, requestedCellUri)) {
+                    log.warn("Agent {} at {} attempted unauthorized access to {} - denied",
+                             agentName, currentLocation, requestedCellUri);
+                    return Response.status(Response.Status.FORBIDDEN)
+                            .entity("Access denied. Cell " + requestedCellUri + 
+                                   " is not accessible from your current location " + currentLocation)
+                            .build();
+                }
+                // Update agent location
+                log.info("Agent {} moved from {} to {}", agentName, currentLocation, requestedCellUri);
+                agentLocations.put(agentName, requestedCellUri);
+            }
+        }
+        
         String ct = chooseContentType(accept);
         RDFFormat fmt = toRDFFormat(ct);
         log.info("LD GET request for graph ({}): {}", ct, uriinfo.getAbsolutePath());
@@ -67,6 +120,88 @@ public class LinkedDataDereferenceResource {
         if (a.contains("application/rdf+xml")) return "application/rdf+xml";
         if (a.contains("application/n-triples")) return "application/n-triples";
         return "text/turtle";
+    }
+
+    /**
+     * Check if the requested cell is accessible from the current cell.
+     * This queries the RDF graph to find valid outgoing connections (north, south, east, west, exit)
+     * that are not walls and match the requested cell URI.
+     */
+    private boolean isAccessAllowed(String currentCellUri, String requestedCellUri) {
+        // Same cell - always allowed (re-reading current position)
+        if (currentCellUri.equals(requestedCellUri)) {
+            return true;
+        }
+        
+        SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
+        try (SailRepositoryConnection connection = repo.getConnection()) {
+            // Build SPARQL query to check if requested cell is accessible from current cell
+            String sparql = 
+                "PREFIX maze: <" + MAZE_NS + "> \n" +
+                "ASK { \n" +
+                "  GRAPH <" + currentCellUri + "> { \n" +
+                "    <" + currentCellUri + "> ?direction <" + requestedCellUri + "> . \n" +
+                "    FILTER(?direction IN (maze:north, maze:south, maze:east, maze:west, maze:exit)) \n" +
+                "  } \n" +
+                "}";
+            
+            log.debug("Checking access with SPARQL: {}", sparql);
+            
+            boolean isAccessible = connection.prepareBooleanQuery(sparql).evaluate();
+            
+            if (isAccessible) {
+                log.info("Access allowed: {} -> {} (connection exists in graph)", 
+                        currentCellUri, requestedCellUri);
+            } else {
+                log.info("Access denied: {} -> {} (no connection in graph)", 
+                        currentCellUri, requestedCellUri);
+            }
+            
+            return isAccessible;
+            
+        } catch (Exception e) {
+            log.error("Error checking access from {} to {}", currentCellUri, requestedCellUri, e);
+            // Fail closed - deny access on error
+            return false;
+        }
+    }
+
+    /**
+     * Check if the given cell URI is the entrance cell defined in the maze.
+     * Queries the /maze graph for xhv:start predicate.
+     */
+    private boolean isEntranceCell(String cellUri) {
+        SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
+        try (SailRepositoryConnection connection = repo.getConnection()) {
+            // Query the /maze graph to find the entrance cell
+            String baseUri = cellUri.substring(0, cellUri.lastIndexOf("/cells"));
+            String mazeGraphUri = baseUri + "/maze";
+            
+            String sparql = 
+                "PREFIX xhv: <" + XHV_NS + "> \n" +
+                "ASK { \n" +
+                "  GRAPH <" + mazeGraphUri + "> { \n" +
+                "    ?maze xhv:start <" + cellUri + "> . \n" +
+                "  } \n" +
+                "}";
+            
+            log.debug("Checking entrance with SPARQL: {}", sparql);
+            
+            boolean isEntrance = connection.prepareBooleanQuery(sparql).evaluate();
+            
+            if (isEntrance) {
+                log.info("Cell {} is the entrance", cellUri);
+            } else {
+                log.info("Cell {} is NOT the entrance", cellUri);
+            }
+            
+            return isEntrance;
+            
+        } catch (Exception e) {
+            log.error("Error checking if {} is entrance", cellUri, e);
+            // Fail closed - deny access on error
+            return false;
+        }
     }
 
     private RDFFormat toRDFFormat(String ct) {
