@@ -74,8 +74,9 @@ public class LinkedDataDereferenceResource {
         // Extract agent name from Authorization header
         String agentName = extractAgentName(authorization);
         
-        // If agent name is provided, enforce location-based access control
-        if (agentName != null && !agentName.trim().isEmpty()) {
+        // If agent name is provided, enforce location-based access control for cells only
+        // Non-cell resources (like /maze, /map, /counter, etc.) are always accessible
+        if (agentName != null && !agentName.trim().isEmpty() && requestedCellUri.contains("/cells/")) {
             String currentLocation = agentLocations.get(agentName);
             
             // If agent has no location yet, check if they're requesting the entrance
@@ -197,7 +198,14 @@ public class LinkedDataDereferenceResource {
         SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
         try (SailRepositoryConnection connection = repo.getConnection()) {
             // Query the /maze graph to find the entrance cell
-            String baseUri = cellUri.substring(0, cellUri.lastIndexOf("/cells"));
+            int cellsIndex = cellUri.lastIndexOf("/cells");
+            if (cellsIndex == -1) {
+                // Not a cell URI, return false
+                log.debug("URI {} does not contain /cells, not checking as entrance", cellUri);
+                return false;
+            }
+            
+            String baseUri = cellUri.substring(0, cellsIndex);
             String mazeGraphUri = baseUri + "/maze";
             
             String sparql = 
