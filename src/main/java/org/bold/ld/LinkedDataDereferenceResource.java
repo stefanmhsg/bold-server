@@ -60,6 +60,9 @@ public class LinkedDataDereferenceResource {
     // Track agent locations: agent name -> current cell URI
     private static final Map<String, String> agentLocations = new ConcurrentHashMap<>();
     
+    // Track agent movement paths
+    private static final AgentPathTracker pathTracker = new AgentPathTracker("agent-paths");
+    
     // Namespace constants for the maze vocabulary
     private static final String MAZE_NS = "https://kaefer3000.github.io/2021-02-dagstuhl/vocab#";
     private static final String XHV_NS = "http://www.w3.org/1999/xhtml/vocab#";
@@ -92,11 +95,14 @@ public class LinkedDataDereferenceResource {
                 // Allow first access to entrance
                 log.info("Agent {} starting at entrance: {}", agentName, requestedCellUri);
                 agentLocations.put(agentName, requestedCellUri);
+                // Record the first movement (entering the maze)
+                pathTracker.recordMovement(agentName, requestedCellUri);
             } else {
                 // Validate that requested cell is accessible from current location
                 if (!isAccessAllowed(currentLocation, requestedCellUri)) {
                     log.warn("Agent {} at {} attempted unauthorized access to {} - denied",
                              agentName, currentLocation, requestedCellUri);
+                    // Don't record denied movements
                     return Response.status(Response.Status.FORBIDDEN)
                             .entity("Access denied. Cell " + requestedCellUri + 
                                    " is not accessible from your current location " + currentLocation)
@@ -105,6 +111,8 @@ public class LinkedDataDereferenceResource {
                 // Update agent location
                 log.info("Agent {} moved from {} to {}", agentName, currentLocation, requestedCellUri);
                 agentLocations.put(agentName, requestedCellUri);
+                // Record the movement (only if it's a different cell)
+                pathTracker.recordMovement(agentName, requestedCellUri);
             }
         }
         
