@@ -63,6 +63,9 @@ public class LinkedDataDereferenceResource {
     // Track agent movement paths
     private static final AgentPathTracker pathTracker = new AgentPathTracker("agent-paths");
     
+    // Track detailed request information
+    private static final AgentRequestTracker requestTracker = new AgentRequestTracker("agent-requests");
+    
     // Namespace constants for the maze vocabulary
     private static final String MAZE_NS = "https://kaefer3000.github.io/2021-02-dagstuhl/vocab#";
     private static final String XHV_NS = "http://www.w3.org/1999/xhtml/vocab#";
@@ -88,6 +91,8 @@ public class LinkedDataDereferenceResource {
                 if (!isEntranceCell(requestedCellUri)) {
                     log.warn("Agent {} has no location, attempting to access {} - denied (not entrance)", 
                              agentName, requestedCellUri);
+                    // Record denied request
+                    requestTracker.recordRequest(agentName, requestedCellUri, "GET", false);
                     return Response.status(Response.Status.FORBIDDEN)
                             .entity("Access denied. Agent must start at the entrance cell (check xhv:start in /maze).")
                             .build();
@@ -97,12 +102,16 @@ public class LinkedDataDereferenceResource {
                 agentLocations.put(agentName, requestedCellUri);
                 // Record the first movement (entering the maze)
                 pathTracker.recordMovement(agentName, requestedCellUri);
+                // Record allowed request
+                requestTracker.recordRequest(agentName, requestedCellUri, "GET", true);
             } else {
                 // Validate that requested cell is accessible from current location
                 if (!isAccessAllowed(currentLocation, requestedCellUri)) {
                     log.warn("Agent {} at {} attempted unauthorized access to {} - denied",
                              agentName, currentLocation, requestedCellUri);
-                    // Don't record denied movements
+                    // Record denied request
+                    requestTracker.recordRequest(agentName, requestedCellUri, "GET", false);
+                    // Don't record denied movements in path tracker
                     return Response.status(Response.Status.FORBIDDEN)
                             .entity("Access denied. Cell " + requestedCellUri + 
                                    " is not accessible from your current location " + currentLocation)
@@ -113,6 +122,8 @@ public class LinkedDataDereferenceResource {
                 agentLocations.put(agentName, requestedCellUri);
                 // Record the movement (only if it's a different cell)
                 pathTracker.recordMovement(agentName, requestedCellUri);
+                // Record allowed request
+                requestTracker.recordRequest(agentName, requestedCellUri, "GET", true);
             }
         }
         

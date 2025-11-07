@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -27,13 +28,16 @@ public class AgentPathTracker {
     // Track last visited cell per agent to detect actual movements
     private final Map<String, String> lastVisitedCell = new ConcurrentHashMap<>();
     
+    // Track which log files have been cleared in this server session
+    private final Set<String> clearedLogFiles = ConcurrentHashMap.newKeySet();
+    
     // Directory where path logs are stored
     private final String pathLogDirectory;
     
     // Timestamp formatter for log entries
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = 
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-                        .withZone(ZoneId.of("UTC"));
+                        .withZone(ZoneId.of("CET"));
     
     /**
      * Create a new path tracker.
@@ -80,20 +84,36 @@ public class AgentPathTracker {
         // Update last visited cell
         lastVisitedCell.put(agentName, cellUri);
         
-        // Write to log file
+        // Write to log file (will clear old file if it exists)
         writeMovementToLog(agentName, cellUri);
     }
     
     /**
      * Write a movement entry to the agent's path log file.
+     * Clears old log file if it exists on first write (per server session).
      */
     private void writeMovementToLog(String agentName, String cellUri) {
+        String sanitizedAgentName = agentName.replaceAll("[^a-zA-Z0-9_-]", "_");
+        Path logFile = Paths.get(pathLogDirectory, sanitizedAgentName + "-path.log");
+        
+        // If log file exists and hasn't been cleared yet in this session, delete it
+        if (!clearedLogFiles.contains(sanitizedAgentName)) {
+            try {
+                if (Files.exists(logFile)) {
+                    Files.delete(logFile);
+                    log.info("Deleted existing log file for agent {} to start fresh session", agentName);
+                }
+            } catch (IOException e) {
+                log.error("Failed to delete existing log file for agent {}", agentName, e);
+            }
+            // Mark as cleared for this session
+            clearedLogFiles.add(sanitizedAgentName);
+        }
+        
         String timestamp = TIMESTAMP_FORMATTER.format(Instant.now());
         String logEntry = String.format("%s, %s%n", cellUri, timestamp);
         
-        // Sanitize agent name for use in filename
-        String sanitizedAgentName = agentName.replaceAll("[^a-zA-Z0-9_-]", "_");
-        String logFileName = String.format("%s/%s-path.log", pathLogDirectory, sanitizedAgentName);
+        String logFileName = logFile.toString();
         
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFileName, true))) {
             writer.write(logEntry);

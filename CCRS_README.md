@@ -28,7 +28,19 @@ The server enforces location-based access control for agents navigating the maze
 Agent movements are automatically tracked and logged:
 
 - Each agent gets a separate log file: `agent-paths/{agentname}-path.log`
+- **Log files are cleared on first write after server restart** (checks if file exists, deletes it once per session)
 - Format: `cell_uri, timestamp` (one line per movement)
 - Only actual movements are tracked (re-requests of the same cell are ignored)
 - Denied access attempts are not logged
 - Useful for visualization and analysis of agent navigation strategies
+
+## Request Tracking
+
+Detailed request logging for analysis and debugging:
+
+- Each agent gets a separate log file: `agent-requests/{agentname}-requests.log`
+- **Log files are cleared on first write after server restart** (checks if file exists, deletes it once per session)
+- Format: `cell_uri, operation, count, status, timestamp`
+- Logs ALL requests including denied ones and repeated requests
+- Aggregates repeated identical requests (e.g., `http://127.0.1.1:8080/cells/5, GET, 5, allowed`)
+- Useful for analyzing agent behavior patterns and policy violations
