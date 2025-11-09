@@ -2,8 +2,6 @@ package org.bold.ld;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.GET;
@@ -23,6 +21,8 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
 
 import org.bold.Configurator;
+import org.bold.maze.AgentAuthUtil;
+import org.bold.maze.MazeGameEngine;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.Model;
@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Dereference any request URI as an RDF named graph if present in the store.
- * Mounted at "/*" in Jetty, while /gsp/* still maps to the GSP resource.
+ * Mounted at "/*" in Jetty.
  * 
  * <p>Location-based access control for maze navigation:</p>
  * <ul>
@@ -57,18 +57,8 @@ public class LinkedDataDereferenceResource {
     @Context
     ServletContext _ctx;
 
-    // Track agent locations: agent name -> current cell URI
-    private static final Map<String, String> agentLocations = new ConcurrentHashMap<>();
-    
-    // Track agent movement paths
-    private static final AgentPathTracker pathTracker = new AgentPathTracker("agent-paths");
-    
-    // Track detailed request information
-    private static final AgentRequestTracker requestTracker = new AgentRequestTracker("agent-requests");
-    
-    // Namespace constants for the maze vocabulary
-    private static final String MAZE_NS = "https://kaefer3000.github.io/2021-02-dagstuhl/vocab#";
-    private static final String XHV_NS = "http://www.w3.org/1999/xhtml/vocab#";
+    // Maze game engine - initialized lazily
+    private volatile MazeGameEngine gameEngine;
 
     @GET
     @Produces({ "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples" })
@@ -78,53 +68,16 @@ public class LinkedDataDereferenceResource {
         String requestedCellUri = uriinfo.getAbsolutePath().toString();
         
         // Extract agent name from Authorization header
-        String agentName = extractAgentName(authorization);
+        String agentName = AgentAuthUtil.extractAgentName(authorization);
         
-        // If agent name is provided, enforce location-based access control for cells only
-        // Non-cell resources (like /maze, /map, /counter, etc.) are always accessible
-        if (agentName != null && !agentName.trim().isEmpty() && requestedCellUri.contains("/cells/")) {
-            String currentLocation = agentLocations.get(agentName);
-            
-            // If agent has no location yet, check if they're requesting the entrance
-            if (currentLocation == null) {
-                // Validate that the requested cell is the entrance
-                if (!isEntranceCell(requestedCellUri)) {
-                    log.warn("Agent {} has no location, attempting to access {} - denied (not entrance)", 
-                             agentName, requestedCellUri);
-                    // Record denied request
-                    requestTracker.recordRequest(agentName, requestedCellUri, "GET", false);
-                    return Response.status(Response.Status.FORBIDDEN)
-                            .entity("Access denied. Agent must start at the entrance cell (check xhv:start in /maze).")
-                            .build();
-                }
-                // Allow first access to entrance
-                log.info("Agent {} starting at entrance: {}", agentName, requestedCellUri);
-                agentLocations.put(agentName, requestedCellUri);
-                // Record the first movement (entering the maze)
-                pathTracker.recordMovement(agentName, requestedCellUri);
-                // Record allowed request
-                requestTracker.recordRequest(agentName, requestedCellUri, "GET", true);
-            } else {
-                // Validate that requested cell is accessible from current location
-                if (!isAccessAllowed(currentLocation, requestedCellUri)) {
-                    log.warn("Agent {} at {} attempted unauthorized access to {} - denied",
-                             agentName, currentLocation, requestedCellUri);
-                    // Record denied request
-                    requestTracker.recordRequest(agentName, requestedCellUri, "GET", false);
-                    // Don't record denied movements in path tracker
-                    return Response.status(Response.Status.FORBIDDEN)
-                            .entity("Access denied. Cell " + requestedCellUri + 
-                                   " is not accessible from your current location " + currentLocation)
-                            .build();
-                }
-                // Update agent location
-                log.info("Agent {} moved from {} to {}", agentName, currentLocation, requestedCellUri);
-                agentLocations.put(agentName, requestedCellUri);
-                // Record the movement (only if it's a different cell)
-                pathTracker.recordMovement(agentName, requestedCellUri);
-                // Record allowed request
-                requestTracker.recordRequest(agentName, requestedCellUri, "GET", true);
-            }
+        // Validate access through the maze game engine
+        MazeGameEngine.AccessResult accessResult = getGameEngine().validateAccess(
+            agentName, requestedCellUri, "GET");
+        
+        if (!accessResult.isAllowed()) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity(accessResult.getMessage())
+                    .build();
         }
         
         String ct = chooseContentType(accept);
@@ -132,6 +85,23 @@ public class LinkedDataDereferenceResource {
         log.info("LD GET request for graph ({}): {}", ct, uriinfo.getAbsolutePath());
         StreamingOutput out = streamGraph(uriinfo, fmt);
         return Response.ok(out, ct).build();
+    }
+    
+    /**
+     * Get or initialize the maze game engine.
+     * Lazy initialization to avoid creating it before the repository is available.
+     */
+    private MazeGameEngine getGameEngine() {
+        if (gameEngine == null) {
+            synchronized (this) {
+                if (gameEngine == null) {
+                    SailRepository repo = (SailRepository) _ctx.getAttribute(
+                        Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
+                    gameEngine = new MazeGameEngine(repo);
+                }
+            }
+        }
+        return gameEngine;
     }
 
     private String chooseContentType(String accept) {
@@ -143,115 +113,6 @@ public class LinkedDataDereferenceResource {
         if (a.contains("application/rdf+xml")) return "application/rdf+xml";
         if (a.contains("application/n-triples")) return "application/n-triples";
         return "text/turtle";
-    }
-
-    /**
-     * Extract agent name from Authorization header.
-     * Supports formats: "Agent agentname" or just "agentname"
-     */
-    private String extractAgentName(String authorization) {
-        if (authorization == null || authorization.trim().isEmpty()) {
-            return null;
-        }
-        
-        String auth = authorization.trim();
-        
-        // Support "Agent agentname" format
-        if (auth.toLowerCase().startsWith("agent ")) {
-            return auth.substring(6).trim();
-        }
-        
-        // Support plain agent name
-        return auth;
-    }
-
-    /**
-     * Check if the requested cell is accessible from the current cell.
-     * This queries the RDF graph to find valid outgoing connections (north, south, east, west, exit)
-     * that are not walls and match the requested cell URI.
-     */
-    private boolean isAccessAllowed(String currentCellUri, String requestedCellUri) {
-        // Same cell - always allowed (re-reading current position)
-        if (currentCellUri.equals(requestedCellUri)) {
-            return true;
-        }
-        
-        SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
-        try (SailRepositoryConnection connection = repo.getConnection()) {
-            // Build SPARQL query to check if requested cell is accessible from current cell
-            String sparql = 
-                "PREFIX maze: <" + MAZE_NS + "> \n" +
-                "ASK { \n" +
-                "  GRAPH <" + currentCellUri + "> { \n" +
-                "    <" + currentCellUri + "> ?direction <" + requestedCellUri + "> . \n" +
-                "    FILTER(?direction IN (maze:north, maze:south, maze:east, maze:west, maze:exit)) \n" +
-                "  } \n" +
-                "}";
-            
-            log.debug("Checking access with SPARQL: {}", sparql);
-            
-            boolean isAccessible = connection.prepareBooleanQuery(sparql).evaluate();
-            
-            if (isAccessible) {
-                log.info("Access allowed: {} -> {} (connection exists in graph)", 
-                        currentCellUri, requestedCellUri);
-            } else {
-                log.info("Access denied: {} -> {} (no connection in graph)", 
-                        currentCellUri, requestedCellUri);
-            }
-            
-            return isAccessible;
-            
-        } catch (Exception e) {
-            log.error("Error checking access from {} to {}", currentCellUri, requestedCellUri, e);
-            // Fail closed - deny access on error
-            return false;
-        }
-    }
-
-    /**
-     * Check if the given cell URI is the entrance cell defined in the maze.
-     * Queries the /maze graph for xhv:start predicate.
-     */
-    private boolean isEntranceCell(String cellUri) {
-        SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
-        try (SailRepositoryConnection connection = repo.getConnection()) {
-            // Query the /maze graph to find the entrance cell
-            int cellsIndex = cellUri.lastIndexOf("/cells");
-            if (cellsIndex == -1) {
-                // Not a cell URI, return false
-                log.debug("URI {} does not contain /cells, not checking as entrance", cellUri);
-                return false;
-            }
-            
-            String baseUri = cellUri.substring(0, cellsIndex);
-            String mazeGraphUri = baseUri + "/maze";
-            
-            String sparql = 
-                "PREFIX xhv: <" + XHV_NS + "> \n" +
-                "ASK { \n" +
-                "  GRAPH <" + mazeGraphUri + "> { \n" +
-                "    ?maze xhv:start <" + cellUri + "> . \n" +
-                "  } \n" +
-                "}";
-            
-            log.debug("Checking entrance with SPARQL: {}", sparql);
-            
-            boolean isEntrance = connection.prepareBooleanQuery(sparql).evaluate();
-            
-            if (isEntrance) {
-                log.info("Cell {} is the entrance", cellUri);
-            } else {
-                log.info("Cell {} is NOT the entrance", cellUri);
-            }
-            
-            return isEntrance;
-            
-        } catch (Exception e) {
-            log.error("Error checking if {} is entrance", cellUri, e);
-            // Fail closed - deny access on error
-            return false;
-        }
     }
 
     private RDFFormat toRDFFormat(String ct) {

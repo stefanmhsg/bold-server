@@ -1,4 +1,4 @@
-package org.bold.ld;
+package org.bold.maze;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -21,9 +21,9 @@ import org.slf4j.LoggerFactory;
  * Creates a log file per agent containing timestamps and cell URIs for each movement.
  * Only tracks actual movements (not re-requests of the current cell).
  */
-public class AgentPathTracker {
+public class MazePathTracker {
 
-    private static final Logger log = LoggerFactory.getLogger(AgentPathTracker.class);
+    private static final Logger log = LoggerFactory.getLogger(MazePathTracker.class);
     
     // Track last visited cell per agent to detect actual movements
     private final Map<String, String> lastVisitedCell = new ConcurrentHashMap<>();
@@ -37,14 +37,14 @@ public class AgentPathTracker {
     // Timestamp formatter for log entries
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = 
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-                        .withZone(ZoneId.of("CET"));
+                        .withZone(ZoneId.of("UTC"));
     
     /**
      * Create a new path tracker.
      * @param logDirectory Directory where agent path logs will be stored. 
      *                     If null or empty, defaults to "agent-paths"
      */
-    public AgentPathTracker(String logDirectory) {
+    public MazePathTracker(String logDirectory) {
         this.pathLogDirectory = (logDirectory != null && !logDirectory.isEmpty()) 
             ? logDirectory 
             : "agent-paths";

@@ -1,4 +1,4 @@
-package org.bold.ld;
+package org.bold.maze;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -19,11 +19,11 @@ import org.slf4j.LoggerFactory;
 /**
  * Detailed tracker for all agent requests to the maze server.
  * Logs operation type, access decision, and request repetition count.
- * Unlike AgentPathTracker, this logs ALL requests including denied ones and re-requests.
+ * Unlike MazePathTracker, this logs ALL requests including denied ones and re-requests.
  */
-public class AgentRequestTracker {
+public class MazeRequestTracker {
 
-    private static final Logger log = LoggerFactory.getLogger(AgentRequestTracker.class);
+    private static final Logger log = LoggerFactory.getLogger(MazeRequestTracker.class);
     
     /**
      * Key for tracking repeated requests: agentName + cellUri + operation
@@ -86,14 +86,14 @@ public class AgentRequestTracker {
     // Timestamp formatter for log entries
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = 
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-                        .withZone(ZoneId.of("CET"));
+                        .withZone(ZoneId.of("UTC"));
     
     /**
      * Create a new detailed request tracker.
      * @param logDirectory Directory where agent request logs will be stored.
      *                     If null or empty, defaults to "agent-requests"
      */
-    public AgentRequestTracker(String logDirectory) {
+    public MazeRequestTracker(String logDirectory) {
         this.logDirectory = (logDirectory != null && !logDirectory.isEmpty()) 
             ? logDirectory 
             : "agent-requests";
@@ -211,7 +211,9 @@ public class AgentRequestTracker {
         } catch (IOException e) {
             log.error("Failed to write request to log for agent {}: {}", agentName, cellUri, e);
         }
-    }    /**
+    }
+    
+    /**
      * Clear the tracking history for a specific agent.
      * 
      * @param agentName Name of the agent to reset
