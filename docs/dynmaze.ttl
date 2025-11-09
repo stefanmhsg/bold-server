@@ -1,0 +1,54 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <http://schema.org/> .
+@prefix http: <http://www.w3.org/2011/http#> .
+@prefix httpm: <http://www.w3.org/2011/http-methods#> .
+@prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
+@prefix dyn: <http://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
+
+dyn:Lock rdfs:comment "A cell that can be locked or unlocked"@en ;
+rdfs:subclassOf maze:Cell .
+
+dyn:state rdf:type rdf:Property;
+rdfs:comment "Shows the state of the lock, either locked or unlocked."@en ;
+rdfs:domain dyn:Lock .
+
+dyn:needsAction rdf:type rdf:Property;
+rdfs:comment "Specifies an action to unlock a lock."@en ;
+rdfs:domain dyn:Lock ;
+rdfs:range dyn:Action .
+
+dyn:Action rdf:type rdf:Class;
+rdfs:comment "An action that has to be performed to unlock a lock."@en ;
+rdfs:subclassOf schema:Action .
+
+dyn:hasStatus rdf:type rdf:Property;
+rdfs:comment "Specifies the status of an action to be either open or done."@en ;
+rdfs:subclassOf schema:actionStatus .
+
+dyn:foundAt rdf:type rdf:Property;
+rdfs:comment "Specifies the class of entities that hold the information needed to perform an action to unlock the lock."@en .
+
+dyn:needsProperty rdf:type rdf:Property;
+rdfs:comment "Specifies the property of the entities that relates to the information to unlock the lock."@en .
+
+dyn:Key rdf:type rdf:Class;
+rdfs:comment "A abstract entity that holds a key value."@en ;
+rdfs:subClassOf schema:Intangible .
+
+dyn:keyValue rdf:type rdf:Property;
+rdfs:comment "Specifies a key value."@en ;
+rdfs:domain dyn:Key ;
+rdfs:range rdf:Literal .
+
+dyn:RedKey rdf:type rdf:Class;
+rdfs:comment "An abstract entity that holds a key value, specified as a red key."@en ;
+rdfs:subClassOf dyn:Key .
+
+dyn:BlueKey rdf:type rdf:Class;
+rdfs:comment "An abstract entity that holds a key value, specified as a blue key."@en ;
+rdfs:subClassOf dyn:Key .
+
+dyn:GreenKey rdf:type rdf:Class;
+rdfs:comment "An abstract entity that holds a key value, specified as a green key."@en ;
+rdfs:subClassOf dyn:Key .

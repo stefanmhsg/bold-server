@@ -1,0 +1,41 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix schema: <http://schema.org/> .
+
+<https://rdfa.info/play/vocab>
+   rdf:type owl:Ontology;
+   rdfs:label "The Maze Ontology"@en;
+   dc:title "The Maze Ontology"@en .
+<https://rdfa.info/play/vocab#maze>
+   schema:rangeIncludes <https://rdfa.info/play/vocab#Maze>;
+   schema:domainIncludes <https://rdfa.info/play/vocab#Cell> .
+<https://rdfa.info/play/vocab#Maze>
+   rdf:type rdfs:Class;
+   rdfs:label "Maze"@en .
+<https://rdfa.info/play/vocab#Cell>
+   rdf:type rdfs:Class;
+   rdfs:label "Cell"@en .
+<https://rdfa.info/play/vocab#Direction>
+   rdfs:subClassOf rdf:Property;
+   rdfs:label "Direction"@en .
+<https://rdfa.info/play/vocab#north>
+   rdf:type rdf:Property;
+   rdf:type <https://rdfa.info/play/vocab#Direction>;
+   rdfs:label "north"@en .
+<https://rdfa.info/play/vocab#east>
+   rdf:type rdf:Property;
+   rdf:type <https://rdfa.info/play/vocab#Direction>;
+   rdfs:label "east"@en .
+<https://rdfa.info/play/vocab#south>
+   rdf:type rdf:Property;
+   rdf:type <https://rdfa.info/play/vocab#Direction>;
+   rdfs:label "south"@en .
+<https://rdfa.info/play/vocab#west>
+   rdf:type rdf:Property;
+   rdf:type <https://rdfa.info/play/vocab#Direction>;
+   rdfs:label "west"@en .
+<https://rdfa.info/play/vocab#Wall>
+   rdf:type rdfs:Class;
+   rdfs:label "Wall"@en .
