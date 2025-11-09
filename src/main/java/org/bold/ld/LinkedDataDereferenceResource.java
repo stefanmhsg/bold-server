@@ -57,9 +57,6 @@ public class LinkedDataDereferenceResource {
     @Context
     ServletContext _ctx;
 
-    // Maze game engine - initialized lazily
-    private volatile MazeGameEngine gameEngine;
-
     @GET
     @Produces({ "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples" })
     public Response getGraph(@Context UriInfo uriinfo,
@@ -70,7 +67,7 @@ public class LinkedDataDereferenceResource {
         // Extract agent name from Authorization header
         String agentName = AgentAuthUtil.extractAgentName(authorization);
         
-        // Validate access through the maze game engine
+        // Validate access through the maze game engine (singleton from ServletContext)
         MazeGameEngine.AccessResult accessResult = getGameEngine().validateAccess(
             agentName, requestedCellUri, "GET");
         
@@ -88,20 +85,11 @@ public class LinkedDataDereferenceResource {
     }
     
     /**
-     * Get or initialize the maze game engine.
-     * Lazy initialization to avoid creating it before the repository is available.
+     * Get the maze game engine singleton from ServletContext.
+     * This ensures the same instance is used across all requests, preserving agent state.
      */
     private MazeGameEngine getGameEngine() {
-        if (gameEngine == null) {
-            synchronized (this) {
-                if (gameEngine == null) {
-                    SailRepository repo = (SailRepository) _ctx.getAttribute(
-                        Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
-                    gameEngine = new MazeGameEngine(repo);
-                }
-            }
-        }
-        return gameEngine;
+        return (MazeGameEngine) _ctx.getAttribute(Configurator.MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE);
     }
 
     private String chooseContentType(String accept) {
@@ -211,24 +199,6 @@ public class LinkedDataDereferenceResource {
             connection.commit();
 
             log.info("LD POST merged triples: \n {} \n into: {}", body, graphIRI);
-            // verify body
-            try {
-                org.eclipse.rdf4j.query.GraphQuery query = connection.prepareGraphQuery(
-                    "CONSTRUCT { ?s ?p ?o } WHERE { GRAPH <" + graphIRI + "> { ?s ?p ?o } }");
-
-                java.io.StringWriter sw = new java.io.StringWriter();
-                RDFWriter writer = Rio.createWriter(RDFFormat.TURTLE, sw);
-                query.evaluate(writer);
-                log.info("\n Graph content: \n{}", sw.toString());
-            } catch (Exception e) {
-                log.error("LD POST error verifying graph {}", graphIRI, e);
-            }
-
-
-            return Response.noContent()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
-                    .build();
 
         } catch (IOException | RDFParseException | UnsupportedRDFormatException e) {
             log.error("LD POST failed parsing body for {}", graphIRI, e);
@@ -237,6 +207,25 @@ public class LinkedDataDereferenceResource {
             log.error("LD POST error while writing graph {}", graphIRI, e);
             return Response.serverError().build();
         }
+        
+        // Execute maze rules after successful POST (state change)
+        try {
+            log.info("Executing maze rules after POST to {}", graphIRI);
+            org.bold.maze.rules.MazeRuleEngine.RuleExecutionResult ruleResult = 
+                getGameEngine().executeRules();
+            
+            if (ruleResult.hasChanges()) {
+                log.info("Rules execution result: {}", ruleResult);
+            }
+        } catch (Exception e) {
+            log.error("Error executing maze rules after POST", e);
+            // Don't fail the POST request if rules fail
+        }
+        
+        return Response.noContent()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+                .build();
     }
 
     // Helper to guess MIME if no Content-Type was set by LDFu (which it often doesn't)

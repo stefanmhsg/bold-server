@@ -16,14 +16,21 @@ The maze game engine follows a modular design with clear responsibilities:
 │              MazeGameEngine (Orchestrator)              │
 │  - Coordinates all game rules and agent tracking        │
 │  - Main entry point for access validation               │
-└──┬────────────┬────────────┬──────────────┬─────────────┘
-   │            │            │              │
-   │ uses       │ uses       │ uses         │ uses
-   ▼            ▼            ▼              ▼
-┌──────────┐ ┌──────────┐ ┌──────────┐  ┌──────────────┐
-│  Access  │ │ Location │ │   Path   │  │   Request    │
-│ Control  │ │ Tracker  │ │ Tracker  │  │   Tracker    │
-└──────────┘ └──────────┘ └──────────┘  └──────────────┘
+│  - Executes dynamic rules after state changes           │
+└──┬────────────┬────────────┬──────────────┬─────────┬───┘
+   │            │            │              │         │
+   │ uses       │ uses       │ uses         │ uses    │ uses
+   ▼            ▼            ▼              ▼         ▼
+┌──────────┐ ┌──────────┐ ┌──────────┐  ┌──────────────┐ ┌──────────┐
+│  Access  │ │ Location │ │   Path   │  │   Request    │ │   Rule   │
+│ Control  │ │ Tracker  │ │ Tracker  │  │   Tracker    │ │  Engine  │
+└──────────┘ └──────────┘ └──────────┘  └──────────────┘ └─────┬────┘
+                                                                  │ uses
+                                                                  ▼
+                                                          ┌───────────────┐
+                                                          │  Rule Loader  │
+                                                          │  (SPARQL .rq) │
+                                                          └───────────────┘
 ```
 
 ## Components
@@ -82,14 +89,56 @@ The maze game engine follows a modular design with clear responsibilities:
   - `Authorization: myagent`
 - **Key Method**: `extractAgentName(authorization)` → agentName or null
 
+### 7. **MazeRuleEngine** (Dynamic Rules)
+- **Purpose**: Executes SPARQL-based rules to modify maze topology dynamically
+- **Responsibilities**:
+  - Loads .rq rule files from resources directory
+  - Executes CONSTRUCT queries after state changes
+  - Adds generated triples to RDF graph (unlocking doors, toggling switches)
+- **Trigger**: Called automatically after every POST request
+- **Package**: `org.bold.maze.rules`
+
+### 8. **MazeRuleLoader** (Rule Discovery)
+- **Purpose**: Discovers and loads SPARQL rule files from resources
+- **Features**:
+  - Maze-specific subdirectory support (UnsafeMaze/, BigMaze/, etc.)
+  - Generic rule fallback for unknown mazes
+  - Configurable via task name in Configurator
+- **Rule Location**: `src/main/resources/rules/`
+- **See**: `resources/rules/README.md` for detailed rule documentation
+
 ## Game Rules
 
-### Access Control Rules
+### Static Access Control Rules
+
+These rules are enforced on every GET/POST request:
+
 1. **Entrance Rule**: First access must be to the entrance cell (defined by `xhv:start` in `/maze` graph)
 2. **Adjacent Cell Rule**: Can only move to cells connected via maze predicates:
    - `maze:north`, `maze:south`, `maze:east`, `maze:west`, `maze:exit`
 3. **Graph-Based Navigation**: Connections must exist in the RDF graph (locked doors are not present)
 4. **Non-Cell Access**: Resources outside `/cells/` are always accessible (e.g., `/maze`, `/map`)
+
+### Dynamic Rule Execution
+
+Dynamic rules modify the maze topology based on game state:
+
+1. **Unlock Rules**: When agent finds a key, doors unlock (new connections added to graph)
+2. **Switch Rules**: When agent flips a switch, passages open/close (connections toggled)
+3. **Rule Trigger**: Rules execute automatically after every POST request
+4. **Rule Format**: SPARQL CONSTRUCT queries in `.rq` files
+5. **Maze-Specific**: Different rules for UnsafeMaze (5 rules), BigMaze (7 rules), etc.
+
+**Example Rule Flow**:
+```
+Agent POST /cells/5 → Pick up red key → dyn:foundAt dyn:RedKey added to graph
+→ MazeGameEngine.executeRules() called
+→ unlock-redkey.rq WHERE clause matches
+→ CONSTRUCT adds: <cells/0> maze:east <cells/7>
+→ Door unlocked! Agent can now move from cell 0 to cell 7
+```
+
+See `resources/rules/README.md` for detailed rule documentation.
 
 ### Access Flow
 ```

@@ -3,6 +3,7 @@ package org.bold;
 import org.bold.io.FileUtils;
 import org.bold.ld.CorsFilter;
 import org.bold.ld.LinkedDataDereferenceResource;
+import org.bold.maze.MazeGameEngine;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
@@ -46,6 +47,8 @@ public class Configurator {
     private final static String INIT_DATASET_KEY = "bold.init.dataset";
 
 	public static final String SAIL_REPOSITORY_SERVLET_ATTRIBUTE = "SAIL_REPOSITORY_SERVLET_ATTRIBUTE";
+	
+	public static final String MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE = "MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE";
 
 	public static final String RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL = "gsp/";
 
@@ -53,7 +56,7 @@ public class Configurator {
 
     public static void main(String[] args) throws Exception {
         // TODO more advanced CLI
-        String task = args.length > 0 ? args[0] : "sim";
+        String task = args.length > 0 ? args[0] : "sim-UnsafeMaze";
 
         Properties config = new Properties();
         config.load(new FileInputStream((task + ".properties")));
@@ -102,7 +105,6 @@ public class Configurator {
 				
 				    int total = 0;
 				    int mazeLike = 0;
-				    int gspPrefixed = 0;
 				    int hostPrefixMismatch = 0;
 				
 				    String expectedHost = "http://127.0.1.1:8080";
@@ -124,9 +126,6 @@ public class Configurator {
 				        if (iri.contains("/maze")) {
 				            mazeLike++;
 				        }
-				        if (iri.contains("/gsp/")) {
-				            gspPrefixed++;
-				        }
 				        if (!iri.startsWith(expectedHost)) {
 				            hostPrefixMismatch++;
 				        }
@@ -134,7 +133,6 @@ public class Configurator {
 				
 				    log.info("Total contexts: {}", total);
 				    log.info("Contexts containing '/maze': {}", mazeLike);
-				    log.info("Contexts containing '/gsp/': {}", gspPrefixed);
 				    log.info("Contexts with HOST mismatch (not starting with {}): {}", expectedHost, hostPrefixMismatch);
 				
 				    if (mazeLike > 0) {
@@ -160,18 +158,6 @@ public class Configurator {
 				            printed++;
 				        }
 				    }
-
-					log.info("Checking a sample of gsp prefixed graphs:");
-					printed = 0;
-					for (Resource c : allContexts) {
-						if (printed >= 5) break;
-						String iri = c.stringValue();
-						if (iri.contains("/gsp/") && iri.startsWith(expectedHost)) {
-							long count = conn2.size(c);
-							log.info("  GSP graph: {} ({} triples)", iri, count);
-							printed++;
-						}
-					}
 
 					log.info("Checking a sample of host prefix mismatch graphs:");
 					printed = 0;
@@ -202,13 +188,19 @@ public class Configurator {
 		Servlet ldContainer = new ServletContainer(ldConfig);
 		ServletHolder ldHolder = new ServletHolder("BOLD LD dereferencing servlet", ldContainer);
 
-		// Mount on /* so any non GSP path is dereferenced as RDF if it exists as a named graph
+		// Mount on /* so any path is dereferenced as RDF if it exists as a named graph
 		context.addServlet(ldHolder, "/*");
 
 		// Share the same repository handle with the LD container
 		((HttpServlet) ldContainer).getServletContext().setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repo);
-
-
+		
+		// Initialize and share the maze game engine (singleton)
+		// Extract maze name from task (e.g., "sim-UnsafeMaze" -> "UnsafeMaze")
+		String mazeName = extractMazeName(task);
+		log.info("Initializing MazeGameEngine for maze: {}", mazeName != null ? mazeName : "generic");
+		MazeGameEngine gameEngine = new MazeGameEngine(repo, mazeName);
+		((HttpServlet) ldContainer).getServletContext().setAttribute(MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE, gameEngine);
+		log.info("MazeGameEngine initialized and stored in ServletContext");
 
 		server.join();
 		return;
@@ -223,5 +215,30 @@ public class Configurator {
         }
         log.info("Using default MemoryStore Sail.");
         return new MemoryStore();
+    }
+    
+    /**
+     * Extracts the maze name from a task string.
+     * Examples: "sim-UnsafeMaze" -> "UnsafeMaze", "sim-BigMaze" -> "BigMaze"
+     * 
+     * @param task The task string (e.g., "sim-UnsafeMaze")
+     * @return The maze name (e.g., "UnsafeMaze"), or null if no maze detected
+     */
+    private static String extractMazeName(String task) {
+        if (task == null || task.isEmpty()) {
+            return null;
+        }
+        
+        // Check for known maze patterns
+        if (task.contains("UnsafeMaze")) {
+            return "UnsafeMaze";
+        } else if (task.contains("BigMaze")) {
+            return "BigMaze";
+        } else if (task.contains("MidMaze")) {
+            return "MidMaze";
+        }
+        
+        // If no known maze found, return null (will load generic rules)
+        return null;
     }
 }

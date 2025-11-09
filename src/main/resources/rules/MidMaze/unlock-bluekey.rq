@@ -1,0 +1,26 @@
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX http: <http://www.w3.org/2011/http#>
+
+# Unlock cell with blue key - leads to cell 10
+CONSTRUCT {
+    # Mark the action as completed
+    ?blueAction dyn:hasStatus dyn:done .
+    
+    # Update the maze topology to add east connection
+    ?ccc maze:east <http://127.0.1.1:8080/cells/10> .
+    ?ccc dyn:state dyn:unlocked .
+}
+WHERE {
+    # Check that action is open (ready to execute)
+    ?blueAction dyn:hasStatus dyn:open ;
+                http:body ?body .
+    
+    # Check that blue key was found
+    ?body dyn:foundAt dyn:BlueKey .
+    
+    # Find the cell that needs the blue key
+    ?ccc a maze:Cell , dyn:Lock ;
+         dyn:keyValue "bluekey" ;
+         dyn:needsAction ?blueAction .
+}

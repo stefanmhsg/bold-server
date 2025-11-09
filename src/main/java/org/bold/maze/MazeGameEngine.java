@@ -1,12 +1,17 @@
 package org.bold.maze;
 
+import java.util.List;
+
+import org.bold.maze.rules.MazeRule;
+import org.bold.maze.rules.MazeRuleEngine;
+import org.bold.maze.rules.MazeRuleLoader;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Main game engine for the maze navigation system.
- * Coordinates access control, agent tracking, and movement validation.
+ * Coordinates access control, agent tracking, movement validation, and dynamic rule execution.
  */
 public class MazeGameEngine {
     
@@ -16,12 +21,37 @@ public class MazeGameEngine {
     private final AgentLocationTracker locationTracker;
     private final MazePathTracker pathTracker;
     private final MazeRequestTracker requestTracker;
+    private final MazeRuleEngine ruleEngine;
     
+    /**
+     * Creates a MazeGameEngine with generic rules (root-level rules).
+     * 
+     * @param repository The RDF repository
+     */
     public MazeGameEngine(SailRepository repository) {
+        this(repository, null);
+    }
+    
+    /**
+     * Creates a MazeGameEngine with maze-specific rules.
+     * 
+     * @param repository The RDF repository
+     * @param mazeName The maze name (e.g., "UnsafeMaze", "BigMaze"), or null for generic rules
+     */
+    public MazeGameEngine(SailRepository repository, String mazeName) {
         this.accessControl = new MazeAccessControl(repository);
         this.locationTracker = new AgentLocationTracker();
         this.pathTracker = new MazePathTracker("agent-paths");
         this.requestTracker = new MazeRequestTracker("agent-requests");
+        
+        // Initialize rule engine with loaded rules
+        MazeRuleLoader ruleLoader = new MazeRuleLoader();
+        List<String> ruleFiles = ruleLoader.discoverRuleFiles(mazeName);
+        List<MazeRule> rules = ruleLoader.loadRules(ruleFiles);
+        this.ruleEngine = new MazeRuleEngine(repository, rules);
+        
+        log.info("MazeGameEngine initialized{} with {} rules", 
+                mazeName != null ? " for " + mazeName : "", rules.size());
     }
     
     /**
@@ -80,6 +110,26 @@ public class MazeGameEngine {
         requestTracker.recordRequest(agentName, requestedCellUri, method, true);
         
         return AccessResult.allowed();
+    }
+    
+    /**
+     * Execute maze rules after a state change (e.g., POST request).
+     * This checks all rules and applies any that are triggered.
+     * 
+     * @return Result of rule execution including number of rules triggered
+     */
+    public MazeRuleEngine.RuleExecutionResult executeRules() {
+        log.debug("Executing maze rules after state change");
+        return ruleEngine.executeRules();
+    }
+    
+    /**
+     * Get the rule engine for advanced operations.
+     * 
+     * @return The maze rule engine
+     */
+    public MazeRuleEngine getRuleEngine() {
+        return ruleEngine;
     }
     
     /**
