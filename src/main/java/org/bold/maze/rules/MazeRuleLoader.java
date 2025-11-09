@@ -5,10 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.bold.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,6 +113,7 @@ public class MazeRuleLoader {
     
     /**
      * Auto-discover all .rq files in the rules directory for a specific maze.
+     * Dynamically discovers all .rq files in the maze subdirectory.
      * 
      * @param mazeName Name of the maze subdirectory (e.g., "UnsafeMaze", "BigMaze"), or null for root rules
      * @return List of discovered rule filenames (with subdirectory prefix if applicable)
@@ -117,34 +121,17 @@ public class MazeRuleLoader {
     public List<String> discoverRuleFiles(String mazeName) {
         List<String> ruleFiles = new ArrayList<>();
         
-        if (mazeName != null && !mazeName.isEmpty()) {
-            // Load maze-specific rules from subdirectory
-            String[] mazeRules = getMazeRules(mazeName);
-            String prefix = mazeName + "/";
-            
-            for (String ruleFile : mazeRules) {
-                String resourcePath = RULES_DIRECTORY + prefix + ruleFile;
-                if (getClass().getResource(resourcePath) != null) {
-                    ruleFiles.add(prefix + ruleFile);
-                } else {
-                    log.warn("Rule file not found: {}", resourcePath);
-                }
+        try {
+            if (mazeName != null && !mazeName.isEmpty()) {
+                // Load maze-specific rules from subdirectory
+                String subDirPath = RULES_DIRECTORY + mazeName + "/";
+                ruleFiles = discoverRuleFilesInResource(subDirPath, mazeName + "/");
+            } else {
+                // Load generic root-level rules (no subdirectory)
+                ruleFiles = discoverRuleFilesInResource(RULES_DIRECTORY, "");
             }
-        } else {
-            // Load generic root-level rules
-            String[] commonRules = {
-                "unlock-redkey.rq",
-                "unlock-bluekey.rq",
-                "unlock-greenkey.rq",
-                "switch-toggle.rq"
-            };
-            
-            for (String ruleFile : commonRules) {
-                String resourcePath = RULES_DIRECTORY + ruleFile;
-                if (getClass().getResource(resourcePath) != null) {
-                    ruleFiles.add(ruleFile);
-                }
-            }
+        } catch (Exception e) {
+            log.error("Error discovering rule files for maze: {}", mazeName, e);
         }
         
         log.info("Discovered {} rule files{}", ruleFiles.size(), 
@@ -153,40 +140,35 @@ public class MazeRuleLoader {
     }
     
     /**
-     * Get the list of rule files for a specific maze.
+     * Discover all .rq files in a resource directory using FileUtils.
+     * Since the server runs from file system (not JAR), we can use simple file pattern matching.
      * 
-     * @param mazeName The maze name (e.g., "UnsafeMaze", "BigMaze", "MidMaze")
-     * @return Array of rule filenames for that maze
+     * @param resourcePath The resource path to search (e.g., "/rules/" or "/rules/UnsafeMaze/")
+     * @param prefix The prefix to add to discovered filenames (e.g., "" or "UnsafeMaze/")
+     * @return List of rule filenames with prefix
      */
-    private String[] getMazeRules(String mazeName) {
-        switch (mazeName) {
-            case "UnsafeMaze":
-                return new String[] {
-                //    "unlock-bluekey.rq",
-                    "unlock-redkey.rq",
-                    "unlock-greenkey.rq",
-                //    "switch-hobby-room.rq",
-                //    "switch-hall-of-knives.rq"
-                };
-            case "BigMaze":
-                return new String[] {
-                    "unlock-greenkey.rq",
-                    "unlock-bluekey.rq",
-                    "unlock-redkey.rq",
-                    "unlock-orangekey.rq",
-                    "unlock-yellowkey.rq",
-                    "unlock-cyankey.rq",
-                    "unlock-pinkkey.rq"
-                };
-            case "MidMaze":
-                return new String[] {
-                    "unlock-bluekey.rq",
-                    "unlock-redkey.rq",
-                    "unlock-greenkey.rq"
-                };
-            default:
-                log.warn("Unknown maze name: {}", mazeName);
-                return new String[] {};
+    private List<String> discoverRuleFilesInResource(String resourcePath, String prefix) {
+        List<String> ruleFiles = new ArrayList<>();
+        
+        try {
+            // Convert resource path to file system path pattern
+            // E.g., "/rules/UnsafeMaze/" -> "src/main/resources/rules/UnsafeMaze/*.rq"
+            String fileSystemPath = "src/main/resources" + resourcePath + "*.rq";
+            
+            // Use FileUtils to discover all .rq files
+            Set<String> discoveredFiles = FileUtils.listFiles(fileSystemPath);
+            
+            // Extract just the filename and add prefix
+            for (String absolutePath : discoveredFiles) {
+                String fileName = Paths.get(absolutePath).getFileName().toString();
+                ruleFiles.add(prefix + fileName);
+                log.debug("Discovered rule file: {}{}", prefix, fileName);
+            }
+            
+        } catch (IOException e) {
+            log.error("Error discovering rule files in: {}", resourcePath, e);
         }
+        
+        return ruleFiles;
     }
 }
