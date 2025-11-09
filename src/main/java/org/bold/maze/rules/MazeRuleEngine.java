@@ -2,6 +2,7 @@ package org.bold.maze.rules;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Model;
@@ -9,6 +10,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.query.GraphQuery;
 import org.eclipse.rdf4j.query.QueryResults;
+import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.slf4j.Logger;
@@ -17,10 +19,24 @@ import org.slf4j.LoggerFactory;
 /**
  * Executes maze game rules as SPARQL CONSTRUCT queries against the RDF repository.
  * Rules are evaluated after state changes to trigger dynamic maze behaviors.
+ * 
+ * Implements state overwrite semantics for certain predicates to ensure only
+ * the latest truth remains (no conflicting state assertions).
  */
 public class MazeRuleEngine {
     
     private static final Logger log = LoggerFactory.getLogger(MazeRuleEngine.class);
+    
+    /**
+     * Predicates that have "exclusive" semantics (only one value should exist).
+     * When a rule produces a new triple with one of these predicates, 
+     * all existing triples with the same subject and predicate but different object
+     * will be removed from the target graph.
+     */
+    private static final Set<String> STATE_PREDICATES = Set.of(
+        "https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#hasStatus",
+        "https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#state"
+    );
     
     private final SailRepository repository;
     private final List<MazeRule> rules;
@@ -105,7 +121,9 @@ public class MazeRuleEngine {
         
         // Add constructed triples to appropriate graphs
         // All maze rules must ALWAYS write to the cell's graph
+        // For state predicates, apply cleanup to remove conflicting values
         int triplesAdded = 0;
+        int triplesRemoved = 0;
         
         for (Statement stmt : resultModel) {
             // Infer the target graph from the subject URI
@@ -113,20 +131,52 @@ public class MazeRuleEngine {
             // Then target graph is http://127.0.1.1:8080/cells/5
             IRI targetGraph = inferTargetGraph(stmt.getSubject(), connection);
             
-            if (targetGraph != null) {
-                connection.add(
-                    stmt.getSubject(),
-                    stmt.getPredicate(),
-                    stmt.getObject(),
-                    targetGraph
-                );
-                triplesAdded++;
-            } else {
+            if (targetGraph == null) {
                 log.warn("Could not infer target graph for subject: {}", stmt.getSubject());
+                continue;
             }
+            
+            // Only apply cleanup for whitelisted state predicates
+            if (STATE_PREDICATES.contains(stmt.getPredicate().stringValue())) {
+                
+                // Find all old values for this subject/predicate in the same graph
+                try (RepositoryResult<Statement> existing = connection.getStatements(
+                        stmt.getSubject(), stmt.getPredicate(), null, targetGraph)) {
+                    
+                    List<Statement> toRemove = new ArrayList<>();
+                    while (existing.hasNext()) {
+                        Statement oldStmt = existing.next();
+                        // Remove only if value differs
+                        if (!oldStmt.getObject().equals(stmt.getObject())) {
+                            toRemove.add(oldStmt);
+                        }
+                    }
+                    
+                    if (!toRemove.isEmpty()) {
+                        log.debug("Cleanup: removing {} outdated triple(s) for {} {}",
+                                  toRemove.size(), stmt.getSubject(), stmt.getPredicate());
+                        connection.remove(toRemove);
+                        triplesRemoved += toRemove.size();
+                    }
+                }
+            }
+            
+            // Add the new triple (idempotent even if it already exists)
+            connection.add(
+                stmt.getSubject(),
+                stmt.getPredicate(),
+                stmt.getObject(),
+                targetGraph
+            );
+            triplesAdded++;
         }
         
-        log.debug("Rule '{}' added {} triples", rule.getName(), triplesAdded);
+        if (triplesRemoved > 0) {
+            log.debug("Rule '{}' cleaned up {} outdated triples, added {} new triples", 
+                     rule.getName(), triplesRemoved, triplesAdded);
+        } else {
+            log.debug("Rule '{}' added {} triples", rule.getName(), triplesAdded);
+        }
         return triplesAdded;
     }
     
