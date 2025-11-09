@@ -1,6 +1,6 @@
 package org.bold.io;
 
-import org.bold.sim.SimulationEngine;
+import org.bold.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,20 +135,26 @@ public class FileUtils {
 		}
 	}
 
-	/**
-	 * First tries to open the file from the file system. If it does not exist,
-	 * interpret it as a resource file.
-	 *
-	 * @param filename name of the file or resource
-	 * @return an input stream pointing to the content of the file or resource
-	 * @throws IOException
-	 */
-	public static InputStream getFileOrResource(String filename) throws IOException {
-		File f = new File(filename);
-		URL url = SimulationEngine.class.getClassLoader().getResource(filename);
 
-		return f.exists() ? new FileInputStream(f) : url.openStream();
-	}
+    /**
+     * Opens a file from the file system or classpath resource.
+     * 
+     * @param filename path to file or resource
+     * @return input stream to the file or resource
+     * @throws IOException if file/resource cannot be found
+     */
+    public static InputStream getFileOrResource(String filename) throws IOException {
+        Path filePath = Paths.get(filename);
+        if (Files.exists(filePath)) {
+            return Files.newInputStream(filePath);
+        }
+        // Try as classpath resource
+        InputStream resourceStream = Configurator.class.getClassLoader().getResourceAsStream(filename);
+        if (resourceStream != null) {
+            return resourceStream;
+        }
+        throw new IOException("File or resource not found: " + filename);
+    }
 
 	/**
 	 * Buffers the content of an input stream into a string.

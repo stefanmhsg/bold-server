@@ -1,7 +1,0 @@
-@prefix : <http://ti.rw.fau.de/sim#>  .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@base <http://127.0.1.1:8080/> .
-
-<sim> :initialTime "2020-05-21T08:00:00Z"^^xsd:dateTime ;
-      :timeslotDuration 60000 ;
-      :iterations 5 .

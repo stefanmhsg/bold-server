@@ -1,1 +1,0 @@
-curl -X "PUT" -H "Content-Type: text/turtle" --data-binary @data/sim.ttl http://localhost:8080/sim

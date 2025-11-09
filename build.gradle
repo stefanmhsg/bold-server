@@ -43,7 +43,6 @@ distributions {
             // copies relevant configuration files to dist folder
             from('data') { into('data') }
             from('query') { into('query') }
-            from('doc') { into('doc') }
             from('.') { include('*.properties') }
             from('libs') { into('libs') }
         }

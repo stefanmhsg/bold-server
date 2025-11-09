@@ -1,8 +1,0 @@
-PREFIX : <http://ti.rw.fau.de/sim#>
-PREFIX time: <http://www.w3.org/2006/time#>
-
-SELECT ?y WHERE {
-    ?sim :currentTime ?instant .
-    ?instant time:inXSDDateTimeStamp ?time .
-    FILTER (year(?time) = 2020)
-}

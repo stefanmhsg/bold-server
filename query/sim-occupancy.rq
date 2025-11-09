@@ -1,9 +1,0 @@
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX brick: <http://buildsys.org/ontologies/Brick#>
-PREFIX sosa: <http://www.w3.org/ns/sosa/>
-PREFIX sim: <http://ti.rw.fau.de/sim#>
-
-SELECT ?occupancy WHERE {
-	?sensor a brick:Occupancy_Sensor ; sosa:observes ?occupancy .
-	?occupancy rdf:value "on" .
-}

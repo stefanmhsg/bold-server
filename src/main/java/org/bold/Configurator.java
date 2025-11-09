@@ -1,16 +1,8 @@
 package org.bold;
 
-import org.bold.gsp.GraphStoreProtocolRESTResource;
-import org.bold.gsp.IsPutOrNamedGraphInDatasetFilter;
-import org.bold.gsp.SimStateFilter;
-import org.bold.sim.SimulationResource;
-import org.bold.gsp.StatisticsApplicationEventListener;
 import org.bold.io.FileUtils;
 import org.bold.ld.CorsFilter;
 import org.bold.ld.LinkedDataDereferenceResource;
-import org.bold.sim.InteractionHistory;
-import org.bold.sim.SimulationEngine;
-import org.bold.sim.UpdateHistory;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
@@ -53,22 +45,9 @@ public class Configurator {
 
     private final static String INIT_DATASET_KEY = "bold.init.dataset";
 
-    private final static String INIT_UPDATE_KEY = "bold.init.update";
-
-    private final static String RUNTIME_UPDATE_KEY = "bold.runtime.update";
-
-    private final static String RUNTIME_QUERY_KEY = "bold.runtime.query";
-
-    private final static String REPLAY_DUMP_KEY = "bold.replay.dump";
-
 	public static final String SAIL_REPOSITORY_SERVLET_ATTRIBUTE = "SAIL_REPOSITORY_SERVLET_ATTRIBUTE";
-	public static final String SIMULATION_ENGINE_SERVLET_ATTRIBUTE = "SIMULATION_SERVLET_ATTRIBUTE";
-	public static final String INTERACTION_HISTORY_SERVLET_ATTRIBUTE = "INTERACTION_HISTORY_SERVLET_ATTRIBUTE";
-
-	public static final String WELCOME_DIRECTORY_FILEPATH = "bold.welcome.directory.filepath";
 
 	public static final String RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL = "gsp/";
-	public static final String SIMULATION_RESOURCE_TARGET = "sim"; // TODO make configurable
 
     private static final String SERVER_PROTOCOL_KEY = "bold.server.protocol";
 
@@ -114,15 +93,6 @@ public class Configurator {
 				
 				conn.begin();
 				conn.add(ds);
-
-				// Copying the default graph to where we would look for it on the REST API.
-
-				//Iterable<Statement> triplesFromDefaultGraph = ds.getStatements(null, null, null, (Resource) null);
-				//for (Statement s : triplesFromDefaultGraph) {
-				//	log.info("Adding triple to named graph '{}': {} {} {} -> Context {}", rdfBaseURI, s.getSubject(), s.getPredicate(), s.getObject(), s.getContext());
-				//
-				//	conn.add(s, new Resource[] { conn.getValueFactory().createIRI(rdfBaseURI.toString()) });
-				//}
 				conn.commit();
 
 				// Verification log output
@@ -218,81 +188,9 @@ public class Configurator {
 				    log.info("=== End Named Graph Inspection ===");
 				}
 
-
 			}
 		}
 		log.info("init dataset loaded");
-
-		// --------------------------------------------------
-		// Setting up the Graph Store Protocol REST resource at /gsp/* as Jersey servlet
-		// --------------------------------------------------
-
-		ResourceConfig resConfig = new ResourceConfig();
-
-		resConfig.register(GraphStoreProtocolRESTResource.class);
-		resConfig.register(IsPutOrNamedGraphInDatasetFilter.class);
-		resConfig.register(CorsFilter.class);
-
-		if (config.containsKey(INIT_UPDATE_KEY) || config.containsKey(RUNTIME_UPDATE_KEY)
-				|| config.containsKey(RUNTIME_QUERY_KEY) || config.containsKey(REPLAY_DUMP_KEY)) {
-			// Simulation mode enabled (see also below).
-			resConfig.register(StatisticsApplicationEventListener.class);
-			resConfig.register(SimStateFilter.class);
-		}
-
-		Servlet container = new ServletContainer(resConfig);
-		ServletHolder holder = new ServletHolder(
-				"BOLD server servlet working on RDF dataset from " + config.getProperty(INIT_DATASET_KEY), container);
-		context.addServlet(holder, "/" + RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL + "*");
-
-		((HttpServlet) container).getServletContext().setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repo);
-
-		if (config.containsKey(INIT_UPDATE_KEY) || config.containsKey(RUNTIME_UPDATE_KEY)
-				|| config.containsKey(RUNTIME_QUERY_KEY) || config.containsKey(REPLAY_DUMP_KEY)) {
-			// Simulation mode enabled.
-			InteractionHistory interactionHistory = new InteractionHistory();
-			((HttpServlet) container).getServletContext().setAttribute(INTERACTION_HISTORY_SERVLET_ATTRIBUTE,
-					interactionHistory);
-
-			UpdateHistory history = new UpdateHistory(); // TODO finer-grained reporting: distinct histories
-			SailRepositoryConnection engineConnection = repo.getConnection();
-			((NotifyingSailConnection) engineConnection.getSailConnection()).addConnectionListener(history);
-			SailRepositoryConnection handlerConnection = repo.getConnection();
-			((NotifyingSailConnection) handlerConnection.getSailConnection()).addConnectionListener(history);
-
-			SimulationEngine engine = new SimulationEngine(rdfBaseURI.toString(), engineConnection, history,
-					interactionHistory);
-			for (String f : FileUtils.listFiles(config.getProperty(INIT_DATASET_KEY))) {
-				engine.registerDataset(f);
-			}
-
-			if (config.getProperty(INIT_UPDATE_KEY) != null)
-				for (String f : FileUtils.listFiles(config.getProperty(INIT_UPDATE_KEY))) {
-					engine.registerSingleUpdate(f);
-				}
-
-			if (config.getProperty(RUNTIME_UPDATE_KEY) != null)
-				for (String f : FileUtils.listFiles(config.getProperty(RUNTIME_UPDATE_KEY))) {
-					engine.registerContinuousUpdate(f);
-				}
-
-			if (config.getProperty(RUNTIME_QUERY_KEY) != null)
-				for (String f : FileUtils.listFiles(config.getProperty(RUNTIME_QUERY_KEY))) {
-					engine.registerQuery(f);
-				}
-
-			String filenamePattern = config.getProperty(REPLAY_DUMP_KEY);
-			engine.setDumpPattern(filenamePattern);
-			engine.registrationDone();
-
-			// The resource that starts the simulation upon an HTTP-POST request.
-			resConfig = new ResourceConfig();
-			resConfig.register(SimulationResource.class);
-			container = new ServletContainer(resConfig);
-			holder = new ServletHolder("BOLD simulation controller servlet", container);
-			context.addServlet(holder, "/" + SIMULATION_RESOURCE_TARGET);
-			((HttpServlet) container).getServletContext().setAttribute(SIMULATION_ENGINE_SERVLET_ATTRIBUTE, engine);
-		}
 
 		// --------------------------------------------------
 		// Linked Data dereferencing servlet (must be after /gsp/* mapping and before DefaultServlet)
@@ -310,16 +208,7 @@ public class Configurator {
 		// Share the same repository handle with the LD container
 		((HttpServlet) ldContainer).getServletContext().setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repo);
 
-		// --------------------------------------------------
-		// Default servlet for serving static content
-		// --------------------------------------------------
-		// Some welcoming documentation at the root resource, implemented using Jersey's DefaultServlet.
-		String welcomeFilePath = (String) config.get(WELCOME_DIRECTORY_FILEPATH);
-		if (welcomeFilePath != null) {
-			holder = new ServletHolder("default", DefaultServlet.class);
-			holder.setInitParameter("resourceBase", welcomeFilePath);
-			context.addServlet(holder, "/");
-		}
+
 
 		server.join();
 		return;
