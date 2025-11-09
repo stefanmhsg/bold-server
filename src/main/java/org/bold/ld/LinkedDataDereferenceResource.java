@@ -173,53 +173,61 @@ public class LinkedDataDereferenceResource {
         log.info("LD POST merge into graph: {}", graphIRI);
 
         SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
-        try (SailRepositoryConnection connection = repo.getConnection()) {
-
-            ValueFactory vf = connection.getValueFactory();
-            IRI graphName = vf.createIRI(graphIRI);
-
-            // check existence (same semantics as GET)
-            boolean exists = connection.hasStatement(null, null, null, false, graphName);
-            if (!exists) {
-                log.info("LD POST received but graph does not exist: {}", graphIRI);
-                return Response.status(Response.Status.NOT_FOUND).entity("Graph not found: " + graphIRI).build();
-            }
-
-            // Parse body into this graph context
-            java.util.Optional<RDFFormat> fmtOpt = Rio.getParserFormatForMIMEType(detectContentType(body));
-            RDFFormat fmt = fmtOpt.orElse(RDFFormat.TURTLE); // fallback
-
-            Model model = Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
-                      graphIRI,      // base URI → resolves relative URIs against the graph itself
-                      fmt,
-                      graphName);    // <-- merge into this same named graph
-
-            connection.begin();
-            connection.add(model);
-            connection.commit();
-
-            log.info("LD POST merged triples: \n {} \n into: {}", body, graphIRI);
-
-        } catch (IOException | RDFParseException | UnsupportedRDFormatException e) {
-            log.error("LD POST failed parsing body for {}", graphIRI, e);
-            return Response.status(Response.Status.BAD_REQUEST).entity("Bad RDF payload").build();
-        } catch (Exception e) {
-            log.error("LD POST error while writing graph {}", graphIRI, e);
-            return Response.serverError().build();
-        }
         
-        // Execute maze rules after successful POST (state change)
-        try {
-            log.info("Executing maze rules after POST to {}", graphIRI);
-            org.bold.maze.rules.MazeRuleEngine.RuleExecutionResult ruleResult = 
-                getGameEngine().executeRules();
-            
-            if (ruleResult.hasChanges()) {
-                log.info("Rules execution result: {}", ruleResult);
+        // Synchronize on repository to ensure thread-safe transactions
+        // when multiple agents POST simultaneously
+        synchronized (repo) {
+            try (SailRepositoryConnection connection = repo.getConnection()) {
+
+                ValueFactory vf = connection.getValueFactory();
+                IRI graphName = vf.createIRI(graphIRI);
+
+                // check existence (same semantics as GET)
+                boolean exists = connection.hasStatement(null, null, null, false, graphName);
+                if (!exists) {
+                    log.info("LD POST received but graph does not exist: {}", graphIRI);
+                    return Response.status(Response.Status.NOT_FOUND).entity("Graph not found: " + graphIRI).build();
+                }
+
+                // Parse body into this graph context
+                java.util.Optional<RDFFormat> fmtOpt = Rio.getParserFormatForMIMEType(detectContentType(body));
+                RDFFormat fmt = fmtOpt.orElse(RDFFormat.TURTLE); // fallback
+
+                Model model = Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
+                          graphIRI,      // base URI → resolves relative URIs against the graph itself
+                          fmt,
+                          graphName);    // <-- merge into this same named graph
+
+                connection.begin();
+                connection.add(model);
+                
+                // Execute maze rules within the same transaction
+                try {
+                    log.info("Executing maze rules after POST to {}", graphIRI);
+                    org.bold.maze.rules.MazeRuleEngine.RuleExecutionResult ruleResult = 
+                        getGameEngine().executeRules();
+                    
+                    if (ruleResult.hasChanges()) {
+                        log.info("Rules execution result: {}", ruleResult);
+                    }
+                } catch (Exception e) {
+                    log.error("Error executing maze rules after POST", e);
+                    // Rollback transaction if rules fail
+                    connection.rollback();
+                    return Response.serverError().entity("Error executing maze rules").build();
+                }
+                
+                connection.commit();
+
+                log.info("LD POST merged triples: \n {} \n into: {}", body, graphIRI);
+
+            } catch (IOException | RDFParseException | UnsupportedRDFormatException e) {
+                log.error("LD POST failed parsing body for {}", graphIRI, e);
+                return Response.status(Response.Status.BAD_REQUEST).entity("Bad RDF payload").build();
+            } catch (Exception e) {
+                log.error("LD POST error while writing graph {}", graphIRI, e);
+                return Response.serverError().build();
             }
-        } catch (Exception e) {
-            log.error("Error executing maze rules after POST", e);
-            // Don't fail the POST request if rules fail
         }
         
         return Response.noContent()
