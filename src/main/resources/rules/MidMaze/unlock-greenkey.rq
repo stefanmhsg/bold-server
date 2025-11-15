@@ -2,13 +2,13 @@ PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX http: <http://www.w3.org/2011/http#>
 
-# Unlock cell with green key - leads to cell 19 (south direction)
+# Unlock cell with green key /3/2 - leads to cell 4/2 (south direction)
 CONSTRUCT {
     # Mark the action as completed
     ?greenAction dyn:hasStatus dyn:done .
     
     # Update the maze topology to add south connection
-    ?ccc maze:south <http://127.0.1.1:8080/cells/19> .
+    ?ccc maze:south <http://127.0.1.1:8080/cells/4/2> .
     ?ccc dyn:state dyn:unlocked .
 }
 WHERE {
