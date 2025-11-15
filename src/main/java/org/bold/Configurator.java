@@ -3,6 +3,7 @@ package org.bold;
 import org.bold.io.FileUtils;
 import org.bold.ld.CorsFilter;
 import org.bold.ld.LinkedDataDereferenceResource;
+import org.bold.ld.MoveResource;
 import org.bold.maze.MazeGameEngine;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.DefaultServlet;
@@ -183,6 +184,7 @@ public class Configurator {
 		// --------------------------------------------------
 		ResourceConfig ldConfig = new ResourceConfig();
 		ldConfig.register(LinkedDataDereferenceResource.class);
+		ldConfig.register(MoveResource.class);
 		ldConfig.register(CorsFilter.class);
 
 		Servlet ldContainer = new ServletContainer(ldConfig);

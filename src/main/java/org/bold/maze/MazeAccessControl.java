@@ -24,6 +24,44 @@ public class MazeAccessControl {
     }
     
     /**
+     * Find the current location of an agent in the maze.
+     * Queries all cell graphs to find which cell contains the specified agent.
+     * 
+     * @param agentUri the full URI of the agent to locate
+     * @return the URI of the cell containing the agent, or null if not found
+     */
+    public String findAgentLocation(String agentUri) {
+        try (SailRepositoryConnection connection = repository.getConnection()) {
+            // Query all graphs to find which cell contains this agent
+            String sparql = 
+                "PREFIX maze: <" + MAZE_NS + "> \n" +
+                "SELECT ?cell WHERE { \n" +
+                "  GRAPH ?cell { \n" +
+                "    ?cell maze:contains <" + agentUri + "> . \n" +
+                "  } \n" +
+                "} LIMIT 1";
+            
+            log.debug("Finding agent location with SPARQL: {}", sparql);
+            
+            var tupleQuery = connection.prepareTupleQuery(sparql);
+            try (var result = tupleQuery.evaluate()) {
+                if (result.hasNext()) {
+                    String cellUri = result.next().getValue("cell").stringValue();
+                    log.info("Agent {} found in cell {}", agentUri, cellUri);
+                    return cellUri;
+                } else {
+                    log.info("Agent {} not found in any cell", agentUri);
+                    return null;
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("Error finding location for agent {}", agentUri, e);
+            return null;
+        }
+    }
+    
+    /**
      * Check if the requested cell is accessible from the current cell.
      * This queries the RDF graph to find valid outgoing connections (north, south, east, west, exit)
      * that are not walls and match the requested cell URI.

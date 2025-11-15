@@ -2,6 +2,7 @@ package org.bold.ld;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URI;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.GET;
@@ -168,72 +169,56 @@ public class LinkedDataDereferenceResource {
 
     @POST
     @Consumes({ "text/turtle", "application/n-triples", "application/ld+json", "application/rdf+xml" })
-    public Response postGraph(@Context UriInfo uriinfo, String body) {
-        String graphIRI = uriinfo.getAbsolutePath().toString();
-        log.info("LD POST merge into graph: {}", graphIRI);
-
-        SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
+    @Produces("text/plain")
+    public Response postGraph(@HeaderParam("Authorization") String authorization,
+                                @Context UriInfo uriinfo, String body) {
+                                    
+        // Extract agent name from Authorization header (optional)
+        String agentName = AgentAuthUtil.extractAgentName(authorization);
         
-        // Synchronize on repository to ensure thread-safe transactions
-        // when multiple agents POST simultaneously
-        synchronized (repo) {
-            try (SailRepositoryConnection connection = repo.getConnection()) {
-
-                ValueFactory vf = connection.getValueFactory();
-                IRI graphName = vf.createIRI(graphIRI);
-
-                // check existence (same semantics as GET)
-                boolean exists = connection.hasStatement(null, null, null, false, graphName);
-                if (!exists) {
-                    log.info("LD POST received but graph does not exist: {}", graphIRI);
-                    return Response.status(Response.Status.NOT_FOUND).entity("Graph not found: " + graphIRI).build();
-                }
-
-                // Parse body into this graph context
-                java.util.Optional<RDFFormat> fmtOpt = Rio.getParserFormatForMIMEType(detectContentType(body));
-                RDFFormat fmt = fmtOpt.orElse(RDFFormat.TURTLE); // fallback
-
-                Model model = Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
-                          graphIRI,      // base URI → resolves relative URIs against the graph itself
-                          fmt,
-                          graphName);    // <-- merge into this same named graph
-
-                connection.begin();
-                connection.add(model);
-                
-                // Execute maze rules within the same transaction
-                try {
-                    log.info("Executing maze rules after POST to {}", graphIRI);
-                    org.bold.maze.rules.MazeRuleEngine.RuleExecutionResult ruleResult = 
-                        getGameEngine().executeRules();
-                    
-                    if (ruleResult.hasChanges()) {
-                        log.info("Rules execution result: {}", ruleResult);
-                    }
-                } catch (Exception e) {
-                    log.error("Error executing maze rules after POST", e);
-                    // Rollback transaction if rules fail
-                    connection.rollback();
-                    return Response.serverError().entity("Error executing maze rules").build();
-                }
-                
-                connection.commit();
-
-                log.info("LD POST merged triples: \n {} \n into: {}", body, graphIRI);
-
-            } catch (IOException | RDFParseException | UnsupportedRDFormatException e) {
-                log.error("LD POST failed parsing body for {}", graphIRI, e);
-                return Response.status(Response.Status.BAD_REQUEST).entity("Bad RDF payload").build();
-            } catch (Exception e) {
-                log.error("LD POST error while writing graph {}", graphIRI, e);
-                return Response.serverError().build();
-            }
+        String graphIRI = uriinfo.getAbsolutePath().toString();
+        log.info("LD POST attempting merge into graph: {} by agent: {}", graphIRI, 
+                 agentName != null ? agentName : "<anonymous>");
+        
+        // Parse RDF body
+        Model model;
+        try {
+            java.util.Optional<RDFFormat> fmtOpt = Rio.getParserFormatForMIMEType(detectContentType(body));
+            RDFFormat fmt = fmtOpt.orElse(RDFFormat.TURTLE);
+            
+            ValueFactory vf = ((SailRepository) _ctx.getAttribute(
+                Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE)).getValueFactory();
+            IRI graphName = vf.createIRI(graphIRI);
+            
+            model = Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
+                            graphIRI,
+                            fmt,
+                            graphName);
+                            
+        } catch (IOException | RDFParseException | UnsupportedRDFormatException e) {
+            log.error("LD POST failed parsing body for {}", graphIRI, e);
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Bad RDF payload")
+                    .build();
         }
         
-        return Response.noContent()
-                .header("Access-Control-Allow-Origin", "*")
-                .header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
-                .build();
+        // Delegate to game engine for all POST logic
+        MazeGameEngine.PostResult postResult = getGameEngine().performPost(agentName, graphIRI, model);
+        
+        if (!postResult.isSuccess()) {
+            log.warn("POST to {} failed for agent {}: {}", graphIRI, agentName, postResult.getErrorMessage());
+            return Response.status(postResult.getStatusCode())
+                    .entity(postResult.getErrorMessage())
+                    .build();
+        }
+        
+        // Success - return 201 Created
+        log.info("POST successful: {} triples merged into {}, {} rules triggered",
+                postResult.getTriplesAdded(), graphIRI, postResult.getRulesTriggered());
+        
+        return Response.created(URI.create(graphIRI))
+                .entity("Graph updated: " + graphIRI)
+                .build(); 
     }
 
     // Helper to guess MIME if no Content-Type was set by LDFu (which it often doesn't)
