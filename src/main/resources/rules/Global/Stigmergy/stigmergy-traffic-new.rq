@@ -1,0 +1,24 @@
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX sm:   <https://example.org/stigmark#>
+
+CONSTRUCT {
+    ?cell sm:hasMarker ?newMarker .
+    ?newMarker a sm:Marker .
+    ?newMarker sm:contains _:node .
+    _:node sm:refersTo ?target .
+    _:node sm:quantitative 1 .
+}
+WHERE {
+    GRAPH ?g {
+        # agent movement event:
+        ?cell maze:outgoingAgent ?agent .
+        ?agent maze:targetCell ?target .
+
+        # ensure marker does NOT already exist
+        FILTER NOT EXISTS { ?cell sm:hasMarker ?anyMarker }
+    }
+
+    # create new marker IRI
+    BIND(IRI(CONCAT(STR(?cell), "#marker")) AS ?newMarker)
+}

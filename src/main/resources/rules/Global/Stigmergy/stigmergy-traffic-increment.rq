@@ -1,0 +1,24 @@
+PREFIX sm: <https://example.org/stigmark#>
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+
+CONSTRUCT {
+    ?cell a maze:Cell . # Provides context for merging triples in the same graph
+    ?subnode sm:quantitative ?newCount .
+}
+WHERE {
+    GRAPH ?g {
+        ?cell maze:outgoingAgent ?agent .
+        ?agent maze:targetCell ?target .
+
+        # marker exists
+        ?cell sm:hasMarker ?marker .
+
+        # find existing subnode
+        ?marker sm:contains ?subnode .
+        ?subnode sm:refersTo ?target .
+        ?subnode sm:quantitative ?count .
+    }
+
+    BIND(?count + 1 AS ?newCount)
+}

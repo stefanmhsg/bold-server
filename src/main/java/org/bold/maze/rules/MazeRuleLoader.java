@@ -112,30 +112,31 @@ public class MazeRuleLoader {
     }
     
     /**
-     * Auto-discover all .rq files in the rules directory for a specific maze.
-     * Dynamically discovers all .rq files in the maze subdirectory.
+     * Auto-discover all .rq files in the rules directory for a specific maze or directory path.
+     * Dynamically discovers all .rq files in the specified subdirectory.
+     * Supports nested paths like "Global/Stigmergy".
      * 
-     * @param mazeName Name of the maze subdirectory (e.g., "UnsafeMaze", "BigMaze"), or null for root rules
+     * @param pathName Name of the subdirectory path (e.g., "UnsafeMaze", "Global/Stigmergy"), or null for root rules
      * @return List of discovered rule filenames (with subdirectory prefix if applicable)
      */
-    public List<String> discoverRuleFiles(String mazeName) {
+    public List<String> discoverRuleFiles(String pathName) {
         List<String> ruleFiles = new ArrayList<>();
         
         try {
-            if (mazeName != null && !mazeName.isEmpty()) {
-                // Load maze-specific rules from subdirectory
-                String subDirPath = RULES_DIRECTORY + mazeName + "/";
-                ruleFiles = discoverRuleFilesInResource(subDirPath, mazeName + "/");
+            if (pathName != null && !pathName.isEmpty()) {
+                // Load rules from specified subdirectory path (supports nested paths)
+                String subDirPath = RULES_DIRECTORY + pathName + "/";
+                ruleFiles = discoverRuleFilesInResource(subDirPath, pathName + "/");
             } else {
                 // Load generic root-level rules (no subdirectory)
                 ruleFiles = discoverRuleFilesInResource(RULES_DIRECTORY, "");
             }
         } catch (Exception e) {
-            log.error("Error discovering rule files for maze: {}", mazeName, e);
+            log.error("Error discovering rule files for path: {}", pathName, e);
         }
         
         log.info("Discovered {} rule files{}", ruleFiles.size(), 
-                mazeName != null ? " for maze: " + mazeName : "");
+                pathName != null ? " for path: " + pathName : "");
         return ruleFiles;
     }
     

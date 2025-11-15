@@ -45,6 +45,17 @@ public class MazeGameEngine {
      * @param mazeName The maze name (e.g., "UnsafeMaze", "BigMaze"), or null for generic rules
      */
     public MazeGameEngine(SailRepository repository, String mazeName) {
+        this(repository, mazeName, java.util.Collections.singletonList("Global"));
+    }
+    
+    /**
+     * Creates a MazeGameEngine with maze-specific rules and additional global rulesets.
+     * 
+     * @param repository The RDF repository
+     * @param mazeName The maze name (e.g., "UnsafeMaze", "BigMaze"), or null for generic rules
+     * @param additionalRulesets List of additional ruleset directory paths (e.g., ["Global", "Global/Stigmergy"])
+     */
+    public MazeGameEngine(SailRepository repository, String mazeName, List<String> additionalRulesets) {
         this.repository = repository;
         this.accessControl = new MazeAccessControl(repository);
         this.pathTracker = new MazePathTracker("agent-paths");
@@ -53,11 +64,26 @@ public class MazeGameEngine {
         // Initialize rule engine with loaded rules
         MazeRuleLoader ruleLoader = new MazeRuleLoader();
         List<String> ruleFiles = ruleLoader.discoverRuleFiles(mazeName);
+        
+        // Load all additional global rulesets if specified
+        if (additionalRulesets != null && !additionalRulesets.isEmpty()) {
+            for (String ruleset : additionalRulesets) {
+                List<String> additionalRuleFiles = ruleLoader.discoverRuleFiles(ruleset);
+                ruleFiles.addAll(additionalRuleFiles);
+                log.info("Added {} rules from additional ruleset: {}", additionalRuleFiles.size(), ruleset);
+            }
+        }
+        
         List<MazeRule> rules = ruleLoader.loadRules(ruleFiles);
         this.ruleEngine = new MazeRuleEngine(repository, rules);
         
-        log.info("MazeGameEngine initialized{} with {} rules", 
-                mazeName != null ? " for " + mazeName : "", rules.size());
+        String rulesetsInfo = additionalRulesets != null && !additionalRulesets.isEmpty() 
+                ? " + " + String.join(", ", additionalRulesets) 
+                : "";
+        log.info("MazeGameEngine initialized{}{} with {} rules", 
+                mazeName != null ? " for " + mazeName : "",
+                rulesetsInfo,
+                rules.size());
     }
     
     /**
@@ -202,19 +228,26 @@ public class MazeGameEngine {
                 IRI agent = vf.createIRI(agentUri);
                 IRI containsPredicate = vf.createIRI(MAZE_NS + "contains");
                 
-                // Remove agent from current cell (if any)
+                IRI targetCell = vf.createIRI(targetCellUri);
+                IRI targetCellGraph = vf.createIRI(targetCellUri);
+
+                // Remove agent from current cell (if any) - add move requested triple to target cell for potential stigmergy rules to fire later
                 if (currentLocation != null) {
                     IRI currentCell = vf.createIRI(currentLocation);
                     IRI currentCellGraph = vf.createIRI(currentLocation);
-                    
+                    IRI outgoingPredicate = vf.createIRI(MAZE_NS + "outgoingAgent"); // TODO: use appropriate ontology predicate
+                    IRI targetPredicate = vf.createIRI(MAZE_NS + "targetCell"); // TODO: use appropriate ontology predicate
+
+                    // Temporary triples for move event
+                    conn.add(currentCell, outgoingPredicate, agent, currentCellGraph);
+                    conn.add(agent, targetPredicate, targetCell, currentCellGraph);
+
+                    // Remove from current cell
                     conn.remove(currentCell, containsPredicate, agent, currentCellGraph);
                     log.info("Removed {} from cell graph {}", agentUri, currentLocation);
                 }
                 
                 // Add agent to target cell
-                IRI targetCell = vf.createIRI(targetCellUri);
-                IRI targetCellGraph = vf.createIRI(targetCellUri);
-                
                 conn.add(targetCell, containsPredicate, agent, targetCellGraph);
                 log.info("Added {} to cell graph {}", agentUri, targetCellUri);
                 
@@ -239,6 +272,33 @@ public class MazeGameEngine {
             // Move succeeded but rules failed - continue
         }
         
+        // Step 3: Remove temporary move event triples
+        synchronized (repository) {
+            try (SailRepositoryConnection conn = repository.getConnection()) {
+                conn.begin();
+                
+                ValueFactory vf = conn.getValueFactory();
+                IRI agent = vf.createIRI(agentUri);
+                
+                if (currentLocation != null) {
+                    IRI currentCell = vf.createIRI(currentLocation);
+                    IRI outgoingPredicate = vf.createIRI(MAZE_NS + "outgoingAgent");
+                    IRI targetPredicate = vf.createIRI(MAZE_NS + "targetCell");
+                    
+                    // Remove temporary triples
+                    conn.remove(currentCell, outgoingPredicate, agent);
+                    conn.remove(agent, targetPredicate, vf.createIRI(targetCellUri));
+                }
+                
+                conn.commit();
+                log.debug("Cleaned up temporary move event triples for agent {}", agentName);
+                
+            } catch (Exception e) {
+                log.error("Error cleaning up move event triples for agent {}", agentName, e);
+                // Not critical - continue
+            }
+        }
+
         // Record movement in tracker
         pathTracker.recordMovement(agentName, targetCellUri);
         

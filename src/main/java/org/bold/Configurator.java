@@ -58,6 +58,12 @@ public class Configurator {
     public static void main(String[] args) throws Exception {
         // TODO more advanced CLI
         String task = args.length > 0 ? args[0] : "sim-UnsafeMaze";
+        
+        // Parse all additional arguments as ruleset directories
+        List<String> additionalRulesets = new ArrayList<>();
+        for (int i = 1; i < args.length; i++) {
+            additionalRulesets.add(args[i]);
+        }
 
         Properties config = new Properties();
         config.load(new FileInputStream((task + ".properties")));
@@ -200,7 +206,19 @@ public class Configurator {
 		// Extract maze name from task (e.g., "sim-UnsafeMaze" -> "UnsafeMaze")
 		String mazeName = extractMazeName(task);
 		log.info("Initializing MazeGameEngine for maze: {}", mazeName != null ? mazeName : "generic");
-		MazeGameEngine gameEngine = new MazeGameEngine(repo, mazeName);
+		
+		// Build full paths for all additional rulesets (e.g., "Stigmergy" -> "Global/Stigmergy")
+		// ALWAYS include Global as the base
+		List<String> additionalRulesetPaths = new ArrayList<>();
+		additionalRulesetPaths.add("Global");
+		
+		// Add any additional rulesets on top of Global
+		for (String ruleset : additionalRulesets) {
+			additionalRulesetPaths.add("Global/" + ruleset);
+		}
+		log.info("Additional ruleset paths: {}", additionalRulesetPaths);
+		
+		MazeGameEngine gameEngine = new MazeGameEngine(repo, mazeName, additionalRulesetPaths);
 		((HttpServlet) ldContainer).getServletContext().setAttribute(MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE, gameEngine);
 		log.info("MazeGameEngine initialized and stored in ServletContext");
 

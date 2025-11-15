@@ -35,7 +35,8 @@ public class MazeRuleEngine {
      */
     private static final Set<String> STATE_PREDICATES = Set.of(
         "https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#hasStatus",
-        "https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#state"
+        "https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#state",
+        "https://example.org/stigmark#quantitative" // TODO: use propper ontology
     );
     
     private final SailRepository repository;
@@ -124,17 +125,39 @@ public class MazeRuleEngine {
         // For state predicates, apply cleanup to remove conflicting values
         int triplesAdded = 0;
         int triplesRemoved = 0;
+
+        IRI lastIriSubject = null;
         
         for (Statement stmt : resultModel) {
-            // Infer the target graph from the subject URI
-            // If subject is http://127.0.1.1:8080/cells/5#redAction
-            // Then target graph is http://127.0.1.1:8080/cells/5
-            IRI targetGraph = inferTargetGraph(stmt.getSubject(), connection);
-            
-            if (targetGraph == null) {
-                log.warn("Could not infer target graph for subject: {}", stmt.getSubject());
-                continue;
+
+            IRI targetGraph = (IRI) stmt.getContext();   // may be null if rule file did not set GRAPH
+
+            if (!(targetGraph instanceof IRI)) {
+                // Infer the target graph from the subject URI
+                // If subject is http://127.0.1.1:8080/cells/5#redAction
+                // Then target graph is http://127.0.1.1:8080/cells/5
+                targetGraph = inferTargetGraph(stmt.getSubject(), connection);
             }
+
+            // If still not an IRI, fallback to last known IRI subject graph
+            if (!(targetGraph instanceof IRI)) {
+                 log.warn("Could not infer target graph for subject: {}", stmt.getSubject());
+
+                // For blank nodes, assuming previously used graph
+                if (lastIriSubject != null) {
+                    targetGraph = lastIriSubject;
+                    log.debug("Using last known graph: {}", targetGraph);
+                } else {
+                    log.warn("No previous graph available, skipping triple: {}", stmt);
+                    continue;
+                }
+            }
+
+            if (targetGraph instanceof IRI) {
+                lastIriSubject = targetGraph;
+            }
+            
+
             
             // Only apply cleanup for whitelisted state predicates
             if (STATE_PREDICATES.contains(stmt.getPredicate().stringValue())) {
