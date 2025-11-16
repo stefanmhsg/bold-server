@@ -1,4 +1,4 @@
-package org.bold.maze.rules;
+package org.maze.domain.rules;
 
 /**
  * Represents a single maze game rule loaded from a SPARQL CONSTRUCT query.

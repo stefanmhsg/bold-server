@@ -1,4 +1,4 @@
-package org.bold.ld;
+package org.maze.api.ld;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.Consumes;
@@ -10,9 +10,9 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
-import org.bold.Configurator;
-import org.bold.maze.AgentAuthUtil;
-import org.bold.maze.MazeGameEngine;
+import org.maze.Configurator;
+import org.maze.application.MazeGameEngine;
+import org.maze.domain.utils.AgentAuthUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

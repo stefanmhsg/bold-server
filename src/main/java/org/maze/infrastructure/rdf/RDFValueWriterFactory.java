@@ -1,4 +1,4 @@
-package org.bold.io;
+package org.maze.infrastructure.rdf;
 
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFWriter;

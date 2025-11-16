@@ -292,7 +292,7 @@ Rules execution complete: 2 rules triggered, 6 triples added
 In `src/main/resources/simplelogger.properties`:
 
 ```properties
-org.slf4j.simpleLogger.log.org.bold.maze.rules=debug
+org.slf4j.simpleLogger.log.org.maze.domain.rules=debug
 ```
 
 ### Debug Output

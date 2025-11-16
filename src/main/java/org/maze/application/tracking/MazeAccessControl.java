@@ -1,4 +1,4 @@
-package org.bold.maze;
+package org.maze.application.tracking;
 
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;

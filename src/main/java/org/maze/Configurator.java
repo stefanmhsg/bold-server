@@ -1,10 +1,5 @@
-package org.bold;
+package org.maze;
 
-import org.bold.io.FileUtils;
-import org.bold.ld.CorsFilter;
-import org.bold.ld.LinkedDataDereferenceResource;
-import org.bold.ld.MoveResource;
-import org.bold.maze.MazeGameEngine;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
@@ -24,6 +19,11 @@ import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import de.fau.rw.ti.LDPInferencer;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
+import org.maze.api.ld.CorsFilter;
+import org.maze.api.ld.LinkedDataDereferenceResource;
+import org.maze.api.ld.MoveResource;
+import org.maze.application.MazeGameEngine;
+import org.maze.domain.utils.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

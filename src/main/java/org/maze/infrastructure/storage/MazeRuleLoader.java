@@ -1,4 +1,4 @@
-package org.bold.maze.rules;
+package org.maze.infrastructure.storage;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,7 +11,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.bold.io.FileUtils;
+import org.maze.domain.rules.MazeRule;
+import org.maze.domain.utils.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

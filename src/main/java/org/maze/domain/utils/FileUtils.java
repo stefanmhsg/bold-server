@@ -1,6 +1,6 @@
-package org.bold.io;
+package org.maze.domain.utils;
 
-import org.bold.Configurator;
+import org.maze.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

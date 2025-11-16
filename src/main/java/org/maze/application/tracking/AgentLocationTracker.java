@@ -1,4 +1,4 @@
-package org.bold.maze;
+package org.maze.application.tracking;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

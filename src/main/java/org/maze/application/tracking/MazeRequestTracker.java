@@ -1,4 +1,4 @@
-package org.bold.maze;
+package org.maze.application.tracking;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;

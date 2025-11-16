@@ -1,14 +1,16 @@
-package org.bold.maze;
+package org.maze.application;
 
 import java.util.List;
 
-import org.bold.maze.rules.MazeRule;
-import org.bold.maze.rules.MazeRuleEngine;
-import org.bold.maze.rules.MazeRuleLoader;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
+import org.maze.application.tracking.MazeAccessControl;
+import org.maze.application.tracking.MazePathTracker;
+import org.maze.application.tracking.MazeRequestTracker;
+import org.maze.domain.rules.MazeRule;
+import org.maze.infrastructure.storage.MazeRuleLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

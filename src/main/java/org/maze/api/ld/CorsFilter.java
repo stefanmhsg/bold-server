@@ -1,4 +1,4 @@
-package org.bold.ld;
+package org.maze.api.ld;
 
 import java.io.IOException;
 import javax.ws.rs.container.ContainerRequestContext;

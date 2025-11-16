@@ -1,4 +1,4 @@
-package org.bold.ld;
+package org.maze.api.ld;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -20,10 +20,9 @@ import javax.ws.rs.Consumes;
 
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
-
-import org.bold.Configurator;
-import org.bold.maze.AgentAuthUtil;
-import org.bold.maze.MazeGameEngine;
+import org.maze.Configurator;
+import org.maze.application.MazeGameEngine;
+import org.maze.domain.utils.AgentAuthUtil;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.Model;
@@ -147,6 +146,10 @@ public class LinkedDataDereferenceResource {
             };
             return output;
 
+        } catch (WebApplicationException e) {
+            // Don't log 404s as errors - they're expected for non-existent graphs
+            try { connection.close(); } catch (Exception ignore) {}
+            throw e;
         } catch (RuntimeException e) {
             try { connection.close(); } catch (Exception ignore) {}
             log.error("LD error while dereferencing {}", uriinfo.getAbsolutePath(), e);

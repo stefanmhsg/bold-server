@@ -3,7 +3,7 @@ plugins {
     id 'application'
 }
 
-group 'org.bold'
+group 'org.maze'
 version '0.2.0'
 
 //sourceCompatibility = 1.8
@@ -34,7 +34,7 @@ dependencies {
 }
 
 application {
-    mainClass = 'org.bold.Configurator'
+    mainClass = 'org.maze.Configurator'
 }
 
 distributions {

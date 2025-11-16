@@ -1,6 +1,6 @@
 # Maze Game Engine Package
 
-This package (`org.bold.maze`) contains the game engine logic for the maze navigation system in the BOLD server. It has been extracted from the linked data dereferencing resource to provide a clean separation of concerns between REST API handling and game rules.
+This package (`org.maze`) contains the game engine logic for the maze navigation system in the BOLD server. It has been extracted from the linked data dereferencing resource to provide a clean separation of concerns between REST API handling and game rules.
 
 ## Architecture
 
@@ -96,7 +96,7 @@ The maze game engine follows a modular design with clear responsibilities:
   - Executes CONSTRUCT queries after state changes
   - Adds generated triples to RDF graph (unlocking doors, toggling switches)
 - **Trigger**: Called automatically after every POST request
-- **Package**: `org.bold.maze.rules`
+- **Package**: `org.maze.domain.rules`
 
 ### 8. **MazeRuleLoader** (Rule Discovery)
 - **Purpose**: Discovers and loads SPARQL rule files from resources

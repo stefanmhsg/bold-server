@@ -1,4 +1,4 @@
-package org.bold.maze.rules;
+package org.maze.application;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +13,7 @@ import org.eclipse.rdf4j.query.QueryResults;
 import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
+import org.maze.domain.rules.MazeRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

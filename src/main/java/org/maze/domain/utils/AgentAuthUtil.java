@@ -1,4 +1,4 @@
-package org.bold.maze;
+package org.maze.domain.utils;
 
 /**
  * Utility class for handling agent authorization in the maze game.

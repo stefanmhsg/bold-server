@@ -1,4 +1,4 @@
-package org.bold.io;
+package org.maze.infrastructure.rdf;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
