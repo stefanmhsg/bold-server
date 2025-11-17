@@ -95,7 +95,7 @@ public class MazeRequestTracker {
             if (lastRequest != null) {
                 RequestInfo lastInfo = requestCounts.get(lastRequest);
                 if (lastInfo != null) {
-                    writeRequestToLog(agentName, lastRequest.getCellUri(), lastRequest.getOperation(), 
+                    writeRequestToLog(agentName, lastRequest.cellUri(), lastRequest.operation(), 
                                     lastInfo.getCount(), lastInfo.isLastAccessAllowed());
                 }
             }
@@ -124,7 +124,7 @@ public class MazeRequestTracker {
         if (lastRequest != null) {
             RequestInfo info = requestCounts.get(lastRequest);
             if (info != null && info.getCount() > 0) {
-                writeRequestToLog(agentName, lastRequest.getCellUri(), lastRequest.getOperation(), 
+                writeRequestToLog(agentName, lastRequest.cellUri(), lastRequest.operation(), 
                                 info.getCount(), info.isLastAccessAllowed());
             }
         }
@@ -176,7 +176,7 @@ public class MazeRequestTracker {
      */
     public void resetAgent(String agentName) {
         // Remove all request counts for this agent
-        requestCounts.keySet().removeIf(key -> key.getAgentName().equals(agentName));
+        requestCounts.keySet().removeIf(key -> key.agentName().equals(agentName));
         lastLoggedRequest.remove(agentName);
         log.info("Reset request tracking for agent {}", agentName);
     }

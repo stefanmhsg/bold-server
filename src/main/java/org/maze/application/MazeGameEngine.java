@@ -113,12 +113,12 @@ public class MazeGameEngine {
         // Non-cell resources are always accessible
         if (!isCellResource(requestedCellUri)) {
             requestTracker.recordRequest(agentName, requestedCellUri, operation, true);
-            return AccessResult.allowed();
+            return AccessResult.allow();
         }
         
         // If no agent name provided, allow access (no tracking)
         if (agentName == null || agentName.trim().isEmpty()) {
-            return AccessResult.allowed();
+            return AccessResult.allow();
         }
         
         // Build agent URI from requested cell URI. 
@@ -136,18 +136,18 @@ public class MazeGameEngine {
                     log.warn("Agent {} has no location, attempting to move to {} - denied (not entrance)", 
                              agentName, requestedCellUri);
                     requestTracker.recordRequest(agentName, requestedCellUri, operation, false);
-                    return AccessResult.denied("Access denied. Agent must start at the entrance cell (check xhv:start in /maze).");
+                    return AccessResult.deny("Access denied. Agent must start at the entrance cell (check xhv:start in /maze).");
                 }
                 
                 // Allow first move to entrance
                 log.info("Agent {} starting at entrance: {}", agentName, requestedCellUri);
                 requestTracker.recordRequest(agentName, requestedCellUri, operation, true);
-                return AccessResult.allowed();
+                return AccessResult.allow();
             } else {
                 // For GET and POST, deny if agent has no location
                 log.warn("Agent {} has no location, cannot perceive or modify {}", agentName, requestedCellUri);
                 requestTracker.recordRequest(agentName, requestedCellUri, operation, false);
-                return AccessResult.denied("Access denied. Agent has no location. Use /move to enter the maze.");
+                return AccessResult.deny("Access denied. Agent has no location. Use /move to enter the maze.");
             }
         }
         
@@ -157,7 +157,7 @@ public class MazeGameEngine {
                 log.warn("Agent {} at {} attempted to perceive {} - denied (not accessible)",
                          agentName, currentLocation, requestedCellUri);
                 requestTracker.recordRequest(agentName, requestedCellUri, operation, false);
-                return AccessResult.denied(
+                return AccessResult.deny(
                     String.format("Access denied. Cell %s is not perceivable from your current location %s",
                                  requestedCellUri, currentLocation));
             }
@@ -165,7 +165,7 @@ public class MazeGameEngine {
             // Allow perception
             log.info("Agent {} at {} perceiving {}", agentName, currentLocation, requestedCellUri);
             requestTracker.recordRequest(agentName, requestedCellUri, operation, true);
-            return AccessResult.allowed();
+            return AccessResult.allow();
         }
         
         // For MOVE requests, validate movement
@@ -174,7 +174,7 @@ public class MazeGameEngine {
                 log.warn("Agent {} at {} attempted unauthorized move to {} - denied",
                          agentName, currentLocation, requestedCellUri);
                 requestTracker.recordRequest(agentName, requestedCellUri, operation, false);
-                return AccessResult.denied(
+                return AccessResult.deny(
                     String.format("Access denied. Cell %s is not accessible from your current location %s",
                                  requestedCellUri, currentLocation));
             }
@@ -184,7 +184,7 @@ public class MazeGameEngine {
             pathTracker.recordMovement(agentName, requestedCellUri);
             requestTracker.recordRequest(agentName, requestedCellUri, operation, true);
             
-            return AccessResult.allowed();
+            return AccessResult.allow();
         }
         
         // For POST requests (interaction), agent must be at the target cell
@@ -194,7 +194,7 @@ public class MazeGameEngine {
                 log.warn("Agent {} at {} attempted to POST to {} - denied (not at location)",
                          agentName, currentLocation, requestedCellUri);
                 requestTracker.recordRequest(agentName, requestedCellUri, operation, false);
-                return AccessResult.denied(
+                return AccessResult.deny(
                     String.format("Access denied. You can only POST to your current cell. You are at %s, not %s",
                                  currentLocation, requestedCellUri));
             }
@@ -202,12 +202,12 @@ public class MazeGameEngine {
             // Allow interaction with current cell
             log.info("Agent {} at {} posting to current cell", agentName, currentLocation);
             requestTracker.recordRequest(agentName, requestedCellUri, operation, true);
-            return AccessResult.allowed();
+            return AccessResult.allow();
         }
         
         // Unknown operation
         log.warn("Unknown operation type: {}", operation);
-        return AccessResult.denied("Unknown operation type: " + operation);
+        return AccessResult.deny("Unknown operation type: " + operation);
     }
     
     /**
@@ -222,7 +222,7 @@ public class MazeGameEngine {
         // First validate the move
         AccessResult validation = validateAccess(agentName, targetCellUri, "MOVE");
         if (!validation.isAllowed()) {
-            return MoveResult.failed(validation.getMessage());
+            return MoveResult.failed(validation.message());
         }
         
         // Build agent URI
@@ -286,8 +286,8 @@ public class MazeGameEngine {
             log.debug("Executing maze rules after move");
             RuleExecutionResult ruleResult = ruleEngine.executeRules();
             log.info("Rules executed: {} triggered, {} triples added",
-                    ruleResult.getRulesTriggered(), 
-                    ruleResult.getTriplesAdded());
+                    ruleResult.rulesTriggered(), 
+                    ruleResult.triplesAdded());
         } catch (Exception e) {
             log.error("Error executing rules after move for agent {}", agentName, e);
             // Move succeeded but rules failed - continue
@@ -353,7 +353,7 @@ public class MazeGameEngine {
         // Validate access first (outside transaction)
         AccessResult validation = validateAccess(agentName, graphIRI, "POST");
         if (!validation.isAllowed()) {
-            return PostResult.denied(validation.getMessage());
+            return PostResult.denied(validation.message());
         }
         
         int triplesAdded = rdfModel.size();
@@ -409,9 +409,9 @@ public class MazeGameEngine {
         }
         
         log.info("POST successful: merged {} triples into {}, {} rules triggered",
-                triplesAdded, graphIRI, ruleResult.getRulesTriggered());
+                triplesAdded, graphIRI, ruleResult.rulesTriggered());
         
-        return PostResult.success(graphIRI, triplesAdded, ruleResult.getRulesTriggered());
+        return PostResult.success(graphIRI, triplesAdded, ruleResult.rulesTriggered());
     }
     
     /**

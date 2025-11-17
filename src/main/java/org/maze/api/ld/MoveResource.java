@@ -93,15 +93,15 @@ public class MoveResource {
         MoveResult moveResult = gameEngine.performMove(agentName, targetCellUri);
         
         if (!moveResult.isSuccess()) {
-            log.info("Move denied for agent {}: {}", agentName, moveResult.getErrorMessage());
+            log.info("Move denied for agent {}: {}", agentName, moveResult.errorMessage());
             return Response.status(Response.Status.FORBIDDEN)
-                    .entity(moveResult.getErrorMessage())
+                    .entity(moveResult.errorMessage())
                     .build();
         }
         
         // Move successful
         log.info("Move successful: agent {} from {} to {}", 
-                agentName, moveResult.getFromCell(), moveResult.getToCell());
+                agentName, moveResult.fromCell(), moveResult.toCell());
         
         // Return 201 Created with Location header
         return Response.created(URI.create(targetCellUri))

@@ -75,7 +75,7 @@ public class LinkedDataDereferenceResource {
         
         if (!accessResult.isAllowed()) {
             return Response.status(Response.Status.FORBIDDEN)
-                    .entity(accessResult.getMessage())
+                    .entity(accessResult.message())
                     .build();
         }
         
@@ -211,15 +211,15 @@ public class LinkedDataDereferenceResource {
         PostResult postResult = getGameEngine().performPost(agentName, graphIRI, model);
         
         if (!postResult.isSuccess()) {
-            log.warn("POST to {} failed for agent {}: {}", graphIRI, agentName, postResult.getErrorMessage());
-            return Response.status(postResult.getStatusCode())
-                    .entity(postResult.getErrorMessage())
+            log.warn("POST to {} failed for agent {}: {}", graphIRI, agentName, postResult.errorMessage());
+            return Response.status(postResult.statusCode())
+                    .entity(postResult.errorMessage())
                     .build();
         }
         
         // Success - return 201 Created
         log.info("POST successful: {} triples merged into {}, {} rules triggered",
-                postResult.getTriplesAdded(), graphIRI, postResult.getRulesTriggered());
+                postResult.triplesAdded(), graphIRI, postResult.rulesTriggered());
         
         return Response.created(URI.create(graphIRI))
                 .entity("Graph updated: " + graphIRI)
