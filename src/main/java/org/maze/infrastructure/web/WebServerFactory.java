@@ -15,6 +15,7 @@ import org.glassfish.jersey.servlet.ServletContainer;
 import org.maze.api.ld.CorsFilter;
 import org.maze.api.ld.LinkedDataDereferenceResource;
 import org.maze.api.ld.MoveResource;
+import org.maze.api.sparql.SparqlResource;
 import org.maze.application.MazeGameEngine;
 import org.maze.infrastructure.config.ServerConfiguration;
 import org.slf4j.Logger;
@@ -80,6 +81,7 @@ public class WebServerFactory {
         ResourceConfig ldConfig = new ResourceConfig();
         ldConfig.register(LinkedDataDereferenceResource.class);
         ldConfig.register(MoveResource.class);
+        ldConfig.register(SparqlResource.class);
         ldConfig.register(CorsFilter.class);
         
         Servlet ldContainer = new ServletContainer(ldConfig);

@@ -6,6 +6,7 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.maze.application.services.AccessValidator;
 import org.maze.application.services.MovementCoordinator;
 import org.maze.application.services.PostHandler;
+import org.maze.application.services.SparqlService;
 import org.maze.application.tracking.MazeAccessControl;
 import org.maze.application.tracking.MazePathTracker;
 import org.maze.application.tracking.MazeRequestTracker;
@@ -13,6 +14,7 @@ import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.MoveResult;
 import org.maze.domain.model.PostResult;
 import org.maze.domain.model.RuleExecutionResult;
+import org.maze.domain.model.SparqlResult;
 import org.maze.domain.rules.MazeRule;
 import org.maze.infrastructure.concurrency.GraphLockManager;
 import org.maze.infrastructure.storage.MazeRuleLoader;
@@ -28,6 +30,7 @@ import org.slf4j.LoggerFactory;
  *   <li>{@link AccessValidator} - validates agent access to cells</li>
  *   <li>{@link MovementCoordinator} - handles agent movement</li>
  *   <li>{@link PostHandler} - handles RDF triple merging</li>
+ *   <li>{@link SparqlService} - executes SPARQL queries</li>
  * </ul>
  * 
  * <p>This orchestrator keeps the public API stable while the internal service architecture
@@ -41,6 +44,7 @@ public class MazeGameEngine {
     private final AccessValidator accessValidator;
     private final MovementCoordinator movementCoordinator;
     private final PostHandler postHandler;
+    private final SparqlService sparqlService;
     
     /**
      * Creates a MazeGameEngine with generic rules (root-level rules).
@@ -96,6 +100,7 @@ public class MazeGameEngine {
         this.movementCoordinator = new MovementCoordinator(repository, accessControl, pathTracker, 
                                                            ruleEngine, lockManager, accessValidator);
         this.postHandler = new PostHandler(repository, ruleEngine, lockManager, accessValidator);
+        this.sparqlService = new SparqlService(repository);
         
         String rulesetsInfo = additionalRulesets != null && !additionalRulesets.isEmpty() 
                 ? " + " + String.join(", ", additionalRulesets) 
@@ -156,6 +161,19 @@ public class MazeGameEngine {
     public RuleExecutionResult executeRules() {
         log.debug("Executing maze rules after state change");
         return ruleEngine.executeRules();
+    }
+    
+    /**
+     * Execute a SPARQL query against the repository.
+     * Supports SELECT, CONSTRUCT, ASK, DESCRIBE, and UPDATE queries.
+     * 
+     * @param queryString the SPARQL query to execute
+     * @param acceptHeader the Accept header for content negotiation (may be null)
+     * @return SparqlResult containing the query results or error
+     */
+    public SparqlResult executeSparqlQuery(String queryString, String acceptHeader) {
+        log.debug("Executing SPARQL query via game engine");
+        return sparqlService.executeQuery(queryString, acceptHeader);
     }
     
     /**
