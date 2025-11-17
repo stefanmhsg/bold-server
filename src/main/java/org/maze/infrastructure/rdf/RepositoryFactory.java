@@ -7,8 +7,6 @@ import org.maze.infrastructure.config.ServerConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.fau.rw.ti.LDPInferencer;
-
 /**
  * Factory for creating RDF repositories with appropriate Sail implementations.
  */
@@ -23,20 +21,8 @@ public class RepositoryFactory {
      * @return Configured SailRepository
      */
     public SailRepository createRepository(ServerConfiguration config) {
-        Sail sail = createSail(config);
+        Sail sail = new MemoryStore();
         return new SailRepository(sail);
     }
     
-    /**
-     * Instantiate Sail from configuration; falls back to MemoryStore on error/missing config.
-     */
-    private Sail createSail(ServerConfiguration config) {
-        String protocol = config.getServerProtocol();
-        if ("ldp".equalsIgnoreCase(protocol)) {
-            log.info("Using LDPInferencer over MemoryStore.");
-            return new LDPInferencer(new MemoryStore());
-        }
-        log.info("Using default MemoryStore Sail.");
-        return new MemoryStore();
-    }
 }
