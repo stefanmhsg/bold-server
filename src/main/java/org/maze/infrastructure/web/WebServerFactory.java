@@ -3,12 +3,12 @@ package org.maze.infrastructure.web;
 import java.net.URI;
 import java.util.List;
 
-import javax.servlet.Servlet;
-import javax.servlet.http.HttpServlet;
+import jakarta.servlet.Servlet;
+import jakarta.servlet.http.HttpServlet;
 
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
@@ -43,13 +43,15 @@ public class WebServerFactory {
                                MazeGameEngine gameEngine) throws Exception {
         int port = config.getPort();
         Server server = new Server(port);
-        ServletContextHandler context = new ServletContextHandler(server, "/");
+        ServletContextHandler context = new ServletContextHandler("/");
+        server.setHandler(context);
+        
+        configureRestEndpoints(context, repository, gameEngine);
+        
         server.start();
         
         URI serverBaseURI = resolveBaseUri(server);
         log.info("Server base URI: {}", serverBaseURI);
-        
-        configureRestEndpoints(context, repository, gameEngine);
         
         return server;
     }
@@ -70,6 +72,10 @@ public class WebServerFactory {
     private void configureRestEndpoints(ServletContextHandler context, 
                                        SailRepository repository, 
                                        MazeGameEngine gameEngine) {
+        // Share repository and game engine via ServletContext
+        context.setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);
+        context.setAttribute(MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE, gameEngine);
+        
         // Configure JAX-RS resources
         ResourceConfig ldConfig = new ResourceConfig();
         ldConfig.register(LinkedDataDereferenceResource.class);
@@ -81,11 +87,6 @@ public class WebServerFactory {
         
         // Mount on /* for linked data dereferencing
         context.addServlet(ldHolder, "/*");
-        
-        // Share repository and game engine via ServletContext
-        HttpServlet servlet = (HttpServlet) ldContainer;
-        servlet.getServletContext().setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);
-        servlet.getServletContext().setAttribute(MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE, gameEngine);
         
         log.info("REST endpoints configured");
     }
