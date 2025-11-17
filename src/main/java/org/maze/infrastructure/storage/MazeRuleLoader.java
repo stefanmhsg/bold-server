@@ -72,8 +72,39 @@ public class MazeRuleLoader {
             // Use filename without extension as rule name
             String ruleName = filename.replaceFirst("\\.rq$", "");
             
-            return new MazeRule(ruleName, sparqlQuery, description);
+            // Auto-detect rule type based on query content
+            MazeRule.RuleType ruleType = detectRuleType(sparqlQuery);
+            
+            log.debug("Loaded rule '{}' as type: {}", ruleName, ruleType);
+            
+            return new MazeRule(ruleName, sparqlQuery, description, ruleType);
         }
+    }
+    
+    /**
+     * Detect the rule type by analyzing the SPARQL query content.
+     * 
+     * UPDATE rules contain DELETE/INSERT/WHERE keywords.
+     * CONSTRUCT rules contain CONSTRUCT/WHERE keywords.
+     * 
+     * @param sparqlQuery The SPARQL query text
+     * @return Detected rule type (defaults to CONSTRUCT if ambiguous)
+     */
+    private MazeRule.RuleType detectRuleType(String sparqlQuery) {
+        String normalized = sparqlQuery.toUpperCase();
+        
+        // Check for UPDATE operations (DELETE, INSERT without CONSTRUCT)
+        boolean hasDelete = normalized.contains("DELETE");
+        boolean hasInsert = normalized.contains("INSERT");
+        boolean hasConstruct = normalized.contains("CONSTRUCT");
+        
+        // If has DELETE or INSERT but NOT CONSTRUCT, it's an UPDATE rule
+        if ((hasDelete || hasInsert) && !hasConstruct) {
+            return MazeRule.RuleType.UPDATE;
+        }
+        
+        // Otherwise default to CONSTRUCT (includes pure CONSTRUCT queries)
+        return MazeRule.RuleType.CONSTRUCT;
     }
     
     /**

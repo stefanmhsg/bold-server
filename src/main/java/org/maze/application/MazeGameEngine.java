@@ -93,14 +93,18 @@ public class MazeGameEngine {
         }
         
         List<MazeRule> rules = ruleLoader.loadRules(ruleFiles);
-        this.ruleEngine = new MazeRuleEngine(repository, rules);
+        
+        // Initialize SPARQL service first (needed by rule engine)
+        this.sparqlService = new SparqlService(repository);
+        
+        // Initialize rule engine with SPARQL service for UPDATE rules
+        this.ruleEngine = new MazeRuleEngine(repository, rules, sparqlService);
         
         // Initialize services that handle core operations
         this.accessValidator = new AccessValidator(accessControl, requestTracker, pathTracker);
         this.movementCoordinator = new MovementCoordinator(repository, accessControl, pathTracker, 
-                                                           ruleEngine, lockManager, accessValidator);
-        this.postHandler = new PostHandler(repository, ruleEngine, lockManager, accessValidator);
-        this.sparqlService = new SparqlService(repository);
+                                                           lockManager, accessValidator);
+        this.postHandler = new PostHandler(repository, lockManager, accessValidator);
         
         String rulesetsInfo = additionalRulesets != null && !additionalRulesets.isEmpty() 
                 ? " + " + String.join(", ", additionalRulesets) 
@@ -126,8 +130,9 @@ public class MazeGameEngine {
     }
 
     /**
-     * Perform an agent movement, updating RDF graphs and executing rules.
-     * Delegates to {@link MovementCoordinator} for the actual movement logic.
+     * Perform an agent movement.
+     * Delegates to {@link MovementCoordinator} for the actual move logic,
+     * then executes rules if the move succeeds, and finally cleans up temporary triples.
      * 
      * @param agentName the agent name
      * @param targetCellUri the target cell URI
@@ -135,12 +140,37 @@ public class MazeGameEngine {
      */
     public MoveResult performMove(String agentName, String targetCellUri) {
         String agentUri = buildAgentUri(targetCellUri, agentName);
-        return movementCoordinator.performMove(agentName, targetCellUri, agentUri);
+        MoveResult result = movementCoordinator.performMove(agentName, targetCellUri, agentUri);
+        
+        // Execute rules after successful move (in separate transaction)
+        if (result.success()) {
+            try {
+                RuleExecutionResult ruleResult = ruleEngine.executeRules();
+                log.info("Rules executed after move: {} triggered, {} triples modified",
+                        ruleResult.rulesTriggered(), ruleResult.triplesAdded());
+            } catch (Exception e) {
+                log.error("Error executing rules after move for agent {}", agentName, e);
+                // Move succeeded, continue even if rules fail
+            }
+            
+            // Clean up temporary move event triples AFTER rules have executed
+            if (result.fromCell() != null) {
+                try {
+                    movementCoordinator.cleanupMoveEventTriples(agentName, agentUri, result.fromCell(), targetCellUri);
+                } catch (Exception e) {
+                    log.error("Error cleaning up move event triples for agent {}", agentName, e);
+                    // Not critical - continue
+                }
+            }
+        }
+        
+        return result;
     }
     
     /**
      * Perform a POST operation to merge RDF triples into a graph.
-     * Delegates to {@link PostHandler} for the actual POST logic.
+     * Delegates to {@link PostHandler} for the actual POST logic,
+     * then executes rules if the POST succeeds.
      * 
      * @param agentName the agent name (may be null for anonymous posts)
      * @param graphIRI the target graph URI
@@ -149,7 +179,23 @@ public class MazeGameEngine {
      */
     public PostResult performPost(String agentName, String graphIRI, org.eclipse.rdf4j.model.Model rdfModel) {
         String agentUri = buildAgentUri(graphIRI, agentName);
-        return postHandler.performPost(agentName, graphIRI, rdfModel, agentUri);
+        PostResult result = postHandler.performPost(agentName, graphIRI, rdfModel, agentUri);
+        
+        // Execute rules after successful POST (in separate transaction)
+        if (result.success()) {
+            try {
+                RuleExecutionResult ruleResult = ruleEngine.executeRules();
+                log.info("Rules executed after POST: {} triggered, {} triples modified",
+                        ruleResult.rulesTriggered(), ruleResult.triplesAdded());
+                // Update result with rule count
+                return PostResult.success(graphIRI, result.triplesAdded(), ruleResult.rulesTriggered());
+            } catch (Exception e) {
+                log.error("Error executing rules after POST to {}", graphIRI, e);
+                // POST succeeded, return result even if rules fail
+            }
+        }
+        
+        return result;
     }
     
     /**

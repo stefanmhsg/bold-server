@@ -4,12 +4,10 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
-import org.maze.application.MazeRuleEngine;
 import org.maze.application.tracking.MazeAccessControl;
 import org.maze.application.tracking.MazePathTracker;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.MoveResult;
-import org.maze.domain.model.RuleExecutionResult;
 import org.maze.domain.vocab.MazeVocab;
 import org.maze.infrastructure.concurrency.GraphLockManager;
 import org.slf4j.Logger;
@@ -17,14 +15,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Service responsible for coordinating agent movement in the maze.
- * Handles the RDF graph updates, transaction management, and rule execution for moves.
+ * Handles the RDF graph updates and transaction management for moves.
+ * Rules are executed by MazeGameEngine after successful move.
  * 
  * Movement workflow:
  * 1. Remove agent from current cell (if any)
  * 2. Add agent to target cell
- * 3. Execute rules to handle consequences (e.g., unlock doors)
- * 4. Clean up temporary event triples
- * 5. Record movement in tracker
+ * 3. Clean up temporary event triples
+ * 4. Record movement in tracker
  */
 public class MovementCoordinator {
     
@@ -33,7 +31,6 @@ public class MovementCoordinator {
     private final SailRepository repository;
     private final MazeAccessControl accessControl;
     private final MazePathTracker pathTracker;
-    private final MazeRuleEngine ruleEngine;
     private final GraphLockManager lockManager;
     private final AccessValidator accessValidator;
     
@@ -43,20 +40,17 @@ public class MovementCoordinator {
      * @param repository the RDF repository
      * @param accessControl the access control component
      * @param pathTracker the path tracking component
-     * @param ruleEngine the rule engine for executing post-move rules
      * @param lockManager the lock manager for graph-level locking
      * @param accessValidator the access validator
      */
     public MovementCoordinator(SailRepository repository,
                                MazeAccessControl accessControl,
                                MazePathTracker pathTracker,
-                               MazeRuleEngine ruleEngine,
                                GraphLockManager lockManager,
                                AccessValidator accessValidator) {
         this.repository = repository;
         this.accessControl = accessControl;
         this.pathTracker = pathTracker;
-        this.ruleEngine = ruleEngine;
         this.lockManager = lockManager;
         this.accessValidator = accessValidator;
     }
@@ -85,18 +79,12 @@ public class MovementCoordinator {
         } catch (RuntimeException e) {
             return MoveResult.failed(e.getMessage());
         }
-        
-        // Step 2: Execute rules AFTER move has committed (rules see new state)
-        executePostMoveRules(agentName);
-        
-        // Step 3: Clean up temporary move event triples
-        if (currentLocation != null) {
-            cleanupMoveEventTriples(agentName, agentUri, currentLocation, targetCellUri);
-        }
 
         // Record movement in tracker
         pathTracker.recordMovement(agentName, targetCellUri);
         
+        // NOTE: Temporary move event triples remain for rule execution
+        // MazeGameEngine will clean them up AFTER rules execute
         return MoveResult.success(currentLocation, targetCellUri);
     }
     
@@ -152,25 +140,15 @@ public class MovementCoordinator {
     }
     
     /**
-     * Execute rules after movement to handle consequences.
-     */
-    private void executePostMoveRules(String agentName) {
-        try {
-            log.debug("Executing maze rules after move");
-            RuleExecutionResult ruleResult = ruleEngine.executeRules();
-            log.info("Rules executed: {} triggered, {} triples added",
-                    ruleResult.rulesTriggered(), 
-                    ruleResult.triplesAdded());
-        } catch (Exception e) {
-            log.error("Error executing rules after move for agent {}", agentName, e);
-            // Move succeeded but rules failed - continue
-        }
-    }
-    
-    /**
      * Clean up temporary move event triples after rules have executed.
+     * Must be called AFTER rules execute so they can see the move event.
+     * 
+     * @param agentName the agent name
+     * @param agentUri the full agent URI
+     * @param currentLocation the previous cell location (not null)
+     * @param targetCellUri the new cell location
      */
-    private void cleanupMoveEventTriples(String agentName, String agentUri, 
+    public void cleanupMoveEventTriples(String agentName, String agentUri, 
                                          String currentLocation, String targetCellUri) {
         lockManager.withLock(currentLocation, () -> {
             try (SailRepositoryConnection conn = repository.getConnection()) {

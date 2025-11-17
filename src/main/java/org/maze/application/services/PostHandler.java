@@ -1,36 +1,30 @@
 package org.maze.application.services;
 
-import java.util.List;
-
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
-import org.maze.application.MazeRuleEngine;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.PostResult;
-import org.maze.domain.model.RuleExecutionResult;
 import org.maze.infrastructure.concurrency.GraphLockManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Service responsible for handling POST operations to RDF graphs.
- * Manages the merge of RDF triples, transaction handling, and rule execution.
+ * Manages the merge of RDF triples and transaction handling.
+ * Rules are executed by MazeGameEngine after successful POST.
  * 
  * POST workflow:
  * 1. Validate agent can POST to target graph
  * 2. Merge RDF triples into graph (transaction)
- * 3. Execute rules to handle consequences
- * 4. Return result with statistics
  */
 public class PostHandler {
     
     private static final Logger log = LoggerFactory.getLogger(PostHandler.class);
     
     private final SailRepository repository;
-    private final MazeRuleEngine ruleEngine;
     private final GraphLockManager lockManager;
     private final AccessValidator accessValidator;
     
@@ -38,24 +32,21 @@ public class PostHandler {
      * Create a new POST handler.
      * 
      * @param repository the RDF repository
-     * @param ruleEngine the rule engine for executing post-merge rules
      * @param lockManager the lock manager for graph-level locking
      * @param accessValidator the access validator
      */
     public PostHandler(SailRepository repository,
-                       MazeRuleEngine ruleEngine,
                        GraphLockManager lockManager,
                        AccessValidator accessValidator) {
         this.repository = repository;
-        this.ruleEngine = ruleEngine;
         this.lockManager = lockManager;
         this.accessValidator = accessValidator;
     }
     
     /**
      * Perform a POST operation to merge RDF triples into a graph.
-     * Handles validation, merge transaction, and rule execution.
-     * Rules are executed AFTER the merge commits to ensure they see the new state.
+     * Handles validation and merge transaction.
+     * Rules are executed by MazeGameEngine after this completes successfully.
      * 
      * @param agentName the agent name (may be null for anonymous posts)
      * @param graphIRI the target graph URI
@@ -72,7 +63,7 @@ public class PostHandler {
         
         int triplesAdded = rdfModel.size();
         
-        // Step 1: Merge triples with fine-grained locking on the target graph
+        // Merge triples with fine-grained locking on the target graph
         try {
             mergeTriples(graphIRI, rdfModel, triplesAdded);
         } catch (RuntimeException e) {
@@ -82,13 +73,9 @@ public class PostHandler {
             return PostResult.failed(e.getMessage());
         }
         
-        // Step 2: Execute rules AFTER merge has committed (rules see new state)
-        RuleExecutionResult ruleResult = executePostMergeRules(graphIRI, triplesAdded);
+        log.info("POST successful: merged {} triples into {}", triplesAdded, graphIRI);
         
-        log.info("POST successful: merged {} triples into {}, {} rules triggered",
-                triplesAdded, graphIRI, ruleResult.rulesTriggered());
-        
-        return PostResult.success(graphIRI, triplesAdded, ruleResult.rulesTriggered());
+        return PostResult.success(graphIRI, triplesAdded, 0);
     }
     
     /**
@@ -121,25 +108,5 @@ public class PostHandler {
                 throw new RuntimeException("Internal error during POST: " + e.getMessage(), e);
             }
         });
-    }
-    
-    /**
-     * Execute rules after POST merge to handle consequences.
-     */
-    private RuleExecutionResult executePostMergeRules(String graphIRI, int triplesAdded) {
-        try {
-            log.debug("Executing maze rules after POST to {}", graphIRI);
-            RuleExecutionResult ruleResult = ruleEngine.executeRules();
-            
-            if (ruleResult.hasChanges()) {
-                log.info("Rules execution result: {}", ruleResult);
-            }
-            
-            return ruleResult;
-        } catch (Exception e) {
-            log.error("Error executing rules after POST to {}", graphIRI, e);
-            // Merge succeeded but rules failed - return partial success with no rules triggered
-            return new RuleExecutionResult(0, triplesAdded, List.of());
-        }
     }
 }

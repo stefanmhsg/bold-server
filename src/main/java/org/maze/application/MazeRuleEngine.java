@@ -12,18 +12,21 @@ import org.eclipse.rdf4j.query.QueryResults;
 import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
+import org.maze.application.services.SparqlService;
 import org.maze.domain.model.RuleExecutionResult;
+import org.maze.domain.model.SparqlResult;
 import org.maze.domain.rules.MazeRule;
 import org.maze.domain.vocab.MazeVocab;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Executes maze game rules as SPARQL CONSTRUCT queries against the RDF repository.
+ * Executes maze game rules against the RDF repository.
  * Rules are evaluated after state changes to trigger dynamic maze behaviors.
  * 
- * Implements state overwrite semantics for certain predicates to ensure only
- * the latest truth remains (no conflicting state assertions).
+ * Supports two rule types:
+ * - CONSTRUCT: Uses SPARQL CONSTRUCT with custom state overwrite semantics
+ * - UPDATE: Uses SPARQL UPDATE (DELETE/INSERT) with native RDF4J transaction handling
  */
 public class MazeRuleEngine {
     
@@ -31,22 +34,33 @@ public class MazeRuleEngine {
     
     private final SailRepository repository;
     private final List<MazeRule> rules;
+    private final SparqlService sparqlService;
     
     /**
      * Create a new rule engine.
      * 
      * @param repository The RDF repository to execute rules against
      * @param rules List of rules to evaluate
+     * @param sparqlService Service for executing SPARQL UPDATE queries
      */
-    public MazeRuleEngine(SailRepository repository, List<MazeRule> rules) {
+    public MazeRuleEngine(SailRepository repository, List<MazeRule> rules, SparqlService sparqlService) {
         this.repository = repository;
         this.rules = new ArrayList<>(rules);
-        log.info("Initialized MazeRuleEngine with {} rules", rules.size());
+        this.sparqlService = sparqlService;
+        
+        long constructCount = rules.stream().filter(r -> r.getRuleType() == MazeRule.RuleType.CONSTRUCT).count();
+        long updateCount = rules.stream().filter(r -> r.getRuleType() == MazeRule.RuleType.UPDATE).count();
+        
+        log.info("Initialized MazeRuleEngine with {} rules ({} CONSTRUCT, {} UPDATE)", 
+                rules.size(), constructCount, updateCount);
     }
     
     /**
      * Execute all rules and apply any resulting triples to the repository.
      * This should be called after state-changing operations (e.g., POST requests).
+     * 
+     * Executes in a SEPARATE transaction from the operation that triggered it.
+     * On failure, logs error and continues to next rule.
      * 
      * @return RuleExecutionResult containing statistics about what was applied
      */
@@ -57,48 +71,94 @@ public class MazeRuleEngine {
         int rulesTriggered = 0;
         List<String> triggeredRuleNames = new ArrayList<>();
         
-        try (SailRepositoryConnection connection = repository.getConnection()) {
-            connection.begin();
-            
-            for (MazeRule rule : rules) {
-                try {
-                    int triplesAdded = executeRule(connection, rule);
-                    if (triplesAdded > 0) {
-                        totalTriplesAdded += triplesAdded;
-                        rulesTriggered++;
-                        triggeredRuleNames.add(rule.getName());
-                        log.info("Rule '{}' triggered: added {} triples", 
-                                rule.getName(), triplesAdded);
-                    }
-                } catch (Exception e) {
-                    log.error("Error executing rule '{}': {}", rule.getName(), e.getMessage(), e);
+        for (MazeRule rule : rules) {
+            try {
+                // Each rule gets its own transaction
+                int triplesAdded = rule.isUpdateRule() 
+                    ? executeUpdateRule(rule) 
+                    : executeConstructRule(rule);
+                
+                if (triplesAdded > 0) {
+                    totalTriplesAdded += triplesAdded;
+                    rulesTriggered++;
+                    triggeredRuleNames.add(rule.getName());
+                    log.info("Rule '{}' ({}) triggered: modified {} triples", 
+                            rule.getName(), rule.getRuleType(), triplesAdded);
                 }
+            } catch (Exception e) {
+                // Log and continue on failure (don't rollback operations)
+                log.error("Error executing rule '{}' ({}): {}", 
+                        rule.getName(), rule.getRuleType(), e.getMessage(), e);
             }
-            
-            if (totalTriplesAdded > 0) {
-                connection.commit();
-                log.info("Rules execution complete: {} rules triggered, {} triples added", 
-                        rulesTriggered, totalTriplesAdded);
-            } else {
-                connection.rollback();
-                log.debug("No rules triggered");
-            }
-            
-        } catch (Exception e) {
-            log.error("Error during rule execution", e);
+        }
+        
+        if (totalTriplesAdded > 0) {
+            log.info("Rules execution complete: {} rules triggered, {} triples modified", 
+                    rulesTriggered, totalTriplesAdded);
+        } else {
+            log.debug("No rules triggered");
         }
         
         return new RuleExecutionResult(rulesTriggered, totalTriplesAdded, triggeredRuleNames);
     }
     
     /**
-     * Execute a single rule.
+     * Execute a SPARQL UPDATE rule using the SparqlService.
+     * 
+     * @param rule The UPDATE rule to execute
+     * @return Number of triples modified (returns 1 if successful, 0 otherwise)
+     */
+    private int executeUpdateRule(MazeRule rule) {
+        log.debug("Executing UPDATE rule: {}", rule.getName());
+        
+        SparqlResult result = sparqlService.executeQuery(rule.getSparqlConstruct(), "text/plain");
+        
+        if (result.success()) {
+            log.debug("UPDATE rule '{}' executed successfully", rule.getName());
+            return 1; // UPDATE queries don't return triple count, just success
+        } else {
+            log.error("UPDATE rule '{}' failed: {}", rule.getName(), result.errorMessage());
+            return 0;
+        }
+    }
+    
+    /**
+     * Execute a SPARQL CONSTRUCT rule with custom state overwrite logic.
+     * 
+     * @param rule The CONSTRUCT rule to execute
+     * @return Number of triples added by this rule
+     */
+    private int executeConstructRule(MazeRule rule) {
+        log.debug("Executing CONSTRUCT rule: {}", rule.getName());
+        
+        try (SailRepositoryConnection connection = repository.getConnection()) {
+            connection.begin();
+            
+            try {
+                int triplesAdded = executeConstructRuleInternal(connection, rule);
+                
+                if (triplesAdded > 0) {
+                    connection.commit();
+                } else {
+                    connection.rollback();
+                }
+                
+                return triplesAdded;
+            } catch (Exception e) {
+                connection.rollback();
+                throw e;
+            }
+        }
+    }
+    
+    /**
+     * Internal implementation of CONSTRUCT rule execution.
      * 
      * @param connection Open repository connection
      * @param rule The rule to execute
      * @return Number of triples added by this rule
      */
-    private int executeRule(SailRepositoryConnection connection, MazeRule rule) {
+    private int executeConstructRuleInternal(SailRepositoryConnection connection, MazeRule rule) {
         log.debug("Evaluating rule: {}", rule.getName());
         
         // Execute the CONSTRUCT query
