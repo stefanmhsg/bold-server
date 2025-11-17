@@ -1,36 +1,38 @@
-package org.maze.domain.utils;
+package org.maze.infrastructure.io;
 
-import org.maze.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.net.URL;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.Set;
 
+/**
+ * File system utilities for the maze server infrastructure.
+ * Handles file operations, path resolution, and resource loading.
+ */
 public class FileUtils {
 
 	private static final Logger log = LoggerFactory.getLogger(FileUtils.class);
 
+	// Prevent instantiation
+	private FileUtils() {
+		throw new AssertionError("Utility class - do not instantiate");
+	}
+
 	/**
 	 * Returns a list of file names matching the given pattern.
 	 *
-	 *
 	 * @param pattern path that may include wildcards (*)
-	 * @return
-	 * @throws IOException
+	 * @return set of absolute file paths matching the pattern
+	 * @throws IOException if directory access fails
 	 */
 	public static Set<String> listFiles(String pattern) throws IOException {
 		boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
@@ -138,18 +140,20 @@ public class FileUtils {
 
     /**
      * Opens a file from the file system or classpath resource.
+     * Uses the provided ClassLoader to search for resources.
      * 
      * @param filename path to file or resource
+     * @param classLoader the ClassLoader to use for resource loading
      * @return input stream to the file or resource
      * @throws IOException if file/resource cannot be found
      */
-    public static InputStream getFileOrResource(String filename) throws IOException {
+    public static InputStream getFileOrResource(String filename, ClassLoader classLoader) throws IOException {
         Path filePath = Paths.get(filename);
         if (Files.exists(filePath)) {
             return Files.newInputStream(filePath);
         }
         // Try as classpath resource
-        InputStream resourceStream = Configurator.class.getClassLoader().getResourceAsStream(filename);
+        InputStream resourceStream = classLoader.getResourceAsStream(filename);
         if (resourceStream != null) {
             return resourceStream;
         }
@@ -161,7 +165,7 @@ public class FileUtils {
 	 *
 	 * @param is the input stream
 	 * @return the content of the stream buffered into a string
-	 * @throws IOException
+	 * @throws IOException if stream reading fails
 	 */
 	public static String asString(InputStream is) throws IOException {
 		StringWriter w = new StringWriter();

@@ -2,7 +2,6 @@ package org.maze.application;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Model;
@@ -15,6 +14,7 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.maze.domain.model.RuleExecutionResult;
 import org.maze.domain.rules.MazeRule;
+import org.maze.domain.vocab.MazeVocab;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,18 +28,6 @@ import org.slf4j.LoggerFactory;
 public class MazeRuleEngine {
     
     private static final Logger log = LoggerFactory.getLogger(MazeRuleEngine.class);
-    
-    /**
-     * Predicates that have "exclusive" semantics (only one value should exist).
-     * When a rule produces a new triple with one of these predicates, 
-     * all existing triples with the same subject and predicate but different object
-     * will be removed from the target graph.
-     */
-    private static final Set<String> STATE_PREDICATES = Set.of(
-        "https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#hasStatus",
-        "https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#state",
-        "https://example.org/stigmark#quantitative" // TODO: use propper ontology
-    );
     
     private final SailRepository repository;
     private final List<MazeRule> rules;
@@ -162,7 +150,7 @@ public class MazeRuleEngine {
 
             
             // Only apply cleanup for whitelisted state predicates
-            if (STATE_PREDICATES.contains(stmt.getPredicate().stringValue())) {
+            if (MazeVocab.STATE_PREDICATES.contains(stmt.getPredicate().stringValue())) {
                 
                 // Find all old values for this subject/predicate in the same graph
                 try (RepositoryResult<Statement> existing = connection.getStatements(

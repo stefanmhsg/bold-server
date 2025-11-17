@@ -1,0 +1,109 @@
+package org.maze.domain.vocab;
+
+import java.util.Set;
+
+/**
+ * RDF vocabulary constants for the Maze simulation domain.
+ * Centralizes all namespace URIs and predicates used throughout the application.
+ */
+public final class MazeVocab {
+    
+    // Prevent instantiation
+    private MazeVocab() {
+        throw new AssertionError("Utility class - do not instantiate");
+    }
+    
+    // ============ Namespaces ============
+    
+    /**
+     * Maze vocabulary namespace.
+     * Used for maze-specific concepts like cells, doors, keys.
+     */
+    public static final String MAZE_NS = "https://kaefer3000.github.io/2021-02-dagstuhl/vocab#";
+    
+    /**
+     * XHTML vocabulary namespace.
+     * Used for navigation predicates like 'next', 'start'.
+     */
+    public static final String XHV_NS = "http://www.w3.org/1999/xhtml/vocab#";
+    
+    /**
+     * Dynamic Maze vocabulary namespace.
+     * Used for dynamic cell states and properties.
+     */
+    public static final String DYNMAZE_NS = "https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#";
+    
+    /**
+     * Stigmergy vocabulary namespace.
+     * Used for agent communication via environment markers.
+     */
+    public static final String STIGMERGY_NS = "https://example.org/stigmark#";
+    
+    // ============ Common Predicates ============
+    
+    /**
+     * Predicate for maze navigation - links cells to adjacent cells.
+     */
+    public static final String NEXT = XHV_NS + "next";
+    
+    /**
+     * Predicate for maze entrance - identifies the starting cell.
+     */
+    public static final String START = XHV_NS + "start";
+    
+    /**
+     * Predicate for agent location - links agent to current cell.
+     */
+    public static final String AT = MAZE_NS + "at";
+    
+    /**
+     * Predicate for cell status (locked, unlocked, etc.).
+     */
+    public static final String HAS_STATUS = DYNMAZE_NS + "hasStatus";
+    
+    /**
+     * Predicate for cell state.
+     */
+    public static final String STATE = DYNMAZE_NS + "state";
+    
+    /**
+     * Predicate for quantitative stigmergy markers.
+     */
+    public static final String QUANTITATIVE = STIGMERGY_NS + "quantitative";
+    
+    // ============ State Management ============
+    
+    /**
+     * Predicates that represent state in the maze.
+     * When these predicates are updated by rules, old values are replaced (not accumulated).
+     * This ensures state consistency - e.g., a cell can't be both locked and unlocked.
+     */
+    public static final Set<String> STATE_PREDICATES = Set.of(
+        HAS_STATUS,
+        STATE,
+        QUANTITATIVE
+    );
+    
+    // ============ Utility Methods ============
+    
+    /**
+     * Check if a predicate represents state (should replace old values).
+     * 
+     * @param predicateUri the predicate URI to check
+     * @return true if this is a state predicate
+     */
+    public static boolean isStatePredicate(String predicateUri) {
+        return STATE_PREDICATES.contains(predicateUri);
+    }
+    
+    /**
+     * Build a full IRI from a namespace and local name.
+     * 
+     * @param namespace the namespace URI
+     * @param localName the local name
+     * @return the full IRI
+     */
+    public static String iri(String namespace, String localName) {
+        return namespace + localName;
+    }
+}

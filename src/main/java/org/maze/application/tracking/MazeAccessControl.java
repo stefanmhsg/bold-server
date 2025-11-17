@@ -2,6 +2,7 @@ package org.maze.application.tracking;
 
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
+import org.maze.domain.vocab.MazeVocab;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,10 +13,6 @@ import org.slf4j.LoggerFactory;
 public class MazeAccessControl {
     
     private static final Logger log = LoggerFactory.getLogger(MazeAccessControl.class);
-    
-    // Namespace constants for the maze vocabulary
-    private static final String MAZE_NS = "https://kaefer3000.github.io/2021-02-dagstuhl/vocab#";
-    private static final String XHV_NS = "http://www.w3.org/1999/xhtml/vocab#";
     
     private final SailRepository repository;
     
@@ -34,7 +31,7 @@ public class MazeAccessControl {
         try (SailRepositoryConnection connection = repository.getConnection()) {
             // Query all graphs to find which cell contains this agent
             String sparql = 
-                "PREFIX maze: <" + MAZE_NS + "> \n" +
+                "PREFIX maze: <" + MazeVocab.MAZE_NS + "> \n" +
                 "SELECT ?cell WHERE { \n" +
                 "  GRAPH ?cell { \n" +
                 "    ?cell maze:contains <" + agentUri + "> . \n" +
@@ -79,7 +76,7 @@ public class MazeAccessControl {
         try (SailRepositoryConnection connection = repository.getConnection()) {
             // Build SPARQL query to check if requested cell is accessible from current cell
             String sparql = 
-                "PREFIX maze: <" + MAZE_NS + "> \n" +
+                "PREFIX maze: <" + MazeVocab.MAZE_NS + "> \n" +
                 "ASK { \n" +
                 "  GRAPH <" + currentCellUri + "> { \n" +
                 "    <" + currentCellUri + "> ?direction <" + requestedCellUri + "> . \n" +
@@ -129,7 +126,7 @@ public class MazeAccessControl {
             String mazeGraphUri = baseUri + "/maze";
             
             String sparql = 
-                "PREFIX xhv: <" + XHV_NS + "> \n" +
+                "PREFIX xhv: <" + MazeVocab.XHV_NS + "> \n" +
                 "ASK { \n" +
                 "  GRAPH <" + mazeGraphUri + "> { \n" +
                 "    ?maze xhv:start <" + cellUri + "> . \n" +

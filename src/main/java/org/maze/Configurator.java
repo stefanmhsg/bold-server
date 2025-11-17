@@ -15,7 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Main entry point for the BOLD maze server.
+ * Main entry point for the maze server.
  * Orchestrates server startup by delegating to specialized factory classes.
  */
 public class Configurator {
@@ -54,7 +54,7 @@ public class Configurator {
         WebServerFactory webFactory = new WebServerFactory();
         Server server = webFactory.createServer(config, repository, gameEngine);
         
-        log.info("BOLD Maze Server started successfully");
+        log.info("Maze Server started successfully");
         server.join();
     }
     

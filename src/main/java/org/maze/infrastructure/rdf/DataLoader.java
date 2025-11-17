@@ -13,7 +13,7 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
-import org.maze.domain.utils.FileUtils;
+import org.maze.infrastructure.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,7 +50,8 @@ public class DataLoader {
                 .orElseThrow(() -> new IOException("Unknown RDF format for file: " + filename));
         log.info("Parsing file '{}' with format '{}'", filename, format.getName());
         
-        Model ds = Rio.parse(FileUtils.getFileOrResource(filename), baseUri.toString(), format);
+        Model ds = Rio.parse(FileUtils.getFileOrResource(filename, DataLoader.class.getClassLoader()), 
+                            baseUri.toString(), format);
         log.info("Parsed model has {} statements", ds.size());
         
         conn.begin();
