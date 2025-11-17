@@ -10,9 +10,10 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
-import org.maze.Configurator;
 import org.maze.application.MazeGameEngine;
+import org.maze.domain.model.MoveResult;
 import org.maze.domain.utils.AgentAuthUtil;
+import org.maze.infrastructure.web.WebServerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +90,7 @@ public class MoveResource {
         
         // Delegate to game engine for all move logic
         MazeGameEngine gameEngine = getGameEngine();
-        MazeGameEngine.MoveResult moveResult = gameEngine.performMove(agentName, targetCellUri);
+        MoveResult moveResult = gameEngine.performMove(agentName, targetCellUri);
         
         if (!moveResult.isSuccess()) {
             log.info("Move denied for agent {}: {}", agentName, moveResult.getErrorMessage());
@@ -112,6 +113,6 @@ public class MoveResource {
      * Get the maze game engine singleton from ServletContext.
      */
     private MazeGameEngine getGameEngine() {
-        return (MazeGameEngine) _ctx.getAttribute(Configurator.MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE);
+        return (MazeGameEngine) _ctx.getAttribute(WebServerFactory.MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE);
     }
 }

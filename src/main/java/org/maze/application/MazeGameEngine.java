@@ -9,7 +9,12 @@ import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.maze.application.tracking.MazeAccessControl;
 import org.maze.application.tracking.MazePathTracker;
 import org.maze.application.tracking.MazeRequestTracker;
+import org.maze.domain.model.AccessResult;
+import org.maze.domain.model.MoveResult;
+import org.maze.domain.model.PostResult;
+import org.maze.domain.model.RuleExecutionResult;
 import org.maze.domain.rules.MazeRule;
+import org.maze.infrastructure.concurrency.GraphLockManager;
 import org.maze.infrastructure.storage.MazeRuleLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +22,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Main game engine for the maze navigation system.
  * Coordinates access control, agent tracking, movement validation, and dynamic rule execution.
+ * 
+ * <p>Uses fine-grained locking per graph to allow concurrent operations on different cells
+ * while maintaining consistency within each cell's graph.</p>
  */
 public class MazeGameEngine {
     
@@ -30,6 +38,7 @@ public class MazeGameEngine {
     private final MazePathTracker pathTracker;
     private final MazeRequestTracker requestTracker;
     private final MazeRuleEngine ruleEngine;
+    private final GraphLockManager lockManager;
     
     /**
      * Creates a MazeGameEngine with generic rules (root-level rules).
@@ -62,6 +71,7 @@ public class MazeGameEngine {
         this.accessControl = new MazeAccessControl(repository);
         this.pathTracker = new MazePathTracker("agent-paths");
         this.requestTracker = new MazeRequestTracker("agent-requests");
+        this.lockManager = new GraphLockManager();
         
         // Initialize rule engine with loaded rules
         MazeRuleLoader ruleLoader = new MazeRuleLoader();
@@ -221,51 +231,60 @@ public class MazeGameEngine {
         // Find current location (may be null for first move)
         String currentLocation = accessControl.findAgentLocation(agentUri);
         
-        // Step 1: Update agent location in a dedicated transaction
-        synchronized (repository) {
-            try (SailRepositoryConnection conn = repository.getConnection()) {
-                conn.begin();
-                
-                ValueFactory vf = conn.getValueFactory();
-                IRI agent = vf.createIRI(agentUri);
-                IRI containsPredicate = vf.createIRI(MAZE_NS + "contains");
-                
-                IRI targetCell = vf.createIRI(targetCellUri);
-                IRI targetCellGraph = vf.createIRI(targetCellUri);
+        // Step 1: Update agent location with fine-grained locking
+        // Lock the graphs involved (current and target cell graphs)
+        String[] graphsToLock = currentLocation != null 
+            ? new String[]{currentLocation, targetCellUri}
+            : new String[]{targetCellUri};
+        
+        try {
+            lockManager.withLocks(graphsToLock, () -> {
+                try (SailRepositoryConnection conn = repository.getConnection()) {
+                    conn.begin();
+                    
+                    ValueFactory vf = conn.getValueFactory();
+                    IRI agent = vf.createIRI(agentUri);
+                    IRI containsPredicate = vf.createIRI(MAZE_NS + "contains");
+                    
+                    IRI targetCell = vf.createIRI(targetCellUri);
+                    IRI targetCellGraph = vf.createIRI(targetCellUri);
 
-                // Remove agent from current cell (if any) - add move requested triple to target cell for potential stigmergy rules to fire later
-                if (currentLocation != null) {
-                    IRI currentCell = vf.createIRI(currentLocation);
-                    IRI currentCellGraph = vf.createIRI(currentLocation);
-                    IRI outgoingPredicate = vf.createIRI(MAZE_NS + "outgoingAgent"); // TODO: use appropriate ontology predicate
-                    IRI targetPredicate = vf.createIRI(MAZE_NS + "targetCell"); // TODO: use appropriate ontology predicate
+                    // Remove agent from current cell (if any) - add move requested triple for stigmergy rules
+                    if (currentLocation != null) {
+                        IRI currentCell = vf.createIRI(currentLocation);
+                        IRI currentCellGraph = vf.createIRI(currentLocation);
+                        IRI outgoingPredicate = vf.createIRI(MAZE_NS + "outgoingAgent");
+                        IRI targetPredicate = vf.createIRI(MAZE_NS + "targetCell");
 
-                    // Temporary triples for move event
-                    conn.add(currentCell, outgoingPredicate, agent, currentCellGraph);
-                    conn.add(agent, targetPredicate, targetCell, currentCellGraph);
+                        // Temporary triples for move event
+                        conn.add(currentCell, outgoingPredicate, agent, currentCellGraph);
+                        conn.add(agent, targetPredicate, targetCell, currentCellGraph);
 
-                    // Remove from current cell
-                    conn.remove(currentCell, containsPredicate, agent, currentCellGraph);
-                    log.info("Removed {} from cell graph {}", agentUri, currentLocation);
+                        // Remove from current cell
+                        conn.remove(currentCell, containsPredicate, agent, currentCellGraph);
+                        log.info("Removed {} from cell graph {}", agentUri, currentLocation);
+                    }
+                    
+                    // Add agent to target cell
+                    conn.add(targetCell, containsPredicate, agent, targetCellGraph);
+                    log.info("Added {} to cell graph {}", agentUri, targetCellUri);
+                    
+                    conn.commit();
+                    log.info("Move committed: agent {} from {} to {}", agentName, currentLocation, targetCellUri);
+                    
+                } catch (Exception e) {
+                    log.error("Error during move operation for agent {}", agentName, e);
+                    throw new RuntimeException("Internal error during move: " + e.getMessage(), e);
                 }
-                
-                // Add agent to target cell
-                conn.add(targetCell, containsPredicate, agent, targetCellGraph);
-                log.info("Added {} to cell graph {}", agentUri, targetCellUri);
-                
-                conn.commit();
-                log.info("Move committed: agent {} from {} to {}", agentName, currentLocation, targetCellUri);
-                
-            } catch (Exception e) {
-                log.error("Error during move operation for agent {}", agentName, e);
-                return MoveResult.failed("Internal error during move: " + e.getMessage());
-            }
+            });
+        } catch (RuntimeException e) {
+            return MoveResult.failed(e.getMessage());
         }
         
         // Step 2: Execute rules AFTER move has committed (rules see new state)
         try {
             log.debug("Executing maze rules after move");
-            MazeRuleEngine.RuleExecutionResult ruleResult = ruleEngine.executeRules();
+            RuleExecutionResult ruleResult = ruleEngine.executeRules();
             log.info("Rules executed: {} triggered, {} triples added",
                     ruleResult.getRulesTriggered(), 
                     ruleResult.getTriplesAdded());
@@ -274,15 +293,14 @@ public class MazeGameEngine {
             // Move succeeded but rules failed - continue
         }
         
-        // Step 3: Remove temporary move event triples
-        synchronized (repository) {
-            try (SailRepositoryConnection conn = repository.getConnection()) {
-                conn.begin();
-                
-                ValueFactory vf = conn.getValueFactory();
-                IRI agent = vf.createIRI(agentUri);
-                
-                if (currentLocation != null) {
+        // Step 3: Remove temporary move event triples with fine-grained locking
+        if (currentLocation != null) {
+            lockManager.withLock(currentLocation, () -> {
+                try (SailRepositoryConnection conn = repository.getConnection()) {
+                    conn.begin();
+                    
+                    ValueFactory vf = conn.getValueFactory();
+                    IRI agent = vf.createIRI(agentUri);
                     IRI currentCell = vf.createIRI(currentLocation);
                     IRI outgoingPredicate = vf.createIRI(MAZE_NS + "outgoingAgent");
                     IRI targetPredicate = vf.createIRI(MAZE_NS + "targetCell");
@@ -290,15 +308,15 @@ public class MazeGameEngine {
                     // Remove temporary triples
                     conn.remove(currentCell, outgoingPredicate, agent);
                     conn.remove(agent, targetPredicate, vf.createIRI(targetCellUri));
+                    
+                    conn.commit();
+                    log.debug("Cleaned up temporary move event triples for agent {}", agentName);
+                    
+                } catch (Exception e) {
+                    log.error("Error cleaning up move event triples for agent {}", agentName, e);
+                    // Not critical - continue
                 }
-                
-                conn.commit();
-                log.debug("Cleaned up temporary move event triples for agent {}", agentName);
-                
-            } catch (Exception e) {
-                log.error("Error cleaning up move event triples for agent {}", agentName, e);
-                // Not critical - continue
-            }
+            });
         }
 
         // Record movement in tracker
@@ -340,36 +358,43 @@ public class MazeGameEngine {
         
         int triplesAdded = rdfModel.size();
         
-        // Step 1: Merge triples in a dedicated transaction
-        synchronized (repository) {
-            try (SailRepositoryConnection conn = repository.getConnection()) {
-                ValueFactory vf = conn.getValueFactory();
-                IRI graphName = vf.createIRI(graphIRI);
-                
-                // Check graph exists
-                boolean exists = conn.hasStatement(null, null, null, false, graphName);
-                if (!exists) {
-                    log.info("POST to non-existent graph: {}", graphIRI);
-                    return PostResult.notFound("Graph not found: " + graphIRI);
+        // Step 1: Merge triples with fine-grained locking on the target graph
+        try {
+            lockManager.withLock(graphIRI, () -> {
+                try (SailRepositoryConnection conn = repository.getConnection()) {
+                    ValueFactory vf = conn.getValueFactory();
+                    IRI graphName = vf.createIRI(graphIRI);
+                    
+                    // Check graph exists
+                    boolean exists = conn.hasStatement(null, null, null, false, graphName);
+                    if (!exists) {
+                        log.info("POST to non-existent graph: {}", graphIRI);
+                        throw new RuntimeException("Graph not found: " + graphIRI);
+                    }
+                    
+                    conn.begin();
+                    
+                    // Add the model to the graph
+                    conn.add(rdfModel);
+                    log.debug("Added {} triples to graph {}", triplesAdded, graphIRI);
+                    
+                    conn.commit();
+                    log.info("Merge committed: {} triples added to {}", triplesAdded, graphIRI);
+                    
+                } catch (Exception e) {
+                    log.error("Error during POST merge to {}", graphIRI, e);
+                    throw new RuntimeException("Internal error during POST: " + e.getMessage(), e);
                 }
-                
-                conn.begin();
-                
-                // Add the model to the graph
-                conn.add(rdfModel);
-                log.debug("Added {} triples to graph {}", triplesAdded, graphIRI);
-                
-                conn.commit();
-                log.info("Merge committed: {} triples added to {}", triplesAdded, graphIRI);
-                
-            } catch (Exception e) {
-                log.error("Error during POST merge to {}", graphIRI, e);
-                return PostResult.failed("Internal error during POST: " + e.getMessage());
+            });
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("Graph not found")) {
+                return PostResult.notFound(e.getMessage());
             }
+            return PostResult.failed(e.getMessage());
         }
         
         // Step 2: Execute rules AFTER merge has committed (rules see new state)
-        MazeRuleEngine.RuleExecutionResult ruleResult;
+        RuleExecutionResult ruleResult;
         try {
             log.debug("Executing maze rules after POST to {}", graphIRI);
             ruleResult = ruleEngine.executeRules();
@@ -395,7 +420,7 @@ public class MazeGameEngine {
      * 
      * @return Result of rule execution including number of rules triggered
      */
-    public MazeRuleEngine.RuleExecutionResult executeRules() {
+    public RuleExecutionResult executeRules() {
         log.debug("Executing maze rules after state change");
         return ruleEngine.executeRules();
     }
@@ -416,135 +441,4 @@ public class MazeGameEngine {
         return uri != null && uri.contains("/cells/");
     }
     
-    /**
-     * Result of an access validation check.
-     */
-    public static class AccessResult {
-        private final boolean allowed;
-        private final String message;
-        
-        private AccessResult(boolean allowed, String message) {
-            this.allowed = allowed;
-            this.message = message;
-        }
-        
-        public static AccessResult allowed() {
-            return new AccessResult(true, null);
-        }
-        
-        public static AccessResult denied(String message) {
-            return new AccessResult(false, message);
-        }
-        
-        public boolean isAllowed() {
-            return allowed;
-        }
-        
-        public String getMessage() {
-            return message;
-        }
-    }
-    
-    /**
-     * Result of a move operation.
-     */
-    public static class MoveResult {
-        private final boolean success;
-        private final String fromCell;
-        private final String toCell;
-        private final String errorMessage;
-        
-        private MoveResult(boolean success, String fromCell, String toCell, String errorMessage) {
-            this.success = success;
-            this.fromCell = fromCell;
-            this.toCell = toCell;
-            this.errorMessage = errorMessage;
-        }
-        
-        public static MoveResult success(String fromCell, String toCell) {
-            return new MoveResult(true, fromCell, toCell, null);
-        }
-        
-        public static MoveResult failed(String errorMessage) {
-            return new MoveResult(false, null, null, errorMessage);
-        }
-        
-        public boolean isSuccess() {
-            return success;
-        }
-        
-        public String getFromCell() {
-            return fromCell;
-        }
-        
-        public String getToCell() {
-            return toCell;
-        }
-        
-        public String getErrorMessage() {
-            return errorMessage;
-        }
-    }
-    
-    /**
-     * Result of a POST operation.
-     */
-    public static class PostResult {
-        private final boolean success;
-        private final String graphUri;
-        private final int triplesAdded;
-        private final int rulesTriggered;
-        private final String errorMessage;
-        private final int statusCode;
-        
-        private PostResult(boolean success, String graphUri, int triplesAdded, 
-                          int rulesTriggered, String errorMessage, int statusCode) {
-            this.success = success;
-            this.graphUri = graphUri;
-            this.triplesAdded = triplesAdded;
-            this.rulesTriggered = rulesTriggered;
-            this.errorMessage = errorMessage;
-            this.statusCode = statusCode;
-        }
-        
-        public static PostResult success(String graphUri, int triplesAdded, int rulesTriggered) {
-            return new PostResult(true, graphUri, triplesAdded, rulesTriggered, null, 201);
-        }
-        
-        public static PostResult denied(String errorMessage) {
-            return new PostResult(false, null, 0, 0, errorMessage, 403);
-        }
-        
-        public static PostResult notFound(String errorMessage) {
-            return new PostResult(false, null, 0, 0, errorMessage, 404);
-        }
-        
-        public static PostResult failed(String errorMessage) {
-            return new PostResult(false, null, 0, 0, errorMessage, 500);
-        }
-        
-        public boolean isSuccess() {
-            return success;
-        }
-        
-        public String getGraphUri() {
-            return graphUri;
-        }
-        
-        public int getTriplesAdded() {
-            return triplesAdded;
-        }
-        
-        public int getRulesTriggered() {
-            return rulesTriggered;
-        }
-        
-        public String getErrorMessage() {
-            return errorMessage;
-        }
-        
-        public int getStatusCode() {
-            return statusCode;
-        }
-    }
 }

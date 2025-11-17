@@ -13,6 +13,7 @@ import org.eclipse.rdf4j.query.QueryResults;
 import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
+import org.maze.domain.model.RuleExecutionResult;
 import org.maze.domain.rules.MazeRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -252,41 +253,4 @@ public class MazeRuleEngine {
         return new ArrayList<>(rules);
     }
     
-    /**
-     * Result of executing rules.
-     */
-    public static class RuleExecutionResult {
-        private final int rulesTriggered;
-        private final int triplesAdded;
-        private final List<String> triggeredRuleNames;
-        
-        public RuleExecutionResult(int rulesTriggered, int triplesAdded, 
-                                  List<String> triggeredRuleNames) {
-            this.rulesTriggered = rulesTriggered;
-            this.triplesAdded = triplesAdded;
-            this.triggeredRuleNames = new ArrayList<>(triggeredRuleNames);
-        }
-        
-        public int getRulesTriggered() {
-            return rulesTriggered;
-        }
-        
-        public int getTriplesAdded() {
-            return triplesAdded;
-        }
-        
-        public List<String> getTriggeredRuleNames() {
-            return new ArrayList<>(triggeredRuleNames);
-        }
-        
-        public boolean hasChanges() {
-            return triplesAdded > 0;
-        }
-        
-        @Override
-        public String toString() {
-            return String.format("RuleExecutionResult{rulesTriggered=%d, triplesAdded=%d, rules=%s}",
-                               rulesTriggered, triplesAdded, triggeredRuleNames);
-        }
-    }
 }

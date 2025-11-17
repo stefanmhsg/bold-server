@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.maze.domain.model.RequestInfo;
+import org.maze.domain.model.RequestKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,52 +26,6 @@ import org.slf4j.LoggerFactory;
 public class MazeRequestTracker {
 
     private static final Logger log = LoggerFactory.getLogger(MazeRequestTracker.class);
-    
-    /**
-     * Key for tracking repeated requests: agentName + cellUri + operation
-     */
-    private static class RequestKey {
-        final String agentName;
-        final String cellUri;
-        final String operation;
-        
-        RequestKey(String agentName, String cellUri, String operation) {
-            this.agentName = agentName;
-            this.cellUri = cellUri;
-            this.operation = operation;
-        }
-        
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            RequestKey that = (RequestKey) o;
-            return agentName.equals(that.agentName) && 
-                   cellUri.equals(that.cellUri) && 
-                   operation.equals(that.operation);
-        }
-        
-        @Override
-        public int hashCode() {
-            int result = agentName.hashCode();
-            result = 31 * result + cellUri.hashCode();
-            result = 31 * result + operation.hashCode();
-            return result;
-        }
-    }
-    
-    /**
-     * Track request counts and access status for each unique request
-     */
-    private static class RequestInfo {
-        int count = 0;
-        boolean lastAccessAllowed = false;
-        
-        void increment(boolean allowed) {
-            count++;
-            lastAccessAllowed = allowed;
-        }
-    }
     
     // Track request counts per agent/cell/operation combination
     private final Map<RequestKey, RequestInfo> requestCounts = new ConcurrentHashMap<>();
@@ -139,8 +95,8 @@ public class MazeRequestTracker {
             if (lastRequest != null) {
                 RequestInfo lastInfo = requestCounts.get(lastRequest);
                 if (lastInfo != null) {
-                    writeRequestToLog(agentName, lastRequest.cellUri, lastRequest.operation, 
-                                    lastInfo.count, lastInfo.lastAccessAllowed);
+                    writeRequestToLog(agentName, lastRequest.getCellUri(), lastRequest.getOperation(), 
+                                    lastInfo.getCount(), lastInfo.isLastAccessAllowed());
                 }
             }
             
@@ -148,13 +104,13 @@ public class MazeRequestTracker {
             lastLoggedRequest.put(agentName, key);
             
             // Reset count for new request sequence
-            info.count = 1;
-            info.lastAccessAllowed = allowed;
+            info.setCount(1);
+            info.setLastAccessAllowed(allowed);
         }
         // If same request, count is already incremented, will be logged when it changes
         
         log.debug("Recorded request for agent {}: {} {} (count: {}, allowed: {})", 
-                 agentName, operation, cellUri, info.count, allowed);
+                 agentName, operation, cellUri, info.getCount(), allowed);
     }
     
     /**
@@ -167,9 +123,9 @@ public class MazeRequestTracker {
         RequestKey lastRequest = lastLoggedRequest.get(agentName);
         if (lastRequest != null) {
             RequestInfo info = requestCounts.get(lastRequest);
-            if (info != null && info.count > 0) {
-                writeRequestToLog(agentName, lastRequest.cellUri, lastRequest.operation, 
-                                info.count, info.lastAccessAllowed);
+            if (info != null && info.getCount() > 0) {
+                writeRequestToLog(agentName, lastRequest.getCellUri(), lastRequest.getOperation(), 
+                                info.getCount(), info.isLastAccessAllowed());
             }
         }
     }
@@ -220,7 +176,7 @@ public class MazeRequestTracker {
      */
     public void resetAgent(String agentName) {
         // Remove all request counts for this agent
-        requestCounts.keySet().removeIf(key -> key.agentName.equals(agentName));
+        requestCounts.keySet().removeIf(key -> key.getAgentName().equals(agentName));
         lastLoggedRequest.remove(agentName);
         log.info("Reset request tracking for agent {}", agentName);
     }

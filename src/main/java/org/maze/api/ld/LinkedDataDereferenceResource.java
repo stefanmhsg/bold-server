@@ -20,9 +20,11 @@ import javax.ws.rs.Consumes;
 
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
-import org.maze.Configurator;
 import org.maze.application.MazeGameEngine;
+import org.maze.domain.model.AccessResult;
+import org.maze.domain.model.PostResult;
 import org.maze.domain.utils.AgentAuthUtil;
+import org.maze.infrastructure.web.WebServerFactory;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.Model;
@@ -68,7 +70,7 @@ public class LinkedDataDereferenceResource {
         String agentName = AgentAuthUtil.extractAgentName(authorization);
         
         // Validate access through the maze game engine (singleton from ServletContext)
-        MazeGameEngine.AccessResult accessResult = getGameEngine().validateAccess(
+        AccessResult accessResult = getGameEngine().validateAccess(
             agentName, requestedCellUri, "GET");
         
         if (!accessResult.isAllowed()) {
@@ -89,7 +91,7 @@ public class LinkedDataDereferenceResource {
      * This ensures the same instance is used across all requests, preserving agent state.
      */
     private MazeGameEngine getGameEngine() {
-        return (MazeGameEngine) _ctx.getAttribute(Configurator.MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE);
+        return (MazeGameEngine) _ctx.getAttribute(WebServerFactory.MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE);
     }
 
     private String chooseContentType(String accept) {
@@ -113,7 +115,7 @@ public class LinkedDataDereferenceResource {
     }
 
     private StreamingOutput streamGraph(UriInfo uriinfo, RDFFormat outputFormat) {
-        SailRepository repo = (SailRepository) _ctx.getAttribute(Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
+        SailRepository repo = (SailRepository) _ctx.getAttribute(WebServerFactory.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
         SailRepositoryConnection connection = repo.getConnection();
 
         try {
@@ -190,7 +192,7 @@ public class LinkedDataDereferenceResource {
             RDFFormat fmt = fmtOpt.orElse(RDFFormat.TURTLE);
             
             ValueFactory vf = ((SailRepository) _ctx.getAttribute(
-                Configurator.SAIL_REPOSITORY_SERVLET_ATTRIBUTE)).getValueFactory();
+                WebServerFactory.SAIL_REPOSITORY_SERVLET_ATTRIBUTE)).getValueFactory();
             IRI graphName = vf.createIRI(graphIRI);
             
             model = Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
@@ -206,7 +208,7 @@ public class LinkedDataDereferenceResource {
         }
         
         // Delegate to game engine for all POST logic
-        MazeGameEngine.PostResult postResult = getGameEngine().performPost(agentName, graphIRI, model);
+        PostResult postResult = getGameEngine().performPost(agentName, graphIRI, model);
         
         if (!postResult.isSuccess()) {
             log.warn("POST to {} failed for agent {}: {}", graphIRI, agentName, postResult.getErrorMessage());
