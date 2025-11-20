@@ -13,7 +13,6 @@ import org.maze.application.tracking.MazeRequestTracker;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.MoveResult;
 import org.maze.domain.model.PostResult;
-import org.maze.domain.model.RuleExecutionResult;
 import org.maze.domain.model.SparqlResult;
 import org.maze.domain.rules.MazeRule;
 import org.maze.infrastructure.concurrency.GraphLockManager;
@@ -47,25 +46,6 @@ public class MazeGameEngine {
     private final SparqlService sparqlService;
     
     /**
-     * Creates a MazeGameEngine with generic rules (root-level rules).
-     * 
-     * @param repository The RDF repository
-     */
-    public MazeGameEngine(SailRepository repository) {
-        this(repository, null);
-    }
-    
-    /**
-     * Creates a MazeGameEngine with maze-specific rules.
-     * 
-     * @param repository The RDF repository
-     * @param mazeName The maze name (e.g., "UnsafeMaze", "BigMaze"), or null for generic rules
-     */
-    public MazeGameEngine(SailRepository repository, String mazeName) {
-        this(repository, mazeName, java.util.Collections.singletonList("Global"));
-    }
-    
-    /**
      * Creates a MazeGameEngine with maze-specific rules and additional global rulesets.
      * 
      * @param repository The RDF repository
@@ -97,8 +77,8 @@ public class MazeGameEngine {
         // Initialize SPARQL service first (needed by rule engine)
         this.sparqlService = new SparqlService(repository);
         
-        // Initialize rule engine with SPARQL service for UPDATE rules
-        this.ruleEngine = new MazeRuleEngine(repository, rules, sparqlService);
+        // Initialize rule engine with SPARQL service
+        this.ruleEngine = new MazeRuleEngine(rules, sparqlService);
         
         // Initialize services that handle core operations
         this.accessValidator = new AccessValidator(accessControl, requestTracker, pathTracker);
@@ -145,9 +125,8 @@ public class MazeGameEngine {
         // Execute rules after successful move (in separate transaction)
         if (result.success()) {
             try {
-                RuleExecutionResult ruleResult = ruleEngine.executeRules();
-                log.info("Rules executed after move: {} triggered, {} triples modified",
-                        ruleResult.rulesTriggered(), ruleResult.triplesAdded());
+                ruleEngine.executeRules();
+                log.info("Rules executed after move");
             } catch (Exception e) {
                 log.error("Error executing rules after move for agent {}", agentName, e);
                 // Move succeeded, continue even if rules fail
@@ -184,11 +163,10 @@ public class MazeGameEngine {
         // Execute rules after successful POST (in separate transaction)
         if (result.success()) {
             try {
-                RuleExecutionResult ruleResult = ruleEngine.executeRules();
-                log.info("Rules executed after POST: {} triggered, {} triples modified",
-                        ruleResult.rulesTriggered(), ruleResult.triplesAdded());
+                ruleEngine.executeRules();
+                log.info("Rules executed after POST");
                 // Update result with rule count
-                return PostResult.success(graphIRI, result.triplesAdded(), ruleResult.rulesTriggered());
+                return PostResult.success(graphIRI, result.triplesAdded());
             } catch (Exception e) {
                 log.error("Error executing rules after POST to {}", graphIRI, e);
                 // POST succeeded, return result even if rules fail
@@ -202,11 +180,11 @@ public class MazeGameEngine {
      * Execute maze rules after a state change.
      * This checks all rules and applies any that are triggered.
      * 
-     * @return Result of rule execution including number of rules triggered
+     * @return List of triggered rule names
      */
-    public RuleExecutionResult executeRules() {
+    public void executeRules() {
         log.debug("Executing maze rules after state change");
-        return ruleEngine.executeRules();
+        ruleEngine.executeRules();
     }
     
     /**

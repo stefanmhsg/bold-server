@@ -22,7 +22,7 @@ public class MazeRule {
     }
     
     private final String name;
-    private final String sparqlConstruct;
+    private final String sparqlQuery;
     private final String description;
     private final RuleType ruleType;
     
@@ -30,13 +30,13 @@ public class MazeRule {
      * Create a new maze rule.
      * 
      * @param name Unique identifier for the rule (typically the filename)
-     * @param sparqlConstruct The SPARQL query that defines the rule (CONSTRUCT or UPDATE)
+     * @param sparqlQuery The SPARQL query that defines the rule (CONSTRUCT or UPDATE)
      * @param description Optional human-readable description of what the rule does
      * @param ruleType The type of rule (CONSTRUCT or UPDATE)
      */
-    public MazeRule(String name, String sparqlConstruct, String description, RuleType ruleType) {
+    public MazeRule(String name, String sparqlQuery, String description, RuleType ruleType) {
         this.name = name;
-        this.sparqlConstruct = sparqlConstruct;
+        this.sparqlQuery = sparqlQuery;
         this.description = description;
         this.ruleType = ruleType;
     }
@@ -44,27 +44,27 @@ public class MazeRule {
     /**
      * Create a rule without a description (defaults to CONSTRUCT type for backward compatibility).
      */
-    public MazeRule(String name, String sparqlConstruct) {
-        this(name, sparqlConstruct, null, RuleType.CONSTRUCT);
+    public MazeRule(String name, String sparqlQuery) {
+        this(name, sparqlQuery, null, RuleType.CONSTRUCT);
     }
     
     /**
      * Create a rule without a description.
      * 
      * @param name Unique identifier for the rule
-     * @param sparqlConstruct The SPARQL query
+     * @param sparqlQuery The SPARQL query
      * @param ruleType The type of rule (CONSTRUCT or UPDATE)
      */
-    public MazeRule(String name, String sparqlConstruct, RuleType ruleType) {
-        this(name, sparqlConstruct, null, ruleType);
+    public MazeRule(String name, String sparqlQuery, RuleType ruleType) {
+        this(name, sparqlQuery, null, ruleType);
     }
     
     public String getName() {
         return name;
     }
     
-    public String getSparqlConstruct() {
-        return sparqlConstruct;
+    public String getSparqlQuery() {
+        return sparqlQuery;
     }
     
     public String getDescription() {

@@ -330,9 +330,9 @@ You can test rule queries directly against the RDF store to verify conditions.
 
 ```java
 public class MazeRule {
-    public MazeRule(String name, String sparqlConstruct, String description);
+    public MazeRule(String name, String sparqlQuery, String description);
     public String getName();
-    public String getSparqlConstruct();
+    public String getsparqlQuery();
     public String getDescription();
 }
 ```

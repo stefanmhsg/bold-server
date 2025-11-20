@@ -75,7 +75,7 @@ public class PostHandler {
         
         log.info("POST successful: merged {} triples into {}", triplesAdded, graphIRI);
         
-        return PostResult.success(graphIRI, triplesAdded, 0);
+        return PostResult.success(graphIRI, triplesAdded);
     }
     
     /**

@@ -57,7 +57,23 @@ public class SparqlService {
      * @return SparqlResult containing the query results or error
      */
     public SparqlResult executeQuery(String queryString, String acceptHeader) {
-        log.info("Executing SPARQL query: {}", queryString.substring(0, Math.min(100, queryString.length())));
+        return executeQuery(queryString, acceptHeader, null);
+    }
+    
+    /**
+     * Execute a SPARQL query and return results in the requested format.
+     * 
+     * @param queryString the SPARQL query string
+     * @param acceptHeader the Accept header for content negotiation (may be null)
+     * @param ruleName optional rule name for logging (may be null)
+     * @return SparqlResult containing the query results or error
+     */
+    public SparqlResult executeQuery(String queryString, String acceptHeader, String ruleName) {
+        if (ruleName != null) {
+            log.info("Executing SPARQL query for rule: {}", ruleName);
+        } else {
+            log.info("Executing SPARQL query: {}", queryString.substring(0, Math.min(100, queryString.length())));
+        }
         
         try (SailRepositoryConnection connection = repository.getConnection()) {
             // Determine query type

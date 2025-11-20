@@ -218,8 +218,8 @@ public class LinkedDataDereferenceResource {
         }
         
         // Success - return 201 Created
-        log.info("POST successful: {} triples merged into {}, {} rules triggered",
-                postResult.triplesAdded(), graphIRI, postResult.rulesTriggered());
+        log.info("POST successful: {} triples merged into {}",
+                postResult.triplesAdded(), graphIRI);
         
         return Response.created(URI.create(graphIRI))
                 .entity("Graph updated: " + graphIRI)
