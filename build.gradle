@@ -23,9 +23,9 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.apache.httpcomponents.client5:httpclient5:5.4.1'
 
-    // RDF4J - Upgrade to 4.x (stable, backward compatible)
+    // RDF4J - 5.x (latest stable)
     // Exclude Jetty to avoid conflicts with Jetty 12
-    implementation('org.eclipse.rdf4j:rdf4j-storage:4.3.13') {
+    implementation('org.eclipse.rdf4j:rdf4j-storage:5.2.0') {
         exclude group: 'org.eclipse.jetty'
         exclude group: 'org.eclipse.jetty.http2'
     }
