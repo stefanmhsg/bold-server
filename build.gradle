@@ -6,7 +6,7 @@ plugins {
 group 'org.maze'
 version '0.2.0'
 
-//sourceCompatibility = 1.8
+//sourceCompatibility = 17
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -30,14 +30,14 @@ dependencies {
         exclude group: 'org.eclipse.jetty.http2'
     }
     
-    // Jetty - Upgrade to 12.x (latest stable, Jakarta EE 10)
-    implementation 'org.eclipse.jetty:jetty-server:12.0.15'
-    implementation 'org.eclipse.jetty.ee10:jetty-ee10-servlet:12.0.15'
-    implementation 'org.eclipse.jetty:jetty-slf4j-impl:12.0.15'
+    // Jetty - Upgrade to 12.x (latest stable, Jakarta EE 11)
+    implementation 'org.eclipse.jetty:jetty-server:12.1.4'
+    implementation 'org.eclipse.jetty.ee11:jetty-ee11-servlet:12.1.4'
+    implementation 'org.eclipse.jetty:jetty-slf4j-impl:12.1.4'
     
-    // Jersey - Upgrade to 3.x (Jakarta EE 10)
-    implementation 'org.glassfish.jersey.containers:jersey-container-servlet:3.1.9'
-    implementation 'org.glassfish.jersey.inject:jersey-hk2:3.1.9'
+    // Jersey - Upgrade to 4.x (Jakarta EE 10/11)
+    implementation 'org.glassfish.jersey.containers:jersey-container-servlet:4.0.0'
+    implementation 'org.glassfish.jersey.inject:jersey-hk2:4.0.0'
     
     // ANTLR - Minor update
     implementation 'org.antlr:antlr4:4.13.2'
