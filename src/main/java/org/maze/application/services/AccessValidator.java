@@ -1,40 +1,18 @@
 package org.maze.application.services;
 
-import org.maze.application.tracking.MazeAccessControl;
-import org.maze.application.tracking.MazePathTracker;
-import org.maze.application.tracking.MazeRequestTracker;
 import org.maze.domain.model.AccessResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Service responsible for validating agent access to maze cells.
- * Handles access control logic for GET (perception), MOVE (navigation), and POST (interaction) operations.
- * 
- * This is a simulation-domain service - access rules are part of the maze game mechanics,
- * not traditional business logic.
- */
+
 public class AccessValidator {
     
     private static final Logger log = LoggerFactory.getLogger(AccessValidator.class);
     
     private final MazeAccessControl accessControl;
-    private final MazeRequestTracker requestTracker;
-    private final MazePathTracker pathTracker;
     
-    /**
-     * Create a new access validator.
-     * 
-     * @param accessControl the access control component
-     * @param requestTracker the request tracking component
-     * @param pathTracker the path tracking component
-     */
-    public AccessValidator(MazeAccessControl accessControl, 
-                          MazeRequestTracker requestTracker, 
-                          MazePathTracker pathTracker) {
+    public AccessValidator(MazeAccessControl accessControl) {
         this.accessControl = accessControl;
-        this.requestTracker = requestTracker;
-        this.pathTracker = pathTracker;
     }
     
     /**
@@ -50,10 +28,9 @@ public class AccessValidator {
      * @return AccessResult containing whether access is allowed and a message
      */
     public AccessResult validateAccess(String agentName, String requestedCellUri, 
-                                       String operation, String agentUri) {
+                                       String operation) {
         // Non-cell resources are always accessible
         if (!isCellResource(requestedCellUri)) {
-            requestTracker.recordRequest(agentName, requestedCellUri, operation, true);
             return AccessResult.allow();
         }
         
@@ -61,6 +38,8 @@ public class AccessValidator {
         if (agentName == null || agentName.trim().isEmpty()) {
             return AccessResult.allow();
         }
+
+        String agentUri = buildAgentUri(requestedCellUri, agentName);
         
         // Find current location from RDF
         String currentLocation = accessControl.findAgentLocation(agentUri);
@@ -73,7 +52,6 @@ public class AccessValidator {
         // Route to specific validation based on operation type
         return switch (operation) {
             case "GET" -> validatePerception(agentName, requestedCellUri, currentLocation);
-            case "MOVE" -> validateMovement(agentName, requestedCellUri, currentLocation);
             case "POST" -> validateInteraction(agentName, requestedCellUri, currentLocation);
             default -> {
                 log.warn("Unknown operation type: {}", operation);
@@ -91,18 +69,15 @@ public class AccessValidator {
             if (!accessControl.isEntranceCell(requestedCellUri)) {
                 log.warn("Agent {} has no location, attempting to move to {} - denied (not entrance)", 
                          agentName, requestedCellUri);
-                requestTracker.recordRequest(agentName, requestedCellUri, operation, false);
                 return AccessResult.deny("Access denied. Agent must start at the entrance cell (check xhv:start in /maze).");
             }
             
             // Allow first move to entrance
             log.info("Agent {} starting at entrance: {}", agentName, requestedCellUri);
-            requestTracker.recordRequest(agentName, requestedCellUri, operation, true);
             return AccessResult.allow();
         } else {
             // For GET and POST, deny if agent has no location
             log.warn("Agent {} has no location, cannot perceive or modify {}", agentName, requestedCellUri);
-            requestTracker.recordRequest(agentName, requestedCellUri, operation, false);
             return AccessResult.deny("Access denied. Agent has no location. Use /move to enter the maze.");
         }
     }
@@ -114,7 +89,6 @@ public class AccessValidator {
         if (!accessControl.isAccessAllowed(currentLocation, requestedCellUri)) {
             log.warn("Agent {} at {} attempted to perceive {} - denied (not accessible)",
                      agentName, currentLocation, requestedCellUri);
-            requestTracker.recordRequest(agentName, requestedCellUri, "GET", false);
             return AccessResult.deny(
                 String.format("Access denied. Cell %s is not perceivable from your current location %s",
                              requestedCellUri, currentLocation));
@@ -122,30 +96,9 @@ public class AccessValidator {
         
         // Allow perception
         log.info("Agent {} at {} perceiving {}", agentName, currentLocation, requestedCellUri);
-        requestTracker.recordRequest(agentName, requestedCellUri, "GET", true);
         return AccessResult.allow();
     }
     
-    /**
-     * Validate MOVE request - agent can move to accessible adjacent cells.
-     */
-    private AccessResult validateMovement(String agentName, String requestedCellUri, String currentLocation) {
-        if (!accessControl.isAccessAllowed(currentLocation, requestedCellUri)) {
-            log.warn("Agent {} at {} attempted unauthorized move to {} - denied",
-                     agentName, currentLocation, requestedCellUri);
-            requestTracker.recordRequest(agentName, requestedCellUri, "MOVE", false);
-            return AccessResult.deny(
-                String.format("Access denied. Cell %s is not accessible from your current location %s",
-                             requestedCellUri, currentLocation));
-        }
-        
-        // Allow movement
-        log.info("Agent {} moving from {} to {}", agentName, currentLocation, requestedCellUri);
-        pathTracker.recordMovement(agentName, requestedCellUri);
-        requestTracker.recordRequest(agentName, requestedCellUri, "MOVE", true);
-        
-        return AccessResult.allow();
-    }
     
     /**
      * Validate POST request (interaction) - agent must be at the target cell.
@@ -155,7 +108,6 @@ public class AccessValidator {
         if (!currentLocation.equals(requestedCellUri)) {
             log.warn("Agent {} at {} attempted to POST to {} - denied (not at location)",
                      agentName, currentLocation, requestedCellUri);
-            requestTracker.recordRequest(agentName, requestedCellUri, "POST", false);
             return AccessResult.deny(
                 String.format("Access denied. You can only POST to your current cell. You are at %s, not %s",
                              currentLocation, requestedCellUri));
@@ -163,7 +115,6 @@ public class AccessValidator {
         
         // Allow interaction with current cell
         log.info("Agent {} at {} posting to current cell", agentName, currentLocation);
-        requestTracker.recordRequest(agentName, requestedCellUri, "POST", true);
         return AccessResult.allow();
     }
     
@@ -173,4 +124,16 @@ public class AccessValidator {
     private boolean isCellResource(String uri) {
         return uri.contains("/cells/");
     }
+    
+    private String buildAgentUri(String cellUri, String agentName) {
+        int cellsIndex = cellUri.lastIndexOf("/cells");
+        if (cellsIndex == -1) {
+            // Fallback: use cell URI as base
+            int lastSlash = cellUri.lastIndexOf("/");
+            return cellUri.substring(0, lastSlash + 1) + "agents/" + agentName;
+        }
+        String baseUri = cellUri.substring(0, cellsIndex);
+        return baseUri + "/agents/" + agentName;
+    }
+    
 }

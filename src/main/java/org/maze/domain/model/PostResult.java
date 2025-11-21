@@ -7,7 +7,7 @@ package org.maze.domain.model;
 public record PostResult(boolean success, String graphUri, int triplesAdded, 
                          String errorMessage, int statusCode) {
     
-    public static PostResult success(String graphUri, int triplesAdded) {
+    public static PostResult success(String graphUri, int triplesAdded, String responseMessage) {
         return new PostResult(true, graphUri, triplesAdded, null, 201);
     }
     

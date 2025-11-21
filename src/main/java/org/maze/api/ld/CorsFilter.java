@@ -7,17 +7,12 @@ import jakarta.ws.rs.container.ContainerResponseFilter;
 import jakarta.ws.rs.container.PreMatching;
 import jakarta.ws.rs.ext.Provider;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Simple CORS headers for browser clients.
  */
 @Provider
 @PreMatching
 public class CorsFilter implements ContainerResponseFilter {
-
-    private static final Logger log = LoggerFactory.getLogger(CorsFilter.class);
 
     @Override
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext)

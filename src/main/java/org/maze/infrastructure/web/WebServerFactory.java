@@ -14,9 +14,13 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.maze.api.ld.CorsFilter;
 import org.maze.api.ld.LinkedDataDereferenceResource;
-import org.maze.api.ld.MoveResource;
 import org.maze.api.sparql.SparqlResource;
-import org.maze.application.MazeGameEngine;
+import org.maze.application.MazeRuleService;
+import org.maze.application.services.AccessValidator;
+import org.maze.application.services.MazeAccessControl;
+import org.maze.application.services.PostHandler;
+import org.maze.application.services.SparqlService;
+import org.maze.infrastructure.concurrency.GraphLockManager;
 import org.maze.infrastructure.config.ServerConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +34,9 @@ public class WebServerFactory {
     
     public static final String SAIL_REPOSITORY_SERVLET_ATTRIBUTE = "SAIL_REPOSITORY_SERVLET_ATTRIBUTE";
     public static final String MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE = "MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE";
+    public static final String ACCESS_VALIDATOR_SERVLET_ATTRIBUTE = "ACCESS_VALIDATOR_SERVLET_ATTRIBUTE";
+    public static final String POST_HANDLER_SERVLET_ATTRIBUTE = "POST_HANDLER_SERVLET_ATTRIBUTE";
+    public static final String SPARQL_SERVICE_SERVLET_ATTRIBUTE = "SPARQL_SERVICE_SERVLET_ATTRIBUTE";
     
     /**
      * Create and configure a web server.
@@ -41,7 +48,7 @@ public class WebServerFactory {
      * @throws Exception if server creation fails
      */
     public Server createServer(ServerConfiguration config, SailRepository repository, 
-                               MazeGameEngine gameEngine) throws Exception {
+                               MazeRuleService gameEngine) throws Exception {
         int port = config.getPort();
         Server server = new Server(port);
         ServletContextHandler context = new ServletContextHandler("/");
@@ -72,15 +79,24 @@ public class WebServerFactory {
     
     private void configureRestEndpoints(ServletContextHandler context, 
                                        SailRepository repository, 
-                                       MazeGameEngine gameEngine) {
-        // Share repository and game engine via ServletContext
+                                       MazeRuleService gameEngine) {
+        // Initialize services
+        GraphLockManager lockManager = new GraphLockManager();
+        MazeAccessControl accessControl = new MazeAccessControl(repository);
+        AccessValidator accessValidator = new AccessValidator(accessControl);
+        PostHandler postHandler = new PostHandler(repository, lockManager, gameEngine);
+        SparqlService sparqlService = new SparqlService(repository);
+        
+        // Share repository, game engine, and services via ServletContext
         context.setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);
         context.setAttribute(MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE, gameEngine);
+        context.setAttribute(ACCESS_VALIDATOR_SERVLET_ATTRIBUTE, accessValidator);
+        context.setAttribute(POST_HANDLER_SERVLET_ATTRIBUTE, postHandler);
+        context.setAttribute(SPARQL_SERVICE_SERVLET_ATTRIBUTE, sparqlService);
         
         // Configure JAX-RS resources
         ResourceConfig ldConfig = new ResourceConfig();
         ldConfig.register(LinkedDataDereferenceResource.class);
-        ldConfig.register(MoveResource.class);
         ldConfig.register(SparqlResource.class);
         ldConfig.register(CorsFilter.class);
         

@@ -17,10 +17,13 @@ import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.OPTIONS;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.HttpHeaders;
 
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
-import org.maze.application.MazeGameEngine;
+import org.maze.application.services.AccessValidator;
+import org.maze.application.services.PostHandler;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.PostResult;
 import org.maze.domain.utils.AgentAuthUtil;
@@ -57,21 +60,19 @@ public class LinkedDataDereferenceResource {
     private static final Logger log = LoggerFactory.getLogger(LinkedDataDereferenceResource.class);
 
     @Context
-    ServletContext _ctx;
+    private ServletContext servletContext;
 
     @GET
     @Produces({ "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples" })
     public Response getGraph(@Context UriInfo uriinfo,
-                             @HeaderParam("Accept") String accept,
+                             @Context HttpHeaders headers,
                              @HeaderParam("Authorization") String authorization) {
         String requestedCellUri = uriinfo.getAbsolutePath().toString();
         
-        // Extract agent name from Authorization header
+        // Extract agent name and validate access
         String agentName = AgentAuthUtil.extractAgentName(authorization);
-        
-        // Validate access through the maze game engine (singleton from ServletContext)
-        AccessResult accessResult = getGameEngine().validateAccess(
-            agentName, requestedCellUri, "GET");
+        AccessValidator accessValidator = getAccessValidator();
+        AccessResult accessResult = accessValidator.validateAccess(agentName, requestedCellUri, "GET");
         
         if (!accessResult.isAllowed()) {
             return Response.status(Response.Status.FORBIDDEN)
@@ -79,43 +80,121 @@ public class LinkedDataDereferenceResource {
                     .build();
         }
         
-        String ct = chooseContentType(accept);
-        RDFFormat fmt = toRDFFormat(ct);
-        log.info("LD GET request for graph ({}): {}", ct, uriinfo.getAbsolutePath());
+        // Use JAX-RS content negotiation to determine best format
+        MediaType acceptedType = headers.getAcceptableMediaTypes().stream()
+            .filter(mt -> mt.isCompatible(MediaType.valueOf("text/turtle")) ||
+                         mt.isCompatible(MediaType.valueOf("application/ld+json")) ||
+                         mt.isCompatible(MediaType.valueOf("application/rdf+xml")) ||
+                         mt.isCompatible(MediaType.valueOf("application/n-triples")))
+            .findFirst()
+            .orElse(MediaType.valueOf("text/turtle"));
+        
+        RDFFormat fmt = mediaTypeToRDFFormat(acceptedType);
+        log.info("LD GET request for graph ({}): {}", acceptedType, uriinfo.getAbsolutePath());
         StreamingOutput out = streamGraph(uriinfo, fmt);
-        return Response.ok(out, ct).build();
+        return Response.ok(out, acceptedType).build();
+    }
+
+    @OPTIONS
+    public Response handleOptions(@Context UriInfo uriinfo) {
+        return Response.noContent()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+                .header("Access-Control-Allow-Headers", "Content-Type")
+                .build();
+    }
+
+    @POST
+    @Consumes({ "text/turtle", "application/n-triples", "application/ld+json", "application/rdf+xml", "text/plain", "*/*" })
+    @Produces("text/plain")
+    public Response postGraph(@HeaderParam("Authorization") String authorization,
+                              @Context HttpHeaders headers,
+                              @Context UriInfo uriinfo, 
+                              String body) {
+        String graphIRI = uriinfo.getAbsolutePath().toString();
+        String agentName = AgentAuthUtil.extractAgentName(authorization);
+        
+        log.info("LD POST to graph: {} by agent: {}", graphIRI, 
+                 agentName != null ? agentName : "<anonymous>");
+
+        // Validate access
+        AccessValidator accessValidator = getAccessValidator();
+        AccessResult accessResult = body.contains("move") 
+            ? accessValidator.validateAccess(agentName, graphIRI, "MOVE")
+            : accessValidator.validateAccess(agentName, graphIRI, "POST");
+
+        if (!accessResult.isAllowed()) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity(accessResult.message())
+                    .build();
+        }
+        
+        // Parse RDF body using Content-Type from headers
+        MediaType contentType = headers.getMediaType();
+        Model model = parseRdfBody(body, graphIRI, contentType);
+        if (model == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Bad RDF payload")
+                    .build();
+        }
+        
+        // Execute POST operation
+        PostHandler postHandler = getPostHandler();
+        PostResult postResult = postHandler.performPost(agentName, graphIRI, model);
+        
+        if (!postResult.isSuccess()) {
+            log.warn("POST to {} failed for agent {}: {}", graphIRI, agentName, postResult.errorMessage());
+            return Response.status(postResult.statusCode())
+                    .entity(postResult.errorMessage())
+                    .build();
+        }
+        
+        log.info("POST successful: {} triples merged into {}", postResult.triplesAdded(), graphIRI);
+        return Response.created(URI.create(graphIRI))
+                .entity("Graph updated: " + graphIRI)
+                .build();
+    }
+
+    // ==================== Helper Methods ====================
+    
+    /**
+     * Retrieve AccessValidator from ServletContext.
+     */
+    private AccessValidator getAccessValidator() {
+        return (AccessValidator) servletContext.getAttribute(
+            WebServerFactory.ACCESS_VALIDATOR_SERVLET_ATTRIBUTE);
     }
     
     /**
-     * Get the maze game engine singleton from ServletContext.
-     * This ensures the same instance is used across all requests, preserving agent state.
+     * Retrieve PostHandler from ServletContext.
      */
-    private MazeGameEngine getGameEngine() {
-        return (MazeGameEngine) _ctx.getAttribute(WebServerFactory.MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE);
+    private PostHandler getPostHandler() {
+        return (PostHandler) servletContext.getAttribute(
+            WebServerFactory.POST_HANDLER_SERVLET_ATTRIBUTE);
+    }
+    
+    /**
+     * Retrieve SailRepository from ServletContext.
+     */
+    private SailRepository getRepository() {
+        return (SailRepository) servletContext.getAttribute(
+            WebServerFactory.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
     }
 
-    private String chooseContentType(String accept) {
-        if (accept == null) return "text/turtle";
-        String a = accept.trim().toLowerCase();
-        if (a.isEmpty() || "*/*".equals(a)) return "text/turtle";
-        if (a.contains("text/turtle")) return "text/turtle";
-        if (a.contains("application/ld+json")) return "application/ld+json";
-        if (a.contains("application/rdf+xml")) return "application/rdf+xml";
-        if (a.contains("application/n-triples")) return "application/n-triples";
-        return "text/turtle";
+    /**
+     * Convert JAX-RS MediaType to RDF4J RDFFormat using Rio's built-in mapping.
+     */
+    private RDFFormat mediaTypeToRDFFormat(MediaType mediaType) {
+        String mimeType = mediaType.getType() + "/" + mediaType.getSubtype();
+        return Rio.getParserFormatForMIMEType(mimeType)
+                  .orElse(RDFFormat.TURTLE);
     }
 
-    private RDFFormat toRDFFormat(String ct) {
-        switch (ct) {
-            case "application/ld+json": return RDFFormat.JSONLD;
-            case "application/rdf+xml": return RDFFormat.RDFXML;
-            case "application/n-triples": return RDFFormat.NTRIPLES;
-            default: return RDFFormat.TURTLE;
-        }
-    }
-
+    /**
+     * Create a StreamingOutput that exports an RDF graph.
+     */
     private StreamingOutput streamGraph(UriInfo uriinfo, RDFFormat outputFormat) {
-        SailRepository repo = (SailRepository) _ctx.getAttribute(WebServerFactory.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
+        SailRepository repo = getRepository();
         SailRepositoryConnection connection = repo.getConnection();
 
         try {
@@ -159,79 +238,74 @@ public class LinkedDataDereferenceResource {
         }
     }
 
-    // -------------------------------------------
-    // Additional methods (e.g., POST, OPTIONS)
-    // -------------------------------------------
-    
-    @OPTIONS
-    public Response handleOptions(@Context UriInfo uriinfo) {
-        return Response.noContent()
-                .header("Access-Control-Allow-Origin", "*")
-                .header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
-                .header("Access-Control-Allow-Headers", "Content-Type")
-                .build();
-    }
-
-    @POST
-    @Consumes({ "text/turtle", "application/n-triples", "application/ld+json", "application/rdf+xml" })
-    @Produces("text/plain")
-    public Response postGraph(@HeaderParam("Authorization") String authorization,
-                                @Context UriInfo uriinfo, String body) {
-                                    
-        // Extract agent name from Authorization header (optional)
-        String agentName = AgentAuthUtil.extractAgentName(authorization);
-        
-        String graphIRI = uriinfo.getAbsolutePath().toString();
-        log.info("LD POST attempting merge into graph: {} by agent: {}", graphIRI, 
-                 agentName != null ? agentName : "<anonymous>");
-        
-        // Parse RDF body
-        Model model;
+    /**
+     * Parse RDF body into a Model.
+     * Supports all RDF formats including literals.
+     * Returns null if parsing fails.
+     * 
+     * @param body the RDF body content
+     * @param graphIRI the target graph IRI (used as base URI)
+     * @param contentType the Content-Type from request (may be null)
+     */
+    private Model parseRdfBody(String body, String graphIRI, MediaType contentType) {
         try {
-            java.util.Optional<RDFFormat> fmtOpt = Rio.getParserFormatForMIMEType(detectContentType(body));
-            RDFFormat fmt = fmtOpt.orElse(RDFFormat.TURTLE);
-            
-            ValueFactory vf = ((SailRepository) _ctx.getAttribute(
-                WebServerFactory.SAIL_REPOSITORY_SERVLET_ATTRIBUTE)).getValueFactory();
+            ValueFactory vf = getRepository().getValueFactory();
             IRI graphName = vf.createIRI(graphIRI);
             
-            model = Rio.parse(new java.io.ByteArrayInputStream(body.getBytes()),
-                            graphIRI,
-                            fmt,
-                            graphName);
-                            
+            // Determine format from Content-Type or detect from body
+            RDFFormat format;
+            if (contentType != null && 
+                !contentType.isWildcardType() && 
+                !MediaType.TEXT_PLAIN_TYPE.isCompatible(contentType)) {
+                // Use Content-Type if it's a specific RDF format
+                String mimeType = contentType.getType() + "/" + contentType.getSubtype();
+                format = Rio.getParserFormatForMIMEType(mimeType)
+                           .orElse(RDFFormat.TURTLE);
+            } else {
+                // Fallback: detect from content or default to Turtle
+                format = detectFormatFromContent(body);
+            }
+            
+            log.debug("Parsing RDF with format: {} for graph: {}", format.getName(), graphIRI);
+            
+            // Parse with explicit UTF-8 encoding and graph context
+            return Rio.parse(
+                new java.io.ByteArrayInputStream(body.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                graphIRI,      // base URI
+                format,        // RDF format
+                graphName      // target graph (context for quads)
+            );
         } catch (IOException | RDFParseException | UnsupportedRDFormatException e) {
-            log.error("LD POST failed parsing body for {}", graphIRI, e);
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Bad RDF payload")
-                    .build();
+            log.error("Failed to parse RDF body for {} (contentType: {}, error: {})", 
+                     graphIRI, contentType, e.getMessage());
+            return null;
         }
-        
-        // Delegate to game engine for all POST logic
-        PostResult postResult = getGameEngine().performPost(agentName, graphIRI, model);
-        
-        if (!postResult.isSuccess()) {
-            log.warn("POST to {} failed for agent {}: {}", graphIRI, agentName, postResult.errorMessage());
-            return Response.status(postResult.statusCode())
-                    .entity(postResult.errorMessage())
-                    .build();
-        }
-        
-        // Success - return 201 Created
-        log.info("POST successful: {} triples merged into {}",
-                postResult.triplesAdded(), graphIRI);
-        
-        return Response.created(URI.create(graphIRI))
-                .entity("Graph updated: " + graphIRI)
-                .build(); 
     }
-
-    // Helper to guess MIME if no Content-Type was set by LDFu (which it often doesn't)
-    private String detectContentType(String body) {
-        // ultra lightweight heuristic: N3/Turtle starts with @prefix or <> or <http...
-        String t = body.trim().toLowerCase();
-        if (t.startsWith("@prefix") || t.startsWith("<")) return "text/turtle";
-        return "text/turtle"; // fallback ok for ldfu
+    
+    /**
+     * Detect RDF format from content using simple heuristics.
+     * Returns TURTLE as default fallback.
+     */
+    private RDFFormat detectFormatFromContent(String body) {
+        String trimmed = body.trim().toLowerCase();
+        
+        // Turtle/N3 typically starts with @prefix or angle brackets
+        if (trimmed.startsWith("@prefix") || trimmed.startsWith("@base") || trimmed.startsWith("<")) {
+            return RDFFormat.TURTLE;
+        }
+        
+        // JSON-LD starts with { or [
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            return RDFFormat.JSONLD;
+        }
+        
+        // RDF/XML starts with <?xml or <rdf
+        if (trimmed.startsWith("<?xml") || trimmed.startsWith("<rdf")) {
+            return RDFFormat.RDFXML;
+        }
+        
+        // Default to Turtle (most common for plain text)
+        return RDFFormat.TURTLE;
     }
 
 }

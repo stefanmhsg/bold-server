@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
-import org.maze.application.MazeGameEngine;
+import org.maze.application.MazeRuleService;
 import org.maze.infrastructure.config.ServerConfiguration;
 import org.maze.infrastructure.rdf.DataLoader;
 import org.maze.infrastructure.rdf.RepositoryFactory;
@@ -44,10 +44,11 @@ public class Configurator {
         DataLoader dataLoader = new DataLoader();
         dataLoader.loadData(repository, config.getInitDataset(), rdfBaseURI);
         
-        // Initialize game engine
+        // Initialize Rules
         String mazeName = extractMazeName(task);
         List<String> rulesetPaths = buildRulesetPaths(additionalRulesets);
-        MazeGameEngine gameEngine = new MazeGameEngine(repository, mazeName, rulesetPaths);
+        
+        MazeRuleService gameEngine = new MazeRuleService(repository, mazeName, rulesetPaths);
         log.info("MazeGameEngine initialized for maze: {}", mazeName != null ? mazeName : "generic");
         
         // Create and start web server

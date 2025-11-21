@@ -1,7 +1,6 @@
 package org.maze.infrastructure.rdf;
 
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -19,8 +18,6 @@ import java.util.*;
  * </ul>
  */
 public class RDFValueFormats {
-
-    private static final ValueFactory vf = SimpleValueFactory.getInstance();
 
     private static final Set<RDFFormat> formats = new HashSet<>();
 

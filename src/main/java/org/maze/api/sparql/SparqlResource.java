@@ -10,7 +10,7 @@ import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 
-import org.maze.application.MazeGameEngine;
+import org.maze.application.services.SparqlService;
 import org.maze.domain.model.SparqlResult;
 import org.maze.domain.utils.AgentAuthUtil;
 import org.maze.infrastructure.web.WebServerFactory;
@@ -137,20 +137,20 @@ public class SparqlResource {
                     .build();
         }
         
-        // Get game engine from servlet context
-        MazeGameEngine gameEngine = (MazeGameEngine) servletContext.getAttribute(
-                WebServerFactory.MAZE_GAME_ENGINE_SERVLET_ATTRIBUTE);
+        // Get SPARQL service from servlet context
+        SparqlService sparqlService = (SparqlService) servletContext.getAttribute(
+                WebServerFactory.SPARQL_SERVICE_SERVLET_ATTRIBUTE);
         
-        if (gameEngine == null) {
-            log.error("MazeGameEngine not found in servlet context");
+        if (sparqlService == null) {
+            log.error("SparqlService not found in servlet context");
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("{\"error\":\"Game engine not initialized\"}")
                     .type("application/json")
                     .build();
         }
         
-        // Execute query via game engine
-        SparqlResult result = gameEngine.executeSparqlQuery(query, acceptHeader);
+        // Execute query
+        SparqlResult result = sparqlService.executeQuery(query, acceptHeader);
         
         // Build response
         if (result.success()) {
