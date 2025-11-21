@@ -35,7 +35,7 @@ public class MazeRuleService {
         
         // Initialize SPARQL service first (needed by rule service)
         this.sparqlService = new SparqlService(repository);
-        this.rules = null;
+        this.rules = rules;
         
         String rulesetsInfo = additionalRulesets != null && !additionalRulesets.isEmpty() 
                 ? " + " + String.join(", ", additionalRulesets) 

@@ -1,0 +1,39 @@
+PREFIX dyn:  <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+
+DELETE {
+    GRAPH ?oldGraph {
+        ?oldCell maze:contains ?agent .
+    }
+    GRAPH ?eventGraph {
+        ?agent dyn:moveRequest ?newCell .
+    }
+}
+INSERT {
+    GRAPH ?newGraph {
+        ?newCell maze:contains ?agent .
+    }
+    GRAPH ?eventGraph {
+        ?agent dyn:moveSucceeded ?newCell .
+    }
+}
+WHERE {
+    # the move event
+    GRAPH ?eventGraph {
+        ?agent dyn:moveRequest ?newCell .
+    }
+
+    # find the cell the agent is currently in
+    GRAPH ?oldGraph {
+        ?oldCell maze:contains ?agent .
+    }
+
+    # check adjacency by looking inside the current cell graph
+    GRAPH ?oldGraph {
+        ?oldCell ?dir ?newCell .
+        FILTER (?dir IN (maze:north, maze:south, maze:east, maze:west))
+    }
+
+    # infer the correct named graph for the new cell
+    BIND(?newCell AS ?newGraph)
+}

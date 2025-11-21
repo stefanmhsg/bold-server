@@ -1,0 +1,22 @@
+PREFIX dyn:  <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+
+DELETE {
+    GRAPH <http://127.0.1.1:8080/maze> {
+        ?agent dyn:moveRequest <http://127.0.1.1:8080/cells/0> .
+    }
+}
+INSERT {
+    GRAPH <http://127.0.1.1:8080/cells/0> {
+        <http://127.0.1.1:8080/cells/0> maze:contains ?agent .
+    }
+    GRAPH <http://127.0.1.1:8080/maze> {
+        ?agent dyn:moveSucceeded <http://127.0.1.1:8080/cells/0> .
+    }
+}
+WHERE {
+    # the move event
+    GRAPH <http://127.0.1.1:8080/maze> {
+        ?agent dyn:moveRequest <http://127.0.1.1:8080/cells/0> .
+    }
+}

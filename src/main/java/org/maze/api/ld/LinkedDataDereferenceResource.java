@@ -119,7 +119,7 @@ public class LinkedDataDereferenceResource {
 
         // Validate access
         AccessValidator accessValidator = getAccessValidator();
-        AccessResult accessResult = body.contains("move") 
+        AccessResult accessResult = body.contains("moveRequest") 
             ? accessValidator.validateAccess(agentName, graphIRI, "MOVE")
             : accessValidator.validateAccess(agentName, graphIRI, "POST");
 
