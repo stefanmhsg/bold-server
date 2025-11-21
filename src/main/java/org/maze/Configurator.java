@@ -5,7 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jetty.server.Server;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG.Sail;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.maze.application.MazeRuleService;
 import org.maze.infrastructure.config.ServerConfiguration;
 import org.maze.infrastructure.rdf.DataLoader;
@@ -50,6 +52,35 @@ public class Configurator {
         
         MazeRuleService ruleService = new MazeRuleService(repository, mazeName, rulesetPaths);
         log.info("MazeRuleService initialized for maze: {}", mazeName != null ? mazeName : "generic");
+
+        // Run rules once at startup to ensure initial consistency
+        SailRepositoryConnection conn = null;
+        try {
+            conn = repository.getConnection();
+            conn.begin();
+
+            log.info("Running initial maze rules on startup...");
+            ruleService.executeRules(conn);
+            conn.commit();
+
+            log.info("Initial rule execution finished");
+        } catch (Exception e) {
+            if (conn != null) {
+                try {
+                    log.warn("Rolling back initial rule execution due to error");
+                    conn.rollback();
+                } catch (Exception rollbackError) {
+                    log.error("Rollback during startup failed: ", rollbackError);
+                }
+            }
+            log.error("Initial rule execution failed: ", e);
+            throw e;
+        } finally {
+            if (conn != null) {
+                conn.close();
+            }
+        }
+
         
         // Create and start web server
         WebServerFactory webFactory = new WebServerFactory();

@@ -104,7 +104,7 @@ public class SparqlService {
             log.error("Error executing SPARQL query: {}", e.getMessage(), e);
             return SparqlResult.failed(e.getMessage(), null);
         } finally {
-            // Only close connection if we opened it
+            // Only close connection if we opened it here in this method
             if (ownConnection && connection != null) {
                 connection.close();
             }
