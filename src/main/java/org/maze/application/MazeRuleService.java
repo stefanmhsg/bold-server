@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.rdf4j.repository.sail.SailRepository;
-import org.maze.application.services.SparqlService;
+import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.maze.domain.rules.MazeRule;
 import org.maze.infrastructure.storage.MazeRuleLoader;
 import org.slf4j.Logger;
@@ -47,15 +47,17 @@ public class MazeRuleService {
     }
     
     /**
-     * Execute all rules and apply any resulting triples to the repository.
+     * Execute all rules within an external transaction.
      * This should be called after state-changing operations (e.g., POST requests).
+     * 
+     * @param connection the active repository connection with an open transaction
      */
-    public void executeRules() {
+    public void executeRules(SailRepositoryConnection connection) {
         log.debug("Executing {} maze rules", rules.size());
                 
         for (MazeRule rule : rules) {
             try {
-                    sparqlService.executeQuery(rule.getSparqlQuery(), "text/plain", rule.getName());
+                sparqlService.executeQuery(rule.getSparqlQuery(), "text/plain", rule.getName(), connection);
             } catch (Exception e) {
                 // Log and continue on failure (don't rollback operations)
                 log.error("Error executing rule '{}' ({}): {}", 

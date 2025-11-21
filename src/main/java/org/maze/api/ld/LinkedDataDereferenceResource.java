@@ -22,8 +22,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
-import org.maze.application.services.AccessValidator;
-import org.maze.application.services.PostHandler;
+import org.maze.application.AccessValidator;
+import org.maze.application.PostHandler;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.PostResult;
 import org.maze.domain.utils.AgentAuthUtil;

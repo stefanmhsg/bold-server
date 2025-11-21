@@ -1,4 +1,4 @@
-package org.maze.application.services;
+package org.maze.application;
 
 import org.maze.domain.model.AccessResult;
 import org.slf4j.Logger;

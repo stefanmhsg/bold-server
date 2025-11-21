@@ -48,12 +48,12 @@ public class Configurator {
         String mazeName = extractMazeName(task);
         List<String> rulesetPaths = buildRulesetPaths(additionalRulesets);
         
-        MazeRuleService gameEngine = new MazeRuleService(repository, mazeName, rulesetPaths);
-        log.info("MazeGameEngine initialized for maze: {}", mazeName != null ? mazeName : "generic");
+        MazeRuleService ruleService = new MazeRuleService(repository, mazeName, rulesetPaths);
+        log.info("MazeRuleService initialized for maze: {}", mazeName != null ? mazeName : "generic");
         
         // Create and start web server
         WebServerFactory webFactory = new WebServerFactory();
-        Server server = webFactory.createServer(config, repository, gameEngine);
+        Server server = webFactory.createServer(config, repository, ruleService);
         
         log.info("Maze Server started successfully");
         server.join();

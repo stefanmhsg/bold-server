@@ -15,12 +15,11 @@ import org.glassfish.jersey.servlet.ServletContainer;
 import org.maze.api.ld.CorsFilter;
 import org.maze.api.ld.LinkedDataDereferenceResource;
 import org.maze.api.sparql.SparqlResource;
+import org.maze.application.AccessValidator;
+import org.maze.application.MazeAccessControl;
 import org.maze.application.MazeRuleService;
-import org.maze.application.services.AccessValidator;
-import org.maze.application.services.MazeAccessControl;
-import org.maze.application.services.PostHandler;
-import org.maze.application.services.SparqlService;
-import org.maze.infrastructure.concurrency.GraphLockManager;
+import org.maze.application.PostHandler;
+import org.maze.application.SparqlService;
 import org.maze.infrastructure.config.ServerConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,10 +80,9 @@ public class WebServerFactory {
                                        SailRepository repository, 
                                        MazeRuleService gameEngine) {
         // Initialize services
-        GraphLockManager lockManager = new GraphLockManager();
         MazeAccessControl accessControl = new MazeAccessControl(repository);
         AccessValidator accessValidator = new AccessValidator(accessControl);
-        PostHandler postHandler = new PostHandler(repository, lockManager, gameEngine);
+        PostHandler postHandler = new PostHandler(repository, gameEngine);
         SparqlService sparqlService = new SparqlService(repository);
         
         // Share repository, game engine, and services via ServletContext

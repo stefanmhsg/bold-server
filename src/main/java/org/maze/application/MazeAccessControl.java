@@ -1,4 +1,4 @@
-package org.maze.application.services;
+package org.maze.application;
 
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;

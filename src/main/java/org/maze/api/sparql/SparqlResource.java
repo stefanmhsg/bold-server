@@ -10,7 +10,7 @@ import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 
-import org.maze.application.services.SparqlService;
+import org.maze.application.SparqlService;
 import org.maze.domain.model.SparqlResult;
 import org.maze.domain.utils.AgentAuthUtil;
 import org.maze.infrastructure.web.WebServerFactory;

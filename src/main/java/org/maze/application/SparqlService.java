@@ -1,4 +1,4 @@
-package org.maze.application.services;
+package org.maze.application;
 
 import java.io.StringWriter;
 
@@ -51,31 +51,38 @@ public class SparqlService {
     
     /**
      * Execute a SPARQL query and return results in the requested format.
+     * Opens its own connection.
      * 
      * @param queryString the SPARQL query string
      * @param acceptHeader the Accept header for content negotiation (may be null)
      * @return SparqlResult containing the query results or error
      */
     public SparqlResult executeQuery(String queryString, String acceptHeader) {
-        return executeQuery(queryString, acceptHeader, null);
+        return executeQuery(queryString, acceptHeader, null, null);
     }
     
     /**
-     * Execute a SPARQL query and return results in the requested format.
+     * Execute a SPARQL query with optional external connection and rule name.
      * 
      * @param queryString the SPARQL query string
      * @param acceptHeader the Accept header for content negotiation (may be null)
      * @param ruleName optional rule name for logging (may be null)
+     * @param externalConn optional external connection for transactional atomicity (may be null)
      * @return SparqlResult containing the query results or error
      */
-    public SparqlResult executeQuery(String queryString, String acceptHeader, String ruleName) {
+    public SparqlResult executeQuery(String queryString, String acceptHeader, String ruleName, SailRepositoryConnection externalConn) {
         if (ruleName != null) {
             log.info("Executing SPARQL query for rule: {}", ruleName);
         } else {
             log.info("Executing SPARQL query: {}", queryString.substring(0, Math.min(100, queryString.length())));
         }
         
-        try (SailRepositoryConnection connection = repository.getConnection()) {
+        boolean ownConnection = (externalConn == null);
+        SailRepositoryConnection connection = null;
+        
+        try {
+            connection = ownConnection ? repository.getConnection() : externalConn;
+            
             // Determine query type
             QueryType queryType = determineQueryType(queryString);
             
@@ -89,13 +96,18 @@ public class SparqlService {
                 case DESCRIBE:
                     return executeDescribeQuery(connection, queryString, acceptHeader);
                 case UPDATE:
-                    return executeUpdateQuery(connection, queryString);
+                    return executeUpdateQuery(connection, queryString, ownConnection);
                 default:
                     return SparqlResult.failed("Unknown query type", null);
             }
         } catch (Exception e) {
             log.error("Error executing SPARQL query: {}", e.getMessage(), e);
             return SparqlResult.failed(e.getMessage(), null);
+        } finally {
+            // Only close connection if we opened it
+            if (ownConnection && connection != null) {
+                connection.close();
+            }
         }
     }
     
@@ -285,16 +297,25 @@ public class SparqlService {
     }
     
     /**
-     * Execute an UPDATE query (INSERT, DELETE, etc.) with transaction management.
+     * Execute an UPDATE query (INSERT, DELETE, etc.) with optional transaction management.
+     * 
+     * @param connection the repository connection
+     * @param queryString the SPARQL UPDATE query
+     * @param ownTransaction true if this method should manage begin/commit/rollback, false if external transaction
+     * @return SparqlResult containing success or error
      */
-    private SparqlResult executeUpdateQuery(SailRepositoryConnection connection, String queryString) {
+    private SparqlResult executeUpdateQuery(SailRepositoryConnection connection, String queryString, boolean ownTransaction) {
         try {
-            connection.begin();
+            if (ownTransaction) {
+                connection.begin();
+            }
             
             Update update = connection.prepareUpdate(QueryLanguage.SPARQL, queryString);
             update.execute();
             
-            connection.commit();
+            if (ownTransaction) {
+                connection.commit();
+            }
             
             log.info("UPDATE query executed successfully");
             
@@ -305,7 +326,9 @@ public class SparqlService {
             return SparqlResult.success(jsonResult, contentType, QueryType.UPDATE);
             
         } catch (Exception e) {
-            connection.rollback();
+            if (ownTransaction) {
+                connection.rollback();
+            }
             log.error("Error executing UPDATE query: {}", e.getMessage(), e);
             return SparqlResult.failed(e.getMessage(), QueryType.UPDATE);
         }
