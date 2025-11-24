@@ -1,10 +1,8 @@
 package org.maze.infrastructure.web;
 
 import java.net.URI;
-import java.util.List;
 
 import jakarta.servlet.Servlet;
-import jakarta.servlet.http.HttpServlet;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
@@ -16,7 +14,6 @@ import org.maze.api.ld.CorsFilter;
 import org.maze.api.ld.LinkedDataDereferenceResource;
 import org.maze.api.sparql.SparqlResource;
 import org.maze.application.AccessValidator;
-import org.maze.application.MazeAccessControl;
 import org.maze.application.MazeRuleService;
 import org.maze.application.PostHandler;
 import org.maze.application.SparqlService;
@@ -80,8 +77,7 @@ public class WebServerFactory {
                                        SailRepository repository, 
                                        MazeRuleService gameEngine) {
         // Initialize services
-        MazeAccessControl accessControl = new MazeAccessControl(repository);
-        AccessValidator accessValidator = new AccessValidator(accessControl);
+        AccessValidator accessValidator = new AccessValidator(repository);
         PostHandler postHandler = new PostHandler(repository, gameEngine);
         SparqlService sparqlService = new SparqlService(repository);
         

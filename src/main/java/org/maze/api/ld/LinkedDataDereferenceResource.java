@@ -27,6 +27,7 @@ import org.maze.application.PostHandler;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.PostResult;
 import org.maze.domain.utils.AgentAuthUtil;
+import org.maze.domain.vocab.MazeVocab;
 import org.maze.infrastructure.web.WebServerFactory;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -45,13 +46,22 @@ import org.slf4j.LoggerFactory;
  * 
  * <p>Location-based access control for maze navigation:</p>
  * <ul>
- *   <li>Agents must provide their name via the "Authorization" header (e.g., "Agent agentname" or just "agentname")</li>
- *   <li>Agents start at the entrance (determined by xhv:start in /maze graph)</li>
- *   <li>GET requests are only allowed for cells reachable from the agent's current position</li>
- *   <li>Valid transitions are determined by querying the RDF graph for maze:north, maze:south, 
- *       maze:east, maze:west, and maze:exit predicates</li>
- *   <li>Locked doors are respected - if a connection is not in the graph (e.g., not yet unlocked 
- *       by posting a key), access is denied</li>
+ *   <li><strong>Authentication:</strong> Agents must provide their name via the "Authorization" header 
+ *       (e.g., "Agent agentname" or just "agentname")</li>
+ *   <li><strong>Entry:</strong> Agents start at the entrance (determined by xhv:start in /maze graph) 
+ *       by POSTing an entersFrom triple from /maze to the entrance cell</li>
+ *   <li><strong>Movement:</strong> To move between cells, agent POSTs to target cell with 
+ *       {@code <agentUri> dynmaze:entersFrom <sourceCell>} triple. Validated to ensure:
+ *       <ul>
+ *         <li>Agent is at the source cell (entersFrom value)</li>
+ *         <li>Target cell is adjacent to source cell (maze:north/south/east/west/exit connection exists)</li>
+ *         <li>Only one entersFrom statement per POST (enforced)</li>
+ *       </ul>
+ *   </li>
+ *   <li><strong>Perception:</strong> GET requests are only allowed for the agent's current cell location</li>
+ *   <li><strong>Interaction:</strong> POST without entersFrom (e.g., posting keys) is only allowed 
+ *       to the agent's current cell</li>
+ *   <li><strong>Locked doors:</strong> Connections not in the graph (not yet unlocked) deny movement access</li>
  * </ul>
  */
 @Path("/{id: .*}")
@@ -117,24 +127,34 @@ public class LinkedDataDereferenceResource {
         log.info("LD POST to graph: {} by agent: {}", graphIRI, 
                  agentName != null ? agentName : "<anonymous>");
 
-        // Validate access
-        AccessValidator accessValidator = getAccessValidator();
-        AccessResult accessResult = body.contains("moveRequest") 
-            ? accessValidator.validateAccess(agentName, graphIRI, "MOVE")
-            : accessValidator.validateAccess(agentName, graphIRI, "POST");
-
-        if (!accessResult.isAllowed()) {
-            return Response.status(Response.Status.FORBIDDEN)
-                    .entity(accessResult.message())
-                    .build();
-        }
-        
-        // Parse RDF body using Content-Type from headers
+        // Parse RDF body first to check for movement vs interaction
         MediaType contentType = headers.getMediaType();
         Model model = parseRdfBody(body, graphIRI, contentType);
         if (model == null) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("Bad RDF payload")
+                    .build();
+        }
+        
+        // Detect movement POST by checking for entersFrom predicate in parsed model
+        AccessValidator accessValidator = getAccessValidator();
+        ValueFactory vf = getRepository().getValueFactory();
+        IRI entersFromPredicate = vf.createIRI(MazeVocab.ENTERS_FROM);
+        boolean isMovement = !model.filter(null, entersFromPredicate, null).isEmpty();
+        
+        // Validate access based on operation type
+        AccessResult accessResult;
+        if (isMovement) {
+            // Movement POST: validate with entersFrom logic
+            accessResult = accessValidator.validateMove(agentName, graphIRI, model);
+        } else {
+            // Interaction POST: validate agent is at target cell
+            accessResult = accessValidator.validateAccess(agentName, graphIRI, "POST");
+        }
+
+        if (!accessResult.isAllowed()) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity(accessResult.message())
                     .build();
         }
         

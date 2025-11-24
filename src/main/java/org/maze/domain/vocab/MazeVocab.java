@@ -42,9 +42,9 @@ public final class MazeVocab {
     // ============ Common Predicates ============
     
     /**
-     * Predicate for maze navigation - links cells to adjacent cells.
+     * Predicate for maze navigation - request by Agent to move to target cell.
      */
-    public static final String NEXT = XHV_NS + "next";
+    public static final String ENTERS_FROM = DYNMAZE_NS + "entersFrom";
     
     /**
      * Predicate for maze entrance - identifies the starting cell.
