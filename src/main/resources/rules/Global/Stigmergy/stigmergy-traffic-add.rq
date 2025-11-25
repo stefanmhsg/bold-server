@@ -2,25 +2,33 @@ PREFIX sm: <https://example.org/stigmark#>
 PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 
-
-CONSTRUCT {
-    ?cell a maze:Cell . # Provides context for merging triples in the same graph
-    ?marker sm:contains _:newSub .
-    _:newSub sm:refersTo ?target .
-    _:newSub sm:quantitative 1 .
+INSERT {
+    # Origin Graph: Stigmergy marker creation
+    GRAPH ?oldGraph {
+        ?marker sm:contains _:node .
+        _:node sm:refersTo ?targetGraph .
+        _:node sm:quantitative 1 .
+    }
 }
 WHERE {
-    GRAPH ?g {
-        ?cell maze:outgoingAgent ?agent .
-        ?agent maze:targetCell ?target .
-
-        # marker exists
-        ?cell sm:hasMarker ?marker .
-
-        # ensure NO subnode for this target exists
-        FILTER NOT EXISTS {
-            ?marker sm:contains ?existing .
-            ?existing sm:refersTo ?target .
-        }
+    # the move event
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom ?oldGraph .
     }
+
+    # find the cell the agent is currently in
+    GRAPH ?oldGraph {
+        ?oldGraph maze:contains ?agent .
+
+        # ensure marker does already exist
+        ?oldGraph sm:hasMarker ?marker .
+    }
+
+    # ensure NO subnode for this target exists yet
+    FILTER NOT EXISTS {
+        GRAPH ?oldGraph{
+            ?marker sm:contains ?anyNode .
+            ?anyNode sm:refersTo ?targetGraph .
+        }
+    }  
 }

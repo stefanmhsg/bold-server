@@ -2,21 +2,34 @@ PREFIX sm: <https://example.org/stigmark#>
 PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 
-CONSTRUCT {
-    ?cell a maze:Cell . # Provides context for merging triples in the same graph
-    ?subnode sm:quantitative ?newCount .
+DELETE {
+    # Remove old quantitative count
+    GRAPH ?oldGraph {
+        ?subnode sm:quantitative ?count .
+    }
+}
+INSERT {
+    # Update existing marker subnode with incremented count
+    GRAPH ?oldGraph {
+        ?subnode sm:quantitative ?newCount .
+    }
 }
 WHERE {
-    GRAPH ?g {
-        ?cell maze:outgoingAgent ?agent .
-        ?agent maze:targetCell ?target .
+    # the move event
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom ?oldGraph .
+    }
 
-        # marker exists
-        ?cell sm:hasMarker ?marker .
+    # find the cell the agent is currently in
+    GRAPH ?oldGraph {
+        ?oldGraph maze:contains ?agent .
 
-        # find existing subnode
+        # ensure marker does already exist
+        ?oldGraph sm:hasMarker ?marker .
+        
+        # find existing subnode for this target
         ?marker sm:contains ?subnode .
-        ?subnode sm:refersTo ?target .
+        ?subnode sm:refersTo ?targetGraph .
         ?subnode sm:quantitative ?count .
     }
 

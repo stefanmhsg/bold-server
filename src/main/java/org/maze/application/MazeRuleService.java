@@ -17,7 +17,7 @@ public class MazeRuleService {
     private final SparqlService sparqlService;
     private final List<MazeRule> rules;
     
-    public MazeRuleService(SailRepository repository, String mazeName, List<String> additionalRulesets) {
+    public MazeRuleService(SailRepository repository, String mazeName, List<String> additionalRulesets, List<String> orderPatterns) {
         // Initialize rule Service with loaded rules
         MazeRuleLoader ruleLoader = new MazeRuleLoader();
         List<String> ruleFiles = ruleLoader.discoverRuleFiles(mazeName);
@@ -31,7 +31,7 @@ public class MazeRuleService {
             }
         }
         
-        List<MazeRule> rules = ruleLoader.loadRules(ruleFiles);
+        List<MazeRule> rules = ruleLoader.loadRules(ruleFiles, orderPatterns);
         
         // Initialize SPARQL service first (needed by rule service)
         this.sparqlService = new SparqlService(repository);
@@ -44,6 +44,14 @@ public class MazeRuleService {
                 mazeName != null ? " for " + mazeName : "",
                 rulesetsInfo,
                 rules.size());
+    }
+    
+    /**
+     * Constructor without rule ordering (backward compatibility).
+     * Uses alphabetical order for rules.
+     */
+    public MazeRuleService(SailRepository repository, String mazeName, List<String> additionalRulesets) {
+        this(repository, mazeName, additionalRulesets, null);
     }
     
     /**

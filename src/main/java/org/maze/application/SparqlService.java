@@ -309,7 +309,7 @@ public class SparqlService {
             if (ownTransaction) {
                 connection.begin();
             }
-            
+                        
             Update update = connection.prepareUpdate(QueryLanguage.SPARQL, queryString);
             update.execute();
             

@@ -2,7 +2,10 @@ package org.maze.infrastructure.config;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,5 +55,31 @@ public class ServerConfiguration {
     
     public Properties getRawProperties() {
         return properties;
+    }
+    
+    /**
+     * Get the rule execution order patterns.
+     * Returns a list of wildcard patterns that define the order in which rules should execute.
+     * Patterns support wildcards: * (any characters) and ? (single character)
+     * 
+     * Example: "unlock*, stigmergy*, move*" will execute unlock rules first, then stigmergy, then move
+     * 
+     * @return List of patterns, or empty list if not configured
+     */
+    public List<String> getRuleExecutionOrder() {
+        String orderValue = properties.getProperty("bold.rules.execution.order");
+        
+        if (orderValue == null || orderValue.trim().isEmpty()) {
+            log.debug("No rule execution order configured");
+            return List.of();
+        }
+        
+        List<String> patterns = Arrays.stream(orderValue.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+        
+        log.info("Rule execution order patterns: {}", patterns);
+        return patterns;
     }
 }

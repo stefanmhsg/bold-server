@@ -2,23 +2,30 @@ PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX sm:   <https://example.org/stigmark#>
 
-CONSTRUCT {
-    ?cell sm:hasMarker ?newMarker .
-    ?newMarker a sm:Marker .
-    ?newMarker sm:contains _:node .
-    _:node sm:refersTo ?target .
-    _:node sm:quantitative 1 .
+INSERT {
+    # Origin Graph: Stigmergy marker creation
+    GRAPH ?oldGraph {
+        ?oldGraph sm:hasMarker ?newMarker .
+        ?newMarker a sm:Marker .
+        ?newMarker sm:contains _:node .
+        _:node sm:refersTo ?targetGraph .
+        _:node sm:quantitative 1 .
+    }
 }
 WHERE {
-    GRAPH ?g {
-        # agent movement event:
-        ?cell maze:outgoingAgent ?agent .
-        ?agent maze:targetCell ?target .
-
-        # ensure marker does NOT already exist
-        FILTER NOT EXISTS { ?cell sm:hasMarker ?anyMarker }
+    # the move event
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom ?oldGraph .
     }
 
+    # find the cell the agent is currently in
+    GRAPH ?oldGraph {
+        ?oldGraph maze:contains ?agent .
+        
+        # ensure marker does NOT already exist
+        FILTER NOT EXISTS { ?oldGraph sm:hasMarker ?anyMarker }        
+    }
+    
     # create new marker IRI
-    BIND(IRI(CONCAT(STR(?cell), "#marker")) AS ?newMarker)
+    BIND(IRI(CONCAT(STR(?oldGraph), "#marker")) AS ?newMarker)
 }

@@ -49,8 +49,9 @@ public class Configurator {
         // Initialize Rules
         String mazeName = extractMazeName(task);
         List<String> rulesetPaths = buildRulesetPaths(additionalRulesets);
+        List<String> ruleExecutionOrder = config.getRuleExecutionOrder();
         
-        MazeRuleService ruleService = new MazeRuleService(repository, mazeName, rulesetPaths);
+        MazeRuleService ruleService = new MazeRuleService(repository, mazeName, rulesetPaths, ruleExecutionOrder);
         log.info("MazeRuleService initialized for maze: {}", mazeName != null ? mazeName : "generic");
 
         // Run rules once at startup to ensure initial consistency

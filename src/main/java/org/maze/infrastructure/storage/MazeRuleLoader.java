@@ -6,9 +6,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.maze.domain.rules.MazeRule;
@@ -28,11 +27,13 @@ public class MazeRuleLoader {
     
     /**
      * Load all .rq rule files from the resources/rules directory.
+     * Rules are loaded in the order specified by orderPatterns (if provided).
      * 
      * @param ruleFilenames List of rule filenames to load (e.g., "unlock-redkey.rq")
-     * @return List of loaded MazeRule objects
+     * @param orderPatterns List of wildcard patterns defining execution order (can be null/empty)
+     * @return List of loaded MazeRule objects, ordered according to patterns
      */
-    public List<MazeRule> loadRules(List<String> ruleFilenames) {
+    public List<MazeRule> loadRules(List<String> ruleFilenames, List<String> orderPatterns) {
         List<MazeRule> rules = new ArrayList<>();
         
         for (String filename : ruleFilenames) {
@@ -45,8 +46,28 @@ public class MazeRuleLoader {
             }
         }
         
-        log.info("Loaded {} maze rules", rules.size());
-        return rules;
+        log.info("Loaded {} maze rules (before ordering)", rules.size());
+        
+        // Apply ordering from configuration
+        List<MazeRule> orderedRules = applyRuleOrdering(rules, orderPatterns);
+        
+        log.info("Final rule execution order: {}", 
+                orderedRules.stream()
+                           .map(MazeRule::getName)
+                           .collect(Collectors.joining(", ")));
+        
+        return orderedRules;
+    }
+    
+    /**
+     * Load all .rq rule files from the resources/rules directory.
+     * Legacy method - loads rules without ordering.
+     * 
+     * @param ruleFilenames List of rule filenames to load (e.g., "unlock-redkey.rq")
+     * @return List of loaded MazeRule objects in alphabetical order
+     */
+    public List<MazeRule> loadRules(List<String> ruleFilenames) {
+        return loadRules(ruleFilenames, null);
     }
     
     /**
@@ -203,5 +224,128 @@ public class MazeRuleLoader {
         }
         
         return ruleFiles;
+    }
+    
+    // ==================== Rule Ordering ====================
+    
+    /**
+     * Apply ordering to loaded rules based on patterns from configuration.
+     * Rules are sorted according to pattern matching order.
+     * Rules that don't match any pattern are placed at the end in alphabetical order.
+     * 
+     * @param rules List of loaded rules (unordered)
+     * @param patterns List of wildcard patterns (can be null/empty)
+     * @return List of rules in execution order
+     */
+    private List<MazeRule> applyRuleOrdering(List<MazeRule> rules, List<String> patterns) {
+        // If no patterns defined, return rules in alphabetical order by name
+        if (patterns == null || patterns.isEmpty()) {
+            log.info("No rule execution order configured, using alphabetical order");
+            rules.sort(Comparator.comparing(MazeRule::getName));
+            return rules;
+        }
+        
+        log.info("Applying rule execution order patterns: {}", patterns);
+        
+        // Build ordered list by matching rules to patterns
+        List<MazeRule> orderedRules = new ArrayList<>();
+        Set<MazeRule> matched = new HashSet<>();
+        
+        for (String pattern : patterns) {
+            Pattern regex = wildcardToRegex(pattern);
+            List<MazeRule> matchingRules = new ArrayList<>();
+            
+            for (MazeRule rule : rules) {
+                if (!matched.contains(rule)) {
+                    // Extract simple name (last component after /) for matching
+                    String simpleName = rule.getName();
+                    int lastSlash = simpleName.lastIndexOf('/');
+                    if (lastSlash >= 0) {
+                        simpleName = simpleName.substring(lastSlash + 1);
+                    }
+                    
+                    if (regex.matcher(simpleName).matches()) {
+                        matchingRules.add(rule);
+                        matched.add(rule);
+                    }
+                }
+            }
+            
+            if (matchingRules.isEmpty()) {
+                log.debug("Pattern '{}' matched no rules (skipping)", pattern);
+            } else {
+                // Sort matching rules alphabetically within the same pattern
+                matchingRules.sort(Comparator.comparing(MazeRule::getName));
+                orderedRules.addAll(matchingRules);
+                
+                log.debug("Pattern '{}' matched {} rule(s): {}", 
+                         pattern, 
+                         matchingRules.size(),
+                         matchingRules.stream()
+                                     .map(MazeRule::getName)
+                                     .collect(Collectors.joining(", ")));
+            }
+        }
+        
+        // Add any unmatched rules at the end (sorted alphabetically)
+        List<MazeRule> unmatchedRules = new ArrayList<>();
+        for (MazeRule rule : rules) {
+            if (!matched.contains(rule)) {
+                unmatchedRules.add(rule);
+            }
+        }
+        
+        if (!unmatchedRules.isEmpty()) {
+            unmatchedRules.sort(Comparator.comparing(MazeRule::getName));
+            orderedRules.addAll(unmatchedRules);
+            
+            log.info("Added {} unmatched rule(s) at end: {}",
+                    unmatchedRules.size(),
+                    unmatchedRules.stream()
+                                 .map(MazeRule::getName)
+                                 .collect(Collectors.joining(", ")));
+        }
+        
+        return orderedRules;
+    }
+    
+    /**
+     * Convert a wildcard pattern to a regex Pattern.
+     * Supports:
+     * - * matches any characters
+     * - ? matches a single character
+     * - Literal text matches exactly
+     * 
+     * Examples:
+     * - "unlock*" matches "unlock-redkey", "unlock-bluekey", etc.
+     * - "*stigmergy*" matches "pheromone-stigmergy", "stigmergy-update", etc.
+     * - "move" matches only "move"
+     * 
+     * @param wildcardPattern Pattern with wildcards
+     * @return Compiled regex Pattern
+     */
+    private Pattern wildcardToRegex(String wildcardPattern) {
+        // Escape special regex characters except * and ?
+        String regex = wildcardPattern
+            .replace("\\", "\\\\")
+            .replace(".", "\\.")
+            .replace("(", "\\(")
+            .replace(")", "\\)")
+            .replace("[", "\\[")
+            .replace("]", "\\]")
+            .replace("{", "\\{")
+            .replace("}", "\\}")
+            .replace("^", "\\^")
+            .replace("$", "\\$")
+            .replace("+", "\\+")
+            .replace("|", "\\|")
+            // Convert wildcards to regex
+            .replace("*", ".*")
+            .replace("?", ".");
+        
+        // Match entire string (add anchors)
+        regex = "^" + regex + "$";
+        
+        return Pattern.compile(regex);
     }
 }
