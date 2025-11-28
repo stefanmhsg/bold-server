@@ -18,6 +18,8 @@ import org.maze.application.MazeRuleService;
 import org.maze.application.PostHandler;
 import org.maze.application.SparqlService;
 import org.maze.infrastructure.config.ServerConfiguration;
+import org.eclipse.jetty.ee11.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer;
+import org.maze.api.websocket.MazeBroadcaster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,6 +54,11 @@ public class WebServerFactory {
         
         configureRestEndpoints(context, repository, gameEngine);
         
+        // Configure WebSocket
+        JakartaWebSocketServletContainerInitializer.configure(context, (servletContext, container) -> {
+            container.addEndpoint(MazeBroadcaster.class);
+        });
+
         server.start();
         
         URI serverBaseURI = resolveBaseUri(server);

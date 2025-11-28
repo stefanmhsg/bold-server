@@ -33,6 +33,7 @@ dependencies {
     // Jetty - Upgrade to 12.x (latest stable, Jakarta EE 11)
     implementation 'org.eclipse.jetty:jetty-server:12.1.4'
     implementation 'org.eclipse.jetty.ee11:jetty-ee11-servlet:12.1.4'
+    implementation 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jakarta-server:12.1.4'
     implementation 'org.eclipse.jetty:jetty-slf4j-impl:12.1.4'
     
     // Jersey - Upgrade to 4.x (Jakarta EE 10/11)

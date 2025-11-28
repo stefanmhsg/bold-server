@@ -9,6 +9,7 @@ import org.eclipse.rdf4j.sail.SailConnectionListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.maze.domain.vocab.MazeVocab;
+import org.maze.api.websocket.MazeBroadcaster;
 
 /**
  * Connection level listener that reacts to individual statement changes.
@@ -29,6 +30,10 @@ public class MazeUpdateListener implements SailConnectionListener {
             st.getPredicate(),
             st.getObject(),
             inferred);
+
+        if (isMovement(st)) {
+            processMovement(st, inferred);
+        }
     }
 
     // NEW (preferred) method
@@ -68,8 +73,10 @@ public class MazeUpdateListener implements SailConnectionListener {
 
         log.debug("Agent {} moved to {} (inferred={})", agent, cell, inferred);
 
-        // In future:
-        // MazeBroadcaster.broadcast(new AgentMovedEvent(agent, cell));
+        // Broadcast event via WebSocket
+        String json = String.format("{\"type\": \"AGENT_MOVED\", \"agent\": \"%s\", \"cell\": \"%s\"}", 
+            agent, cell);
+        MazeBroadcaster.broadcast(json);
     }
 
 }
