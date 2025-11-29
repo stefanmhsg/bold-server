@@ -10,10 +10,13 @@ import org.eclipse.jetty.ee11.servlet.ServletHolder;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
+import org.glassfish.jersey.jackson.JacksonFeature;
 import org.maze.api.ld.CorsFilter;
 import org.maze.api.ld.LinkedDataDereferenceResource;
 import org.maze.api.sparql.SparqlResource;
+import org.maze.api.admin.MazeAdminResource;
 import org.maze.application.AccessValidator;
+import org.glassfish.jersey.jackson.JacksonFeature;
 import org.maze.application.MazeRuleService;
 import org.maze.application.PostHandler;
 import org.maze.application.SparqlService;
@@ -99,7 +102,10 @@ public class WebServerFactory {
         ResourceConfig ldConfig = new ResourceConfig();
         ldConfig.register(LinkedDataDereferenceResource.class);
         ldConfig.register(SparqlResource.class);
+        ldConfig.register(MazeAdminResource.class);
         ldConfig.register(CorsFilter.class);
+        ldConfig.register(JacksonFeature.class);
+        ldConfig.register(JacksonFeature.class);
         
         Servlet ldContainer = new ServletContainer(ldConfig);
         ServletHolder ldHolder = new ServletHolder("BOLD LD dereferencing servlet", ldContainer);

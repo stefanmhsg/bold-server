@@ -39,6 +39,8 @@ dependencies {
     // Jersey - Upgrade to 4.x (Jakarta EE 10/11)
     implementation 'org.glassfish.jersey.containers:jersey-container-servlet:4.0.0'
     implementation 'org.glassfish.jersey.inject:jersey-hk2:4.0.0'
+    implementation 'org.glassfish.jersey.media:jersey-media-json-jackson:4.0.0'
+    implementation 'org.glassfish.jersey.media:jersey-media-json-jackson:4.0.0'
     
     // ANTLR - Minor update
     implementation 'org.antlr:antlr4:4.13.2'
