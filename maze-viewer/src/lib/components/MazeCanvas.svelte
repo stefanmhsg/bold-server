@@ -16,20 +16,63 @@
     onMount(() => {
         if (!maze || !container) return;
 
-        const width = maze.width * CELL_SIZE + PADDING * 2;
-        const height = maze.height * CELL_SIZE + PADDING * 2;
+        const width = container.clientWidth;
+        const height = container.clientHeight;
 
         stage = new Konva.Stage({
             container: container,
             width: width,
-            height: height
+            height: height,
+            draggable: true
         });
 
         layer = new Konva.Layer();
         stage.add(layer);
 
         drawMaze();
+        fitToView(width, height);
+
+        stage.on('wheel', (e) => {
+            e.evt.preventDefault();
+            const scaleBy = 1.1;
+            const oldScale = stage.scaleX();
+            const pointer = stage.getPointerPosition();
+
+            if (!pointer) return;
+
+            const mousePointTo = {
+                x: (pointer.x - stage.x()) / oldScale,
+                y: (pointer.y - stage.y()) / oldScale,
+            };
+
+            let newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
+
+            stage.scale({ x: newScale, y: newScale });
+
+            const newPos = {
+                x: pointer.x - mousePointTo.x * newScale,
+                y: pointer.y - mousePointTo.y * newScale,
+            };
+            stage.position(newPos);
+        });
     });
+
+    function fitToView(stageWidth: number, stageHeight: number) {
+        const mazeWidth = maze.width * CELL_SIZE + PADDING * 2;
+        const mazeHeight = maze.height * CELL_SIZE + PADDING * 2;
+        
+        const scaleX = stageWidth / mazeWidth;
+        const scaleY = stageHeight / mazeHeight;
+        
+        let scale = Math.min(scaleX, scaleY);
+        if (scale > 1) scale = 1;
+        
+        const x = (stageWidth - mazeWidth * scale) / 2;
+        const y = (stageHeight - mazeHeight * scale) / 2;
+        
+        stage.scale({ x: scale, y: scale });
+        stage.position({ x: x, y: y });
+    }
 
     onDestroy(() => {
         if (stage) stage.destroy();
@@ -176,4 +219,4 @@
 
 </script>
 
-<div bind:this={container} class="border rounded shadow-lg bg-white inline-block"></div>
+<div bind:this={container} class="border rounded shadow-lg bg-white w-full h-[80vh] overflow-hidden"></div>
