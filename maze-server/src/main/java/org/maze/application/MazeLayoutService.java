@@ -52,7 +52,8 @@ public class MazeLayoutService {
                 "PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> " +
                 "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> " +
                 "PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> " +
-                "SELECT DISTINCT ?cell ?label ?north ?south ?east ?west ?exit ?keyVal ?lockState WHERE { " +
+                "PREFIX http: <http://www.w3.org/2011/http#> " +
+                "SELECT DISTINCT ?cell ?label ?north ?south ?east ?west ?exit ?keyVal ?lockState ?isLock ?keyNeeded WHERE { " +
                 "    ?cell a maze:Cell . " +
                 "    OPTIONAL { ?cell rdfs:label ?label } " +
                 "    OPTIONAL { ?cell maze:north ?north } " +
@@ -60,8 +61,17 @@ public class MazeLayoutService {
                 "    OPTIONAL { ?cell maze:east ?east } " +
                 "    OPTIONAL { ?cell maze:west ?west } " +
                 "    OPTIONAL { ?cell maze:exit ?exit } " +
-                "    OPTIONAL { ?cell dyn:hasKey ?k . ?k dyn:keyValue ?keyVal . } " +
-                "    OPTIONAL { ?cell a dyn:Lock . ?cell dyn:state ?lockState . } " +
+                "    OPTIONAL { " +
+                "       { ?cell dyn:hasKey ?k . ?k dyn:keyValue ?keyVal . } " +
+                "       UNION " +
+                "       { GRAPH ?cell { ?k dyn:keyValue ?keyVal . } } " +
+                "    } " +
+                "    OPTIONAL { " +
+                "        ?cell a dyn:Lock . " +
+                "        BIND('true' as ?isLock) " +
+                "        OPTIONAL { ?cell dyn:state ?lockState . } " +
+                "        OPTIONAL { ?cell dyn:needsAction/http:body/dyn:foundAt ?keyNeeded . } " +
+                "    } " +
                 "}";
 
             TupleQuery query = conn.prepareTupleQuery(cellQuery);
@@ -99,10 +109,23 @@ public class MazeLayoutService {
                         }
                     }
 
-                    if (bs.hasBinding("lockState")) {
-                        String state = bs.getValue("lockState").stringValue();
-                        boolean isLocked = state.endsWith("locked");
-                        cell.lock = new LockDto(isLocked, null); // Key needed logic requires more complex query
+                    if (bs.hasBinding("isLock")) {
+                        boolean isLocked = true; // Default to locked
+                        if (bs.hasBinding("lockState")) {
+                            String state = bs.getValue("lockState").stringValue();
+                            isLocked = state.endsWith("locked");
+                        }
+                        
+                        String keyNeeded = null;
+                        if (bs.hasBinding("keyNeeded")) {
+                            String keyUri = bs.getValue("keyNeeded").stringValue();
+                            // Extract simple name (e.g. RedKey)
+                            keyNeeded = keyUri.contains("#") 
+                                ? keyUri.substring(keyUri.lastIndexOf('#') + 1)
+                                : keyUri.substring(keyUri.lastIndexOf('/') + 1);
+                        }
+                        
+                        cell.lock = new LockDto(isLocked, keyNeeded);
                     }
                 }
             }

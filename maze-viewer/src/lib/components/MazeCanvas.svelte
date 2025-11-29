@@ -48,7 +48,7 @@
                 y: y,
                 width: CELL_SIZE,
                 height: CELL_SIZE,
-                fill: getCellColor(cell),
+                fill: '#ffffff',
                 stroke: '#ddd',
                 strokeWidth: 1
             });
@@ -62,26 +62,55 @@
                 addLabel(x, y, "START", "green");
             } else if (cell.id === maze.exitCell || cell.connections.exit) {
                 addLabel(x, y, "EXIT", "red");
-            } else if (cell.items.length > 0) {
-                 // Draw item indicator (small circle)
-                 const circle = new Konva.Circle({
-                    x: x + CELL_SIZE / 2,
-                    y: y + CELL_SIZE / 2,
-                    radius: 5,
-                    fill: 'gold',
-                    stroke: 'black',
-                    strokeWidth: 1
-                 });
-                 layer.add(circle);
+            }
+
+            // Draw Items
+            if (cell.items.length > 0) {
+                drawItems(cell, x, y);
+            }
+
+            // Draw Lock
+            if (cell.lock) {
+                drawLock(cell, x, y);
             }
         });
 
         layer.draw();
     }
 
-    function getCellColor(cell: Cell): string {
-        if (cell.lock && cell.lock.locked) return '#ffebee'; // Light red for locked
-        return '#ffffff';
+    function drawLock(cell: Cell, x: number, y: number) {
+        const lockSize = 12;
+        const padding = 4;
+        
+        const rect = new Konva.Rect({
+            x: x + CELL_SIZE - lockSize - padding,
+            y: y + padding,
+            width: lockSize,
+            height: lockSize,
+            fill: cell.lock?.isLocked ? 'red' : 'green',
+            stroke: 'black',
+            strokeWidth: 1
+        });
+        layer.add(rect);
+    }
+
+    function drawItems(cell: Cell, x: number, y: number) {
+        const itemRadius = 6;
+        const padding = 4;
+        const startY = y + CELL_SIZE - itemRadius * 2 - padding;
+        let startX = x + padding;
+
+        cell.items.forEach((item, index) => {
+             const circle = new Konva.Circle({
+                x: startX + (index * (itemRadius * 2 + padding)) + itemRadius,
+                y: startY + itemRadius,
+                radius: itemRadius,
+                fill: 'gold',
+                stroke: 'black',
+                strokeWidth: 1
+             });
+             layer.add(circle);
+        });
     }
 
     function drawWalls(cell: Cell, x: number, y: number) {

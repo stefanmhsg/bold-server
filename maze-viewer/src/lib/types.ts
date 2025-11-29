@@ -30,6 +30,6 @@ export interface Item {
 }
 
 export interface Lock {
-    locked: boolean;
-    keyId: string | null;
+    isLocked: boolean;
+    keyNeeded: string | null;
 }
