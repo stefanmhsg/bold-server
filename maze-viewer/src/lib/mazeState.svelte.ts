@@ -24,6 +24,12 @@ export class MazeStore {
         this.socket.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+                
+                // Ignore heartbeat messages
+                if (data.type === "PING") {
+                    return;
+                }
+
                 // Add timestamp for display
                 const mazeEvent: MazeEvent = { ...data, timestamp: Date.now() };
                 // Add to beginning of array for newest first

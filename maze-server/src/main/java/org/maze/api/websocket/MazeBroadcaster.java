@@ -3,6 +3,9 @@ package org.maze.api.websocket;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
@@ -18,6 +21,14 @@ public class MazeBroadcaster {
 
     private static final Logger log = LoggerFactory.getLogger(MazeBroadcaster.class);
     private static final Set<Session> sessions = new CopyOnWriteArraySet<>();
+    private static final ScheduledExecutorService heartbeatScheduler = Executors.newSingleThreadScheduledExecutor();
+
+    static {
+        // Heartbeat every 20 seconds to prevent idle timeouts
+        heartbeatScheduler.scheduleAtFixedRate(() -> {
+            broadcast("{\"type\":\"PING\"}");
+        }, 20, 20, TimeUnit.SECONDS);
+    }
 
     @OnOpen
     public void onOpen(Session session) {
