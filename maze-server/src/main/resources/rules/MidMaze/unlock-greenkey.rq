@@ -3,24 +3,39 @@ PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX http: <http://www.w3.org/2011/http#>
 
 # Unlock cell with green key /3/2 - leads to cell 4/2 (south direction)
-CONSTRUCT {
-    # Mark the action as completed
+DELETE {
+  GRAPH ?g {
+    # remove old state of this lock
+    ?cell dyn:state ?oldState .
+
+    # remove any old status on this action
+    ?greenAction dyn:hasStatus ?oldStatus .
+  }
+}
+INSERT {
+  GRAPH ?g {
+    # ensure the door to the east is present
+    ?cell maze:south <http://127.0.1.1:8080/cells/4/2> .
+
+    # new state for the cell
+    ?cell dyn:state dyn:unlocked .
+
+    # mark the action as done
     ?greenAction dyn:hasStatus dyn:done .
-    
-    # Update the maze topology to add south connection
-    ?ccc maze:south <http://127.0.1.1:8080/cells/4/2> .
-    ?ccc dyn:state dyn:unlocked .
+  }
 }
 WHERE {
-    # Check that action is open (ready to execute)
+  GRAPH ?g {
+    ?cell a maze:Cell , dyn:Lock ;
+          dyn:keyValue "greenkey" ;
+          dyn:needsAction ?greenAction .
+
     ?greenAction dyn:hasStatus dyn:open ;
-                 http:body ?body .
-    
-    # Check that green key was found
+               http:body ?body .
+
     ?body dyn:foundAt dyn:GreenKey .
-    
-    # Find the cell that needs the green key
-    ?ccc a maze:Cell , dyn:Lock ;
-         dyn:keyValue "greenkey" ;
-         dyn:needsAction ?greenAction .
+
+    OPTIONAL { ?cell dyn:state ?oldState . }
+    OPTIONAL { ?greenAction dyn:hasStatus ?oldStatus . }
+  }
 }

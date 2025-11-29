@@ -3,11 +3,27 @@ PREFIX http: <http://www.w3.org/2011/http#>
 PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 
-CONSTRUCT {
+DELETE {
+  GRAPH ?g {
+    # remove old state of this lock
+    ?cell dyn:state ?oldState .
+
+    # remove any old status on this action
+    ?Action dyn:hasStatus ?oldStatus .
+  }
+}
+INSERT {
+  GRAPH ?g {
+    # ensure the door to the east is present
     ?cell maze:east <http://127.0.1.1:8080/cells/104/113> .
     ?cell maze:green <http://127.0.1.1:8080/cells/104/113> .
+
+    # new state for the cell
     ?cell dyn:state dyn:unlocked .
+
+    # mark the action as done
     ?Action dyn:hasStatus dyn:done .
+  }
 }
 WHERE {
     GRAPH ?g {
@@ -19,5 +35,8 @@ WHERE {
                 http:body ?body .
         
         ?body dyn:foundAt dyn:CyanKey .
+
+        OPTIONAL { ?cell dyn:state ?oldState . }
+        OPTIONAL { ?Action dyn:hasStatus ?oldStatus . }
     }
 }

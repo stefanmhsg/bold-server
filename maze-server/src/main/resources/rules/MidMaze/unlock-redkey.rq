@@ -2,26 +2,40 @@ PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX http: <http://www.w3.org/2011/http#>
 
-# Unlock cell with red key /36/36 - leads to cell 36/37
-CONSTRUCT {
-    # Mark the action as completed
+DELETE {
+  GRAPH ?g {
+    # remove old state of this lock
+    ?cell dyn:state ?oldState .
+
+    # remove any old status on this action
+    ?redAction dyn:hasStatus ?oldStatus .
+  }
+}
+INSERT {
+  GRAPH ?g {
+    # ensure the door to the east is present
+    ?cell maze:east <http://127.0.1.1:8080/cells/36/37> .
+    ?cell maze:green <http://127.0.1.1:8080/cells/36/37> .
+
+    # new state for the cell
+    ?cell dyn:state dyn:unlocked .
+
+    # mark the action as done
     ?redAction dyn:hasStatus dyn:done .
-    
-    # Update the maze topology to add east connection
-    ?ccc maze:east <http://127.0.1.1:8080/cells/36/37> .
-    ?ccc maze:green <http://127.0.1.1:8080/cells/36/37> .
-    ?ccc dyn:state dyn:unlocked .
+  }
 }
 WHERE {
-    # Check that action is open (ready to execute)
+  GRAPH ?g {
+    ?cell a maze:Cell , dyn:Lock ;
+          dyn:keyValue "redkey" ;
+          dyn:needsAction ?redAction .
+
     ?redAction dyn:hasStatus dyn:open ;
                http:body ?body .
-    
-    # Check that red key was found
+
     ?body dyn:foundAt dyn:RedKey .
-    
-    # Find the cell that needs the red key
-    ?ccc a maze:Cell , dyn:Lock ;
-         dyn:keyValue "redkey" ;
-         dyn:needsAction ?redAction .
+
+    OPTIONAL { ?cell dyn:state ?oldState . }
+    OPTIONAL { ?redAction dyn:hasStatus ?oldStatus . }
+  }
 }
