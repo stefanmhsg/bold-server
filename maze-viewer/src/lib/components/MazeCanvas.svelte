@@ -13,6 +13,7 @@
     let agentLayer: Konva.Layer;
     let agents: Map<string, Konva.Star> = new Map();
     let agentColors: Map<string, string> = new Map();
+    let agentPositions: Map<string, string> = new Map();
     const AGENT_COLORS = [
         '#ef4444', // red
         '#3b82f6', // blue
@@ -248,37 +249,103 @@
     });
 
     function updateAgentPosition(agentId: string, cellId: string) {
+        const oldCellId = agentPositions.get(agentId);
+
+        // Check if reached exit
+        if (cellId === maze.exitCell) {
+            // Remove agent
+            const star = agents.get(agentId);
+            if (star) {
+                star.destroy();
+                agents.delete(agentId);
+            }
+            agentPositions.delete(agentId);
+            
+            // Re-layout old cell if it existed
+            if (oldCellId) {
+                layoutAgentsInCell(oldCellId);
+            }
+            agentLayer.draw();
+            return;
+        }
+
+        // Update position
+        agentPositions.set(agentId, cellId);
+
+        // Re-layout new cell
+        layoutAgentsInCell(cellId);
+
+        // Re-layout old cell if different
+        if (oldCellId && oldCellId !== cellId) {
+            layoutAgentsInCell(oldCellId);
+        }
+        
+        agentLayer.draw();
+    }
+
+    function layoutAgentsInCell(cellId: string) {
+        // Find all agents in this cell
+        const agentsInCell: string[] = [];
+        for (const [aid, cid] of agentPositions.entries()) {
+            if (cid === cellId) {
+                agentsInCell.push(aid);
+            }
+        }
+        
+        // Sort for stability
+        agentsInCell.sort();
+
+        const count = agentsInCell.length;
+        if (count === 0) return;
+
         const cell = maze.cells.find(c => c.id === cellId);
         if (!cell) return;
 
-        const x = cell.x * CELL_SIZE + PADDING + CELL_SIZE / 2;
-        const y = cell.y * CELL_SIZE + PADDING + CELL_SIZE / 2;
+        const cellX = cell.x * CELL_SIZE + PADDING;
+        const cellY = cell.y * CELL_SIZE + PADDING;
 
-        let agentStar = agents.get(agentId);
-        if (!agentStar) {
-            let color = agentColors.get(agentId);
-            if (!color) {
-                color = AGENT_COLORS[agentColors.size % AGENT_COLORS.length];
-                agentColors.set(agentId, color);
+        const gridSize = Math.ceil(Math.sqrt(count));
+        const outerRadius = CELL_SIZE / (gridSize * 2.5);
+        const innerRadius = outerRadius / 2;
+
+        agentsInCell.forEach((aid, index) => {
+            const row = Math.floor(index / gridSize);
+            const col = index % gridSize;
+
+            const markerX = cellX + (col + 0.5) * (CELL_SIZE / gridSize);
+            const markerY = cellY + (row + 0.5) * (CELL_SIZE / gridSize);
+
+            let star = agents.get(aid);
+            if (!star) {
+                // Create new star
+                let color = agentColors.get(aid);
+                if (!color) {
+                    color = AGENT_COLORS[agentColors.size % AGENT_COLORS.length];
+                    agentColors.set(aid, color);
+                }
+
+                star = new Konva.Star({
+                    x: markerX,
+                    y: markerY,
+                    numPoints: 5,
+                    innerRadius: innerRadius,
+                    outerRadius: outerRadius,
+                    fill: color,
+                    stroke: 'black',
+                    strokeWidth: 1
+                });
+                agentLayer.add(star);
+                agents.set(aid, star);
+            } else {
+                // Update existing star
+                star.setAttrs({
+                    x: markerX,
+                    y: markerY,
+                    innerRadius: innerRadius,
+                    outerRadius: outerRadius
+                });
             }
-
-            agentStar = new Konva.Star({
-                x: x,
-                y: y,
-                numPoints: 5,
-                innerRadius: 8,
-                outerRadius: 15,
-                fill: color,
-                stroke: 'black',
-                strokeWidth: 1
-            });
-            agentLayer.add(agentStar);
-            agents.set(agentId, agentStar);
-        } else {
-            agentStar.position({ x: x, y: y });
-        }
-
-        agentLayer.draw();
+        });
     }
 
 </script>
