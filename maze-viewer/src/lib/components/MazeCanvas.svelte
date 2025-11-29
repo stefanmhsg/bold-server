@@ -2,12 +2,31 @@
     import { onMount, onDestroy } from 'svelte';
     import Konva from 'konva';
     import type { MazeLayout, Cell } from '$lib/types';
+    import { mazeState } from '$lib/mazeState.svelte';
 
     let { maze } = $props<{ maze: MazeLayout }>();
 
     let container: HTMLDivElement;
     let stage: Konva.Stage;
     let layer: Konva.Layer;
+
+    let agentLayer: Konva.Layer;
+    let agents: Map<string, Konva.Star> = new Map();
+    let agentColors: Map<string, string> = new Map();
+    const AGENT_COLORS = [
+        '#ef4444', // red
+        '#3b82f6', // blue
+        '#10b981', // emerald
+        '#f59e0b', // amber
+        '#8b5cf6', // violet
+        '#ec4899', // pink
+        '#06b6d4', // cyan
+        '#84cc16', // lime
+        '#6366f1', // indigo
+        '#d946ef', // fuchsia
+    ];
+
+    const newestEvent = $derived(mazeState.events[0]);
 
     const CELL_SIZE = 60;
     const WALL_THICKNESS = 4;
@@ -28,6 +47,9 @@
 
         layer = new Konva.Layer();
         stage.add(layer);
+
+        agentLayer = new Konva.Layer();
+        stage.add(agentLayer);
 
         drawMaze();
         fitToView(width, height);
@@ -215,6 +237,48 @@
             fontStyle: 'bold'
         });
         layer.add(label);
+    }
+
+    $effect(() => {
+        if (!newestEvent) return;
+
+        if (newestEvent.type === "AGENT_MOVED") {
+            updateAgentPosition(newestEvent.agent, newestEvent.cell);
+        }
+    });
+
+    function updateAgentPosition(agentId: string, cellId: string) {
+        const cell = maze.cells.find(c => c.id === cellId);
+        if (!cell) return;
+
+        const x = cell.x * CELL_SIZE + PADDING + CELL_SIZE / 2;
+        const y = cell.y * CELL_SIZE + PADDING + CELL_SIZE / 2;
+
+        let agentStar = agents.get(agentId);
+        if (!agentStar) {
+            let color = agentColors.get(agentId);
+            if (!color) {
+                color = AGENT_COLORS[agentColors.size % AGENT_COLORS.length];
+                agentColors.set(agentId, color);
+            }
+
+            agentStar = new Konva.Star({
+                x: x,
+                y: y,
+                numPoints: 5,
+                innerRadius: 8,
+                outerRadius: 15,
+                fill: color,
+                stroke: 'black',
+                strokeWidth: 1
+            });
+            agentLayer.add(agentStar);
+            agents.set(agentId, agentStar);
+        } else {
+            agentStar.position({ x: x, y: y });
+        }
+
+        agentLayer.draw();
     }
 
 </script>
