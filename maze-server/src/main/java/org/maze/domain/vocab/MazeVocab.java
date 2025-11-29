@@ -26,6 +26,12 @@ public final class MazeVocab {
      * Used for navigation predicates like 'next', 'start'.
      */
     public static final String XHV_NS = "http://www.w3.org/1999/xhtml/vocab#";
+
+    /**
+     * XML Schema Definition namespace.
+     * Used for data types like dateTime, integer, etc.
+     */
+    public static final String XSD = "http://www.w3.org/2001/XMLSchema#";
     
     /**
      * Dynamic Maze vocabulary namespace.
@@ -45,7 +51,27 @@ public final class MazeVocab {
      * Predicate for maze navigation - request by Agent to move to target cell.
      */
     public static final String ENTERS_FROM = DYNMAZE_NS + "entersFrom";
+
+    /**
+     * Object for successful movement - indicates agent has moved to target cell.
+     */
+    public static final String MOVE_SUCCESS_EVENT = DYNMAZE_NS + "moveSuccessEvent";
     
+    /**
+     * Predicate for identifying agents in the maze.
+     */
+    public static final String AGENT = DYNMAZE_NS + "agent";
+
+    /**
+     * Predicate for target cell in movement events.
+     */
+    public static final String TARGET_CELL = DYNMAZE_NS + "targetCell";
+
+    /**
+     * Predicate for timestamping events.
+     */
+    public static final String TIMESTAMP = XSD + "dateTime";
+
     /**
      * Predicate for maze entrance - identifies the starting cell.
      */
@@ -78,6 +104,7 @@ public final class MazeVocab {
      * When these predicates are updated by rules, old values are replaced (not accumulated).
      * This ensures state consistency - e.g., a cell can't be both locked and unlocked.
      */
+    @Deprecated
     public static final Set<String> STATE_PREDICATES = Set.of(
         HAS_STATUS,
         STATE,
@@ -92,6 +119,7 @@ public final class MazeVocab {
      * @param predicateUri the predicate URI to check
      * @return true if this is a state predicate
      */
+    @Deprecated
     public static boolean isStatePredicate(String predicateUri) {
         return STATE_PREDICATES.contains(predicateUri);
     }

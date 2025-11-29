@@ -53,7 +53,7 @@ public class MazeBroadcaster {
             return;
         }
         
-        log.debug("[BROADCASTER] Broadcasting: {}", message);
+        log.info("[BROADCASTER] Broadcasting: {}", message);
         
         for (Session session : sessions) {
             if (session.isOpen()) {

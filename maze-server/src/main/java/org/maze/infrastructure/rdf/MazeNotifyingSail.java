@@ -11,11 +11,8 @@ import org.eclipse.rdf4j.sail.helpers.NotifyingSailWrapper;
  */
 public class MazeNotifyingSail extends NotifyingSailWrapper {
 
-    private final MazeUpdateListener updateListener;
-
     public MazeNotifyingSail(NotifyingSail baseSail) {
         super(baseSail);
-        this.updateListener = new MazeUpdateListener();
     }
 
     @Override
@@ -23,12 +20,36 @@ public class MazeNotifyingSail extends NotifyingSailWrapper {
         // Base connection from the wrapped store
         NotifyingSailConnection baseConn = (NotifyingSailConnection) super.getConnection();
 
-        // Wrap so we can control listeners without touching the base
-        NotifyingSailConnectionWrapper wrapped = new NotifyingSailConnectionWrapper(baseConn);
+        // Return our custom wrapper that handles commit/rollback hooks
+        return new MazeConnectionWrapper(baseConn);
+    }
 
-        // Attach our listener so it sees every statement add or remove
-        wrapped.addConnectionListener(updateListener);
+    /**
+     * Inner class to intercept transaction boundaries.
+     */
+    private static class MazeConnectionWrapper extends NotifyingSailConnectionWrapper {
+        
+        private final MazeUpdateListener listener;
 
-        return wrapped;
+        public MazeConnectionWrapper(NotifyingSailConnection wrapped) {
+            super(wrapped);
+            // Create a NEW listener for this specific connection/transaction
+            this.listener = new MazeUpdateListener();
+            addConnectionListener(this.listener);
+        }
+
+        @Override
+        public void commit() throws SailException {
+            // 1. Let the store commit the data
+            super.commit();
+            // 2. If successful, flush the aggregated events
+            listener.onCommit();
+        }
+
+        @Override
+        public void rollback() throws SailException {
+            super.rollback();
+            listener.onRollback();
+        }
     }
 }

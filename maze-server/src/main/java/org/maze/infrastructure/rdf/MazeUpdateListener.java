@@ -1,10 +1,13 @@
 package org.maze.infrastructure.rdf;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.sail.SailConnectionListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,37 +16,87 @@ import org.maze.api.websocket.MazeBroadcaster;
 
 /**
  * Connection level listener that reacts to individual statement changes.
- * For now it only logs agent moves but is ready to forward to a broadcaster.
+ * Aggregates statements for blank node events and broadcasts them on commit.
  */
 public class MazeUpdateListener implements SailConnectionListener {
 
     private static final Logger log = LoggerFactory.getLogger(MazeUpdateListener.class);
+    
+    // Buffer for pending events: Subject (BlankNode) -> Event Data
+    private final Map<Resource, Map<String, String>> pendingEvents = new HashMap<>();
 
-    // Adjust to your actual maze vocabulary
-    private static final String MOVE_SUCCEEDED = MazeVocab.DYNMAZE_NS + "moveSucceeded";
-
-    // NEW (preferred) method
     @Override
     public void statementAdded(Statement st, boolean inferred) {
-        log.info("[NOTIFYING SAIL] ADDED: {} {} {} (inferred={})",
-            st.getSubject(),
-            st.getPredicate(),
-            st.getObject(),
-            inferred);
+        // We only care about explicit statements for event generation
+        if (inferred) return;
 
-        if (isMovement(st)) {
-            processMovement(st, inferred);
+        log.debug("[NOTIFYING SAIL] ADDED: {} {} {}", st.getSubject(), st.getPredicate(), st.getObject());
+
+        Resource subject = st.getSubject();
+        IRI predicate = st.getPredicate();
+        Value object = st.getObject();
+
+        // Check if this statement is part of a MoveSuccessEvent
+        if (isMoveEventStatement(st)) {
+            pendingEvents.computeIfAbsent(subject, k -> new HashMap<>())
+                         .put(predicate.stringValue(), object.stringValue());
+            
+            // If it's the type declaration, mark it explicitly
+            if (predicate.equals(RDF.TYPE)) {
+                pendingEvents.get(subject).put("@type", object.stringValue());
+            }
         }
     }
 
-    // NEW (preferred) method
     @Override
     public void statementRemoved(Statement st, boolean inferred) {
-        log.info("[NOTIFYING SAIL] REMOVED: {} {} {} (inferred={})",
-            st.getSubject(),
-            st.getPredicate(),
-            st.getObject(),
-            inferred);
+        log.debug("[NOTIFYING SAIL] REMOVED: {} {} {}", st.getSubject(), st.getPredicate(), st.getObject());
+    }
+
+    // Called by the ConnectionWrapper after a successful commit
+    public void onCommit() {
+        for (Map.Entry<Resource, Map<String, String>> entry : pendingEvents.entrySet()) {
+            Map<String, String> properties = entry.getValue();
+            
+            // Only broadcast if it is actually a MoveSuccessEvent
+            if (isCompleteEvent(properties)) {
+                broadcastEvent(properties);
+            }
+        }
+        pendingEvents.clear();
+    }
+
+    // Called by the ConnectionWrapper on rollback
+    public void onRollback() {
+        pendingEvents.clear();
+    }
+
+    private boolean isMoveEventStatement(Statement st) {
+        String pred = st.getPredicate().stringValue();
+        // Check for Type definition or specific properties
+        return (st.getPredicate().equals(RDF.TYPE) && st.getObject().stringValue().equals(MazeVocab.MOVE_SUCCESS_EVENT)) ||
+               pred.equals(MazeVocab.AGENT) ||
+               pred.equals(MazeVocab.TARGET_CELL) ||
+               pred.equals(MazeVocab.TIMESTAMP);
+    }
+
+    private boolean isCompleteEvent(Map<String, String> props) {
+        // Check if it has the correct type (or at least the required properties)
+        String type = props.get("@type");
+        return MazeVocab.MOVE_SUCCESS_EVENT.equals(type) && 
+               props.containsKey(MazeVocab.AGENT) && 
+               props.containsKey(MazeVocab.TARGET_CELL);
+    }
+
+    private void broadcastEvent(Map<String, String> props) {
+        String agent = props.get(MazeVocab.AGENT);
+        String cell = props.get(MazeVocab.TARGET_CELL);
+        
+        log.info("Broadcasting MoveSuccessEvent for agent {} to {}", agent, cell);
+        
+        String json = String.format("{\"type\": \"AGENT_MOVED\", \"agent\": \"%s\", \"cell\": \"%s\"}", 
+            agent, cell);
+        MazeBroadcaster.broadcast(json);
     }
 
     // OLD deprecated method (still required!)
@@ -60,23 +113,4 @@ public class MazeUpdateListener implements SailConnectionListener {
     public void statementRemoved(Statement st) {
         statementRemoved(st, false);
     }
-
-
-    private boolean isMovement(Statement st) {
-        return st.getPredicate().stringValue()
-                .equals(MOVE_SUCCEEDED);
-    }
-
-    private void processMovement(Statement st, boolean inferred) {
-        String agent = st.getSubject().stringValue();
-        String cell = st.getObject().stringValue();
-
-        log.debug("Agent {} moved to {} (inferred={})", agent, cell, inferred);
-
-        // Broadcast event via WebSocket
-        String json = String.format("{\"type\": \"AGENT_MOVED\", \"agent\": \"%s\", \"cell\": \"%s\"}", 
-            agent, cell);
-        MazeBroadcaster.broadcast(json);
-    }
-
 }
