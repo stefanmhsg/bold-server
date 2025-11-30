@@ -12,6 +12,7 @@
 
     let agentLayer: Konva.Layer;
     let agents: Map<string, Konva.Star> = new Map();
+    let locks: Map<string, Konva.Rect> = new Map(); // Store lock shapes
     let agentColors: Map<string, string> = new Map();
     let agentPositions: Map<string, string> = new Map();
     const AGENT_COLORS = [
@@ -158,6 +159,7 @@
             strokeWidth: 1
         });
         layer.add(rect);
+        locks.set(cell.id, rect); // Store reference
     }
 
     function drawItems(cell: Cell, x: number, y: number) {
@@ -239,14 +241,25 @@
         });
         layer.add(label);
     }
-
     $effect(() => {
         if (!newestEvent) return;
 
         if (newestEvent.type === "AGENT_MOVED") {
             updateAgentPosition(newestEvent.agent, newestEvent.cell);
+        } else if (newestEvent.type === "CELL_LOCKED") {
+            updateCellLockState(newestEvent.cell, true);
+        } else if (newestEvent.type === "CELL_UNLOCKED") {
+            updateCellLockState(newestEvent.cell, false);
         }
     });
+
+    function updateCellLockState(cellId: string, isLocked: boolean) {
+        const lockShape = locks.get(cellId);
+        if (lockShape) {
+            lockShape.fill(isLocked ? 'red' : 'green');
+            layer.draw(); // Redraw layer to show changes
+        }
+    }
 
     function updateAgentPosition(agentId: string, cellId: string) {
         const oldCellId = agentPositions.get(agentId);

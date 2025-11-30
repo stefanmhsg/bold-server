@@ -1,14 +1,29 @@
-export interface MazeEvent {
+export interface BaseEvent {
     type: string;
-    agent: string;
-    cell: string;
     timestamp: number;
 }
+
+export interface AgentMovedEvent extends BaseEvent {
+    type: 'AGENT_MOVED';
+    agent: string;
+    cell: string;
+}
+
+export interface CellStateEvent extends BaseEvent {
+    type: 'CELL_LOCKED' | 'CELL_UNLOCKED';
+    cell: string;
+}
+
+export type MazeEvent = AgentMovedEvent | CellStateEvent;
 
 export class MazeStore {
     events = $state<MazeEvent[]>([]);
     status = $state<string>("disconnected");
     socket: WebSocket | null = null;
+
+    // Derived views for specific event types
+    agentEvents = $derived(this.events.filter(e => e.type === 'AGENT_MOVED') as AgentMovedEvent[]);
+    cellEvents = $derived(this.events.filter(e => e.type === 'CELL_LOCKED' || e.type === 'CELL_UNLOCKED') as CellStateEvent[]);
 
     connect() {
         if (this.socket) return;
@@ -31,13 +46,14 @@ export class MazeStore {
                 }
 
                 // Add timestamp for display
-                const mazeEvent: MazeEvent = { ...data, timestamp: Date.now() };
+                const mazeEvent = { ...data, timestamp: Date.now() } as MazeEvent;
+                
                 // Add to beginning of array for newest first
                 this.events.unshift(mazeEvent);
                 
-                // Keep only last 50 events
-                if (this.events.length > 50) {
-                    this.events = this.events.slice(0, 50);
+                // Keep only last 100 events total
+                if (this.events.length > 100) {
+                    this.events = this.events.slice(0, 100);
                 }
             } catch (e) {
                 console.error("Failed to parse message", e);

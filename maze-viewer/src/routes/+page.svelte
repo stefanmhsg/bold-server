@@ -3,6 +3,8 @@
     import { onMount } from 'svelte';
     import type { PageData } from './$types';
     import MazeCanvas from '$lib/components/MazeCanvas.svelte';
+    import AgentEventLog from '$lib/components/AgentEventLog.svelte';
+    import CellEventLog from '$lib/components/CellEventLog.svelte';
 
     let { data } = $props<{ data: PageData }>();
 
@@ -26,51 +28,25 @@
         {/if}
     </div>
 
-    <!-- Right Column: Event Log -->
-    <div class="w-full lg:w-1/3">
-        <h2 class="text-xl font-bold mb-4">Live Events</h2>
-        
-        <div class="mb-4">
-            Status: 
+    <!-- Right Column: Event Logs -->
+    <div class="w-full lg:w-1/3 flex flex-col gap-4">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Live Events</h2>
             <span class:text-green-600={mazeState.status === 'connected'} 
                   class:text-red-600={mazeState.status === 'disconnected' || mazeState.status === 'error'}
-                  class="font-bold">
+                  class="font-bold text-sm uppercase">
                 {mazeState.status}
             </span>
         </div>
 
-        <div class="border rounded-lg overflow-hidden max-h-[600px] overflow-y-auto">
-            <table class="w-full text-left">
-                <thead class="bg-gray-100 border-b sticky top-0">
-                    <tr>
-                        <th class="p-2">Time</th>
-                        <th class="p-2">Agent</th>
-                        <th class="p-2">Action</th>
-                        <th class="p-2">Loc</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each mazeState.events as event}
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="p-2 text-gray-500 text-sm whitespace-nowrap">
-                                {new Date(event.timestamp).toLocaleTimeString()}
-                            </td>
-                            <td class="p-2 font-medium">{event.agent}</td>
-                            <td class="p-2 text-sm">{event.type}</td>
-                            <td class="p-2 font-mono text-xs truncate max-w-[100px]" title={event.cell}>
-                                {event.cell.split('/').pop()}
-                            </td>
-                        </tr>
-                    {/each}
-                    {#if mazeState.events.length === 0}
-                        <tr>
-                            <td colspan="4" class="p-4 text-center text-gray-500">
-                                No events received yet. Waiting for agents...
-                            </td>
-                        </tr>
-                    {/if}
-                </tbody>
-            </table>
+        <div>
+            <h3 class="font-semibold mb-2 text-gray-700">Agent Movements</h3>
+            <AgentEventLog events={mazeState.agentEvents} />
+        </div>
+
+        <div>
+            <h3 class="font-semibold mb-2 text-gray-700">Cell Updates</h3>
+            <CellEventLog events={mazeState.cellEvents} />
         </div>
     </div>
 </div>

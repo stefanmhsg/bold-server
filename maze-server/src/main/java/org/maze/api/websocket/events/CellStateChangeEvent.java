@@ -16,12 +16,12 @@ public class CellStateChangeEvent extends MazeEvent {
     public void processStatement(Statement st) {
         if (st.getPredicate().stringValue().equals(MazeVocab.STATE)) {
             String state = st.getObject().stringValue();
-            if (state.endsWith("locked")) {
-                this.isLocked = true;
-                this.type = "CELL_LOCKED";
-            } else if (state.endsWith("unlocked")) {
+            if (state.endsWith("unlocked")) {
                 this.isLocked = false;
                 this.type = "CELL_UNLOCKED";
+            } else if (state.endsWith("locked")) {
+                this.isLocked = true;
+                this.type = "CELL_LOCKED";
             }
         }
     }
