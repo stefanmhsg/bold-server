@@ -4,7 +4,10 @@
     import type { MazeLayout, Cell } from '$lib/types';
     import { mazeState } from '$lib/mazeState.svelte';
 
-    let { maze } = $props<{ maze: MazeLayout }>();
+    let { maze, onCellSelect } = $props<{ 
+        maze: MazeLayout,
+        onCellSelect?: (cellId: string) => void 
+    }>();
 
     let container: HTMLDivElement;
     let stage: Konva.Stage;
@@ -119,6 +122,24 @@
                 stroke: '#ddd',
                 strokeWidth: 1
             });
+            
+            if (onCellSelect) {
+                rect.on('dblclick', () => {
+                    onCellSelect(cell.id);
+                });
+                // Visual feedback for interactivity
+                rect.on('mouseenter', () => {
+                    stage.container().style.cursor = 'pointer';
+                    rect.fill('#f0f9ff'); // Light blue highlight
+                    layer.draw();
+                });
+                rect.on('mouseleave', () => {
+                    stage.container().style.cursor = 'default';
+                    rect.fill('#ffffff');
+                    layer.draw();
+                });
+            }
+
             layer.add(rect);
 
             // Draw Walls
