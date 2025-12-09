@@ -22,6 +22,7 @@ export interface Connections {
     east: string;
     west: string;
     exit?: string;
+    green?: string;
 }
 
 export interface Item {

@@ -161,9 +161,43 @@
             if (cell.lock) {
                 drawLock(cell, x, y);
             }
+
+            // Draw Green Arrow
+            if (cell.connections.green) {
+                drawGreenArrow(cell, x, y);
+            }
         });
 
         layer.draw();
+    }
+
+    function drawGreenArrow(cell: Cell, x: number, y: number) {
+        const targetId = cell.connections.green;
+        if (!targetId) return;
+
+        const targetCell = maze.cells.find(c => c.id === targetId);
+        if (!targetCell) return;
+
+        const dx = targetCell.x - cell.x;
+        const dy = targetCell.y - cell.y;
+
+        // Calculate angle in degrees
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        const arrow = new Konva.Arrow({
+            x: x + CELL_SIZE / 2,
+            y: y + CELL_SIZE / 2,
+            points: [-15, 0, 15, 0],
+            pointerLength: 8,
+            pointerWidth: 8,
+            fill: '#22c55e', // Green-500
+            stroke: '#22c55e',
+            strokeWidth: 4,
+            rotation: angle,
+            opacity: 0.6
+        });
+        
+        layer.add(arrow);
     }
 
     function drawLock(cell: Cell, x: number, y: number) {
@@ -251,10 +285,10 @@
     function addLabel(x: number, y: number, text: string, color: string) {
         const label = new Konva.Text({
             x: x,
-            y: y + CELL_SIZE / 2 - 6,
+            y: y + 4, // Position at top with small padding
             width: CELL_SIZE,
             text: text,
-            fontSize: 12,
+            fontSize: 10,
             fontFamily: 'Arial',
             fill: color,
             align: 'center',

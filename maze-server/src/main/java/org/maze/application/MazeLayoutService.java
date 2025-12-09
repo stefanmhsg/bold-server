@@ -53,7 +53,7 @@ public class MazeLayoutService {
                 "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> " +
                 "PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> " +
                 "PREFIX http: <http://www.w3.org/2011/http#> " +
-                "SELECT DISTINCT ?cell ?label ?north ?south ?east ?west ?exit ?keyVal ?lockState ?isLock ?keyNeeded WHERE { " +
+                "SELECT DISTINCT ?cell ?label ?north ?south ?east ?west ?exit ?keyVal ?lockState ?isLock ?keyNeeded ?green WHERE { " +
                 "    ?cell a maze:Cell . " +
                 "    OPTIONAL { ?cell rdfs:label ?label } " +
                 "    OPTIONAL { ?cell maze:north ?north } " +
@@ -61,6 +61,7 @@ public class MazeLayoutService {
                 "    OPTIONAL { ?cell maze:east ?east } " +
                 "    OPTIONAL { ?cell maze:west ?west } " +
                 "    OPTIONAL { ?cell maze:exit ?exit } " +
+                "    OPTIONAL { ?cell maze:green ?green } " +
                 "    OPTIONAL { " +
                 "       { ?cell dyn:hasKey ?k . ?k dyn:keyValue ?keyVal . } " +
                 "       UNION " +
@@ -93,11 +94,14 @@ public class MazeLayoutService {
                     if (bs.hasBinding("south")) cell.connections.put("south", normalize(bs.getValue("south").stringValue()));
                     if (bs.hasBinding("east")) cell.connections.put("east", normalize(bs.getValue("east").stringValue()));
                     if (bs.hasBinding("west")) cell.connections.put("west", normalize(bs.getValue("west").stringValue()));
-                    
                     if (bs.hasBinding("exit")) {
                         String exitUri = normalize(bs.getValue("exit").stringValue());
                         exitCell = exitUri;
                         cell.connections.put("exit", exitUri);
+                    }
+
+                    if (bs.hasBinding("green")) {
+                        cell.connections.put("green", normalize(bs.getValue("green").stringValue()));
                     }
 
                     if (bs.hasBinding("keyVal")) {
@@ -130,8 +134,6 @@ public class MazeLayoutService {
                 }
             }
         }
-
-        // 3. BFS for Layout
         if (startCell != null && cellMap.containsKey(startCell)) {
             calculateLayout(cellMap, startCell);
         } else {

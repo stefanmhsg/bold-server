@@ -16,6 +16,7 @@ INSERT {
   GRAPH ?g {
     # ensure the door to the south is present
     ?cell maze:south <http://127.0.1.1:8080/cells/19> .
+    ?cell maze:green <http://127.0.1.1:8080/cells/19> .
 
     # new state for the cell
     ?cell dyn:state dyn:unlocked .
