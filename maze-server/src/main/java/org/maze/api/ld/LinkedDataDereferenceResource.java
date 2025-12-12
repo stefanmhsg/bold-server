@@ -81,6 +81,13 @@ public class LinkedDataDereferenceResource {
         
         // Extract agent name and validate access
         String agentName = AgentAuthUtil.extractAgentName(authorization);
+        
+        if (agentName != null && agentName.contains(" ")) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Agent name cannot contain whitespaces.")
+                    .build();
+        }
+
         AccessValidator accessValidator = getAccessValidator();
         AccessResult accessResult = accessValidator.validateAccess(agentName, requestedCellUri, "GET");
         
@@ -123,6 +130,12 @@ public class LinkedDataDereferenceResource {
                               String body) {
         String graphIRI = uriinfo.getAbsolutePath().toString();
         String agentName = AgentAuthUtil.extractAgentName(authorization);
+        
+        if (agentName != null && agentName.contains(" ")) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Agent name cannot contain whitespaces.")
+                    .build();
+        }
         
         log.info("LD POST to graph: {} by agent: {}", graphIRI, 
                  agentName != null ? agentName : "<anonymous>");
