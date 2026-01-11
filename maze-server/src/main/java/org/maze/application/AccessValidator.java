@@ -335,7 +335,11 @@ public class AccessValidator {
      */
     private String buildAgentUri(String cellUri, String agentName) {
         String baseUri = extractBaseUri(cellUri);
-        return baseUri + "/agents/" + agentName;
+        String agentUri = baseUri + "/agents/" ;
+        if (agentName.startsWith(agentUri)) {
+            return agentName; // Already full URI
+        }
+        return agentUri + agentName;
     }
     
     /**

@@ -80,7 +80,7 @@ public class LinkedDataDereferenceResource {
         String requestedCellUri = uriinfo.getAbsolutePath().toString();
         
         // Extract agent name and validate access
-        String agentName = AgentAuthUtil.extractAgentName(authorization);
+        String agentName = AgentAuthUtil.extractAgentName(authorization, requestedCellUri);
         
         if (agentName != null && agentName.contains(" ")) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -129,7 +129,7 @@ public class LinkedDataDereferenceResource {
                               @Context UriInfo uriinfo, 
                               String body) {
         String graphIRI = uriinfo.getAbsolutePath().toString();
-        String agentName = AgentAuthUtil.extractAgentName(authorization);
+        String agentName = AgentAuthUtil.extractAgentName(authorization, graphIRI);
         
         if (agentName != null && agentName.contains(" ")) {
             return Response.status(Response.Status.BAD_REQUEST)
