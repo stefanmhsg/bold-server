@@ -1,0 +1,16 @@
+PREFIX dyn:  <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+
+DELETE {
+    GRAPH ?g {
+        ?cell maze:green ?target .
+    }
+}
+WHERE {
+    GRAPH ?g {
+        ?cell a maze:Cell .
+        ?cell maze:green ?target .
+    }
+}
