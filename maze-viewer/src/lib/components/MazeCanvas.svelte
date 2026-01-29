@@ -405,31 +405,44 @@
     }
 
     function resolveUiAttrs(cmd: UiCommand) {
-        const { attrs, id } = cmd;
-
-        const cellId = getCellIdFromUiId(id);
-        if (!cellId) return attrs;
+        const { attrs, id, konvaType } = cmd;
         
-        const cell = maze.cells.find((c: { id: string; }) => c.id === cellId);
-        if (!cell) return attrs;
-
-        // Only resolve if anchor is present
-        if (!attrs.anchor) return attrs;
-
-        const anchor = String(attrs.anchor);
-        const offsetX = Number(attrs.offsetX ?? 0);
-        const offsetY = Number(attrs.offsetY ?? 0);
-
-        const { x, y } = resolveAnchor(cell, anchor);
-
         const resolved = { ...attrs };
 
-        resolved.x = x + offsetX;
-        resolved.y = y + offsetY;
+        // Apply Arrow defaults if not present
+        if (konvaType === "Arrow") {
+            resolved.points = resolved.points ?? [-15, 0, 15, 0];
+            resolved.pointerLength = resolved.pointerLength ?? 8;
+            resolved.pointerWidth = resolved.pointerWidth ?? 8;
+        }
 
-        delete resolved.anchor;
-        delete resolved.offsetX;
-        delete resolved.offsetY;
+        // Convert direction (N/E/S/W) to rotation degrees
+        if (resolved.direction) {
+            resolved.rotation = resolveDirection(String(resolved.direction));
+            delete resolved.direction;
+        }
+
+        // Resolve anchor-based positioning if anchor is present
+        if (resolved.anchor) {
+            const cellId = getCellIdFromUiId(id);
+            if (cellId) {
+                const cell = maze.cells.find((c: { id: string; }) => c.id === cellId);
+                if (cell) {
+                    const anchor = String(resolved.anchor);
+                    const offsetX = Number(resolved.offsetX ?? 0);
+                    const offsetY = Number(resolved.offsetY ?? 0);
+
+                    const { x, y } = resolveAnchor(cell, anchor);
+
+                    resolved.x = x + offsetX;
+                    resolved.y = y + offsetY;
+
+                    delete resolved.anchor;
+                    delete resolved.offsetX;
+                    delete resolved.offsetY;
+                }
+            }
+        }
 
         return resolved;
     }
@@ -448,7 +461,20 @@
     }
 
     /**
-     * Resolve anchor position within a cell
+     * Convert cardinal direction to rotation angle in degrees
+     * N → 270°, E → 0°, S → 90°, W → 180°
+     */
+    function resolveDirection(direction: string): number {
+        switch (direction) {
+            case "N": return 270;
+            case "E": return 0;
+            case "S": return 90;
+            case "W": return 180;
+            default:  return 0;
+        }
+    }
+
+    /**
      * E.g., "NW", "C", "SE", etc.
      * @param cell
      * @param anchor
@@ -465,10 +491,10 @@
         const right  = baseX + CELL_SIZE * 0.75;
         const top    = baseY + CELL_SIZE * 0.25;
         const bottom = baseY + CELL_SIZE * 0.75;
-        
+
         const cx = baseX + CELL_SIZE / 2;
         const cy = baseY + CELL_SIZE / 2;
-        
+
         switch (anchor) {
             case "NW": return { x: left,  y: top };
             case "N":  return { x: cx,    y: top };
