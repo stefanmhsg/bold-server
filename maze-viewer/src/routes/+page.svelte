@@ -46,27 +46,34 @@
 <div class="p-4 flex flex-col lg:flex-row gap-6">
     <!-- Left Column: Maze Visualization -->
     <div class="flex-1 flex flex-col gap-6">
-        <div>
-            <h1 class="text-2xl font-bold mb-4">Maze Viewer</h1>
-            {#if data.maze}
-                <div class="overflow-auto">
-                    <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} onCellSelect={handleCellSelect} />
-                </div>
-            {:else}
-                <div class="p-8 bg-gray-100 rounded text-center text-gray-500">
-                    Loading maze layout... (Ensure server is running at localhost:8080)
-                </div>
-            {/if}
-        </div>
+        <h1 class="text-2xl font-bold">Maze Viewer</h1>
+        
+        {#if data.maze}
+            <div class="resize overflow-hidden border-2 border-gray-300 rounded bg-white" style="height: 800px;">
+                <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} onCellSelect={handleCellSelect} />
+            </div>
+        {:else}
+            <div class="p-8 bg-gray-100 rounded text-center text-gray-500">
+                Loading maze layout... (Ensure server is running at localhost:8080)
+            </div>
+        {/if}
 
         <!-- Cell Data Inspector -->
         {#if selectedCellId}
-            <div class="border rounded-lg shadow-sm p-4 bg-white">
-                <h2 class="text-lg font-bold mb-2 flex items-center gap-2">
-                    <span>Cell Inspector</span>
-                    <span class="text-sm font-normal text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
-                        {selectedCellId}
-                    </span>
+            <div class="border rounded-lg shadow-sm p-4 bg-white overflow-auto">
+                <h2 class="text-lg font-bold mb-2 flex items-center gap-2 justify-between">
+                    <div class="flex items-center gap-2">
+                        <span>Cell Inspector</span>
+                        <span class="text-sm font-normal text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
+                            {selectedCellId}
+                        </span>
+                    </div>
+                    <button 
+                        onclick={() => selectedCellId = null}
+                        class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded px-2 py-1"
+                        title="Close inspector">
+                        ✕
+                    </button>
                 </h2>
                 
                 {#if isLoadingCell}
@@ -81,7 +88,7 @@
     </div>
 
     <!-- Right Column: Event Logs -->
-    <div class="w-full lg:w-1/3 flex flex-col gap-4">
+    <div class="w-full lg:w-96 flex flex-col gap-4">
         <div class="flex justify-between items-center">
             <h2 class="text-xl font-bold">Live Events</h2>
             <span class:text-green-600={mazeState.status === 'connected'} 

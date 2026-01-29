@@ -107,6 +107,25 @@
             };
             stage.position(newPos);
         });
+
+        // Handle window/container resize
+        const resizeObserver = new ResizeObserver(() => {
+            if (!container || !stage) return;
+            
+            const newWidth = container.clientWidth;
+            const newHeight = container.clientHeight;
+            
+            if (newWidth > 0 && newHeight > 0) {
+                stage.width(newWidth);
+                stage.height(newHeight);
+            }
+        });
+
+        resizeObserver.observe(container);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
     });
 
     function fitToView(stageWidth: number, stageHeight: number) {
@@ -594,4 +613,4 @@
 
 </script>
 
-<div bind:this={container} class="border rounded shadow-lg bg-white w-full h-[80vh] overflow-hidden"></div>
+<div bind:this={container} class="w-full h-full"></div>
