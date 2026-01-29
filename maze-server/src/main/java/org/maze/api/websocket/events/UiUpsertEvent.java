@@ -39,7 +39,7 @@ public class UiUpsertEvent extends MazeEvent {
 
     @Override
     public boolean isComplete() {
-        return konvaType != null && !attrs.isEmpty();
+        return !attrs.isEmpty();
     }
 
      public static boolean isRelevant(Statement st) {
