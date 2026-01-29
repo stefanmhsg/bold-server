@@ -368,7 +368,7 @@
 					y: markerY,
 					innerRadius: innerRadius,
 					outerRadius: outerRadius,
-					numPoints: 0
+					numPoints: 5
 				});
             }
         });

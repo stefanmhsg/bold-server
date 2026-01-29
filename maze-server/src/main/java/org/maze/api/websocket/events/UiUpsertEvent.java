@@ -39,7 +39,7 @@ public class UiUpsertEvent extends MazeEvent {
 
     @Override
     public boolean isComplete() {
-        return !attrs.isEmpty();
+        return !attrs.isEmpty(); // Minimum 1 attribute to be meaningful (i.e. color changed)
     }
 
      public static boolean isRelevant(Statement st) {
