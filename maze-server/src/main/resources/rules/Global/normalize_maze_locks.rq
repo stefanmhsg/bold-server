@@ -17,6 +17,6 @@ WHERE {
         OPTIONAL { ?cell dyn:state ?oldState . }
     }
     
-FILTER( !BOUND(?oldState) )
+FILTER( !BOUND(?oldState) ) # only if no state is present
 
 }

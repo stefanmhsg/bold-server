@@ -2,10 +2,11 @@
     import { onMount, onDestroy } from 'svelte';
     import Konva from 'konva';
     import type { MazeLayout, Cell } from '$lib/types';
-    import { mazeState } from '$lib/mazeState.svelte';
+    import { mazeState, type UiCommand } from '$lib/mazeState.svelte';
 
-    let { maze, onCellSelect } = $props<{ 
+    let { maze, uiSnapshot, onCellSelect } = $props<{ 
         maze: MazeLayout,
+        uiSnapshot: UiCommand[],
         onCellSelect?: (cellId: string) => void 
     }>();
 
@@ -15,9 +16,11 @@
 
     let agentLayer: Konva.Layer;
     let agents: Map<string, Konva.Star> = new Map();
-    let locks: Map<string, Konva.Rect> = new Map(); // Store lock shapes
     let agentColors: Map<string, string> = new Map();
     let agentPositions: Map<string, string> = new Map();
+    let uiNodes: Map<string, Konva.Shape | Konva.Group> = new Map();
+
+
     const AGENT_COLORS = [
         '#ef4444', // red
         '#3b82f6', // blue
@@ -36,6 +39,22 @@
     const CELL_SIZE = 60;
     const WALL_THICKNESS = 4;
     const PADDING = 20;
+
+    const KONVA_REGISTRY: Record<
+        string,
+        new (config: any) => Konva.Shape | Konva.Group
+    > = {
+        Rect: Konva.Rect,
+        Circle: Konva.Circle,
+        Line: Konva.Line,
+        Arrow: Konva.Arrow,
+        Text: Konva.Text,
+        Star: Konva.Star,
+        Path: Konva.Path
+    };
+
+
+
 
     onMount(() => {
         if (!maze || !container) return;
@@ -57,6 +76,12 @@
         stage.add(agentLayer);
 
         drawMaze();
+
+        // Apply initial UI snapshot
+        uiSnapshot.forEach((cmd: UiCommand) => {
+            applyUiUpsert(cmd);
+        });
+
         fitToView(width, height);
 
         stage.on('wheel', (e) => {
@@ -108,7 +133,7 @@
     function drawMaze() {
         if (!maze) return;
 
-        maze.cells.forEach(cell => {
+        maze.cells.forEach((cell: Cell) => {
             const x = cell.x * CELL_SIZE + PADDING;
             const y = cell.y * CELL_SIZE + PADDING;
 
@@ -152,7 +177,7 @@
                 addLabel(x, y, "EXIT", "red");
             }
 
-            // Draw Items
+        /*    // Draw Items
             if (cell.items.length > 0) {
                 drawItems(cell, x, y);
             }
@@ -166,74 +191,10 @@
             if (cell.connections.green) {
                 drawGreenArrow(cell, x, y);
             }
+        */
         });
 
         layer.draw();
-    }
-
-    function drawGreenArrow(cell: Cell, x: number, y: number) {
-        const targetId = cell.connections.green;
-        if (!targetId) return;
-
-        const targetCell = maze.cells.find(c => c.id === targetId);
-        if (!targetCell) return;
-
-        const dx = targetCell.x - cell.x;
-        const dy = targetCell.y - cell.y;
-
-        // Calculate angle in degrees
-        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-        const arrow = new Konva.Arrow({
-            x: x + CELL_SIZE / 2,
-            y: y + CELL_SIZE / 2,
-            points: [-15, 0, 15, 0],
-            pointerLength: 8,
-            pointerWidth: 8,
-            fill: '#22c55e', // Green-500
-            stroke: '#22c55e',
-            strokeWidth: 4,
-            rotation: angle,
-            opacity: 0.6
-        });
-        
-        layer.add(arrow);
-    }
-
-    function drawLock(cell: Cell, x: number, y: number) {
-        const lockSize = 12;
-        const padding = 4;
-        
-        const rect = new Konva.Rect({
-            x: x + CELL_SIZE - lockSize - padding,
-            y: y + padding,
-            width: lockSize,
-            height: lockSize,
-            fill: cell.lock?.isLocked ? 'red' : 'green',
-            stroke: 'black',
-            strokeWidth: 1
-        });
-        layer.add(rect);
-        locks.set(cell.id, rect); // Store reference
-    }
-
-    function drawItems(cell: Cell, x: number, y: number) {
-        const itemRadius = 6;
-        const padding = 4;
-        const startY = y + CELL_SIZE - itemRadius * 2 - padding;
-        let startX = x + padding;
-
-        cell.items.forEach((item, index) => {
-             const circle = new Konva.Circle({
-                x: startX + (index * (itemRadius * 2 + padding)) + itemRadius,
-                y: startY + itemRadius,
-                radius: itemRadius,
-                fill: 'gold',
-                stroke: 'black',
-                strokeWidth: 1
-             });
-             layer.add(circle);
-        });
     }
 
     function drawWalls(cell: Cell, x: number, y: number) {
@@ -296,26 +257,22 @@
         });
         layer.add(label);
     }
+
     $effect(() => {
         if (!newestEvent) return;
 
         if (newestEvent.type === "AGENT_MOVED") {
             updateAgentPosition(newestEvent.agent, newestEvent.cell);
-        } else if (newestEvent.type === "CELL_LOCKED") {
-            updateCellLockState(newestEvent.cell, true);
-        } else if (newestEvent.type === "CELL_UNLOCKED") {
-            updateCellLockState(newestEvent.cell, false);
+            return;
         }
+
+        if (newestEvent.type === "UI_UPSERT") {
+            applyUiUpsert(newestEvent);
+            return;
+        }
+
     });
-
-    function updateCellLockState(cellId: string, isLocked: boolean) {
-        const lockShape = locks.get(cellId);
-        if (lockShape) {
-            lockShape.fill(isLocked ? 'red' : 'green');
-            layer.draw(); // Redraw layer to show changes
-        }
-    }
-
+    
     function updateAgentPosition(agentId: string, cellId: string) {
         const oldCellId = agentPositions.get(agentId);
 
@@ -366,7 +323,7 @@
         const count = agentsInCell.length;
         if (count === 0) return;
 
-        const cell = maze.cells.find(c => c.id === cellId);
+        const cell = maze.cells.find((c: { id: string; }) => c.id === cellId);
         if (!cell) return;
 
         const cellX = cell.x * CELL_SIZE + PADDING;
@@ -407,14 +364,124 @@
             } else {
                 // Update existing star
                 star.setAttrs({
-                    x: markerX,
-                    y: markerY,
-                    innerRadius: innerRadius,
-                    outerRadius: outerRadius
-                });
+					x: markerX,
+					y: markerY,
+					innerRadius: innerRadius,
+					outerRadius: outerRadius,
+					numPoints: 0
+				});
             }
         });
     }
+
+    function applyUiUpsert(cmd: UiCommand) {
+        const { id, konvaType, layer: layerName, attrs } = cmd;
+
+        const targetLayer = layerName === "agent" ? agentLayer : layer;
+        let node = uiNodes.get(id);
+
+        if (!node) {
+            const Ctor = KONVA_REGISTRY[konvaType];
+            if (!Ctor) {
+                console.warn("Unknown Konva node type", konvaType);
+                return;
+            }
+
+            const createdNode = new Ctor({
+                id,
+                ...attrs
+            });
+
+            targetLayer.add(createdNode);
+            uiNodes.set(id, createdNode);
+        } else {
+            node.setAttrs(attrs);
+        }
+
+        targetLayer.batchDraw();
+    }
+
+    /*
+    function drawGreenArrow(cell: Cell, x: number, y: number) {
+        const targetId = cell.connections.green;
+        if (!targetId) return;
+
+        const targetCell = maze.cells.find(c => c.id === targetId);
+        if (!targetCell) return;
+
+        const dx = targetCell.x - cell.x;
+        const dy = targetCell.y - cell.y;
+
+        // Calculate angle in degrees
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        const arrow = new Konva.Arrow({
+            x: x + CELL_SIZE / 2,
+            y: y + CELL_SIZE / 2,
+            points: [-15, 0, 15, 0],
+            pointerLength: 8,
+            pointerWidth: 8,
+            fill: '#22c55e', // Green-500
+            stroke: '#22c55e',
+            strokeWidth: 4,
+            rotation: angle,
+            opacity: 0.6
+        });
+        
+        layer.add(arrow);
+    }
+    */
+
+    /*
+    function drawLock(cell: Cell, x: number, y: number) {
+        const lockSize = 12;
+        const padding = 4;
+        
+        const rect = new Konva.Rect({
+            x: x + CELL_SIZE - lockSize - padding,
+            y: y + padding,
+            width: lockSize,
+            height: lockSize,
+            fill: cell.lock?.isLocked ? 'red' : 'green',
+            stroke: 'black',
+            strokeWidth: 1
+        });
+        layer.add(rect);
+        locks.set(cell.id, rect); // Store reference
+    }
+    */
+
+    /*
+    function drawItems(cell: Cell, x: number, y: number) {
+        const itemRadius = 6;
+        const padding = 4;
+        const startY = y + CELL_SIZE - itemRadius * 2 - padding;
+        let startX = x + padding;
+
+        cell.items.forEach((item, index) => {
+             const circle = new Konva.Circle({
+                x: startX + (index * (itemRadius * 2 + padding)) + itemRadius,
+                y: startY + itemRadius,
+                radius: itemRadius,
+                fill: 'gold',
+                stroke: 'black',
+                strokeWidth: 1
+             });
+             layer.add(circle);
+        });
+    }
+    */
+
+    /*
+    function updateCellLockState(cellId: string, isLocked: boolean) {
+        const lockShape = locks.get(cellId);
+        if (lockShape) {
+            lockShape.fill(isLocked ? 'red' : 'green');
+            layer.draw(); // Redraw layer to show changes
+        }
+    }
+    */
+
 
 </script>
 

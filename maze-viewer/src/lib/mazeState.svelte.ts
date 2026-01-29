@@ -9,12 +9,18 @@ export interface AgentMovedEvent extends BaseEvent {
     cell: string;
 }
 
-export interface CellStateEvent extends BaseEvent {
-    type: 'CELL_LOCKED' | 'CELL_UNLOCKED';
-    cell: string;
+export interface UiCommand {
+    id: string;
+    konvaType: string;
+    layer?: string;
+    attrs: Record<string, any>;
 }
 
-export type MazeEvent = AgentMovedEvent | CellStateEvent;
+export interface UiUpsertEvent extends BaseEvent, UiCommand {
+    type: 'UI_UPSERT';
+}
+
+export type MazeEvent = AgentMovedEvent | UiUpsertEvent;
 
 export class MazeStore {
     events = $state<MazeEvent[]>([]);
@@ -23,7 +29,7 @@ export class MazeStore {
 
     // Derived views for specific event types
     agentEvents = $derived(this.events.filter(e => e.type === 'AGENT_MOVED') as AgentMovedEvent[]);
-    cellEvents = $derived(this.events.filter(e => e.type === 'CELL_LOCKED' || e.type === 'CELL_UNLOCKED') as CellStateEvent[]);
+    uiEvents = $derived(this.events.filter(e => e.type === 'UI_UPSERT') as UiUpsertEvent[]);
 
     connect() {
         if (this.socket) return;

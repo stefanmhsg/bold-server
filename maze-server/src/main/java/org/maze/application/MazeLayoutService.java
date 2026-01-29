@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
-import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
@@ -19,6 +18,8 @@ import org.maze.api.dto.CellDto;
 import org.maze.api.dto.ItemDto;
 import org.maze.api.dto.LockDto;
 import org.maze.api.dto.MazeLayoutDto;
+import org.maze.api.dto.UiUpsertDto;
+import org.maze.domain.vocab.MazeVocab;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,12 @@ public class MazeLayoutService {
         this.repository = repository;
     }
 
+    /**
+     * Generate a snapshot of the current maze layout.
+     * Queries all cells, their connections, items, and locks.
+     * Calculates a 2D layout based on connections starting from the start cell.
+     * @return MazeLayoutDto 
+     */
     public MazeLayoutDto getMazeLayout() {
         MazeLayoutDto layout = new MazeLayoutDto();
         Map<String, CellDto> cellMap = new HashMap<>();
@@ -210,4 +217,73 @@ public class MazeLayoutService {
     private String normalize(String uri) {
         return (uri != null && uri.endsWith("Wall")) ? "wall" : uri;
     }
+
+    /**
+     * Generate a snapshot of all UI elements in the maze.
+     * Follows same pattern as UiUpsertEvents being sent to MazeViewer.
+     * On startup or reload, this can fetch current UI state for rendering.
+     * @return List of UiUpsertDto representing current UI elements to be rendered.
+     */
+    public List<UiUpsertDto> getUiSnapshot() {
+    List<UiUpsertDto> result = new ArrayList<>();
+
+        try (SailRepositoryConnection conn = repository.getConnection()) {
+            String namespace = MazeVocab.UI_NS;
+            String q =
+                "PREFIX ui: <" + namespace + "> " +
+                "SELECT ?ui ?p ?o ?layer ?konvaType WHERE { " +
+                "  ?cell ui:hasUiElement ?ui . " +
+                "  ?ui ui:konvaType ?konvaType . " +
+                "  OPTIONAL { ?ui ui:layer ?layer } " +
+                "  ?ui ?p ?o . " +
+                "}";
+
+            TupleQuery tq = conn.prepareTupleQuery(q);
+            try (TupleQueryResult r = tq.evaluate()) {
+
+                Map<String, UiUpsertDto> byId = new HashMap<>();
+
+                while (r.hasNext()) {
+                    BindingSet bs = r.next();
+
+                    String id = bs.getValue("ui").stringValue();
+                    UiUpsertDto dto = byId.computeIfAbsent(id, k -> {
+                        UiUpsertDto u = new UiUpsertDto();
+                        u.id = k;
+                        u.layer = bs.hasBinding("layer")
+                            ? bs.getValue("layer").stringValue()
+                            : "overlay";
+                        u.konvaType = bs.getValue("konvaType").stringValue();
+                        return u;
+                    });
+
+                    String pred = bs.getValue("p").stringValue();
+                    String obj = bs.getValue("o").stringValue();
+
+                    if (pred.startsWith(MazeVocab.UI_NS)) {
+                        String attr = pred.substring(MazeVocab.UI_NS.length());
+                        dto.attrs.put(attr, parseLiteral(obj));
+                    }
+                }
+
+                result.addAll(byId.values());
+            }
+        }
+
+        return result;
+    }
+
+    private Object parseLiteral(String value) {
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e1) {
+            try {
+                return Double.valueOf(value);
+            } catch (NumberFormatException e2) {
+                return value;
+            }
+        }
+    }
+
+
 }

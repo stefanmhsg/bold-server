@@ -1,7 +1,6 @@
 package org.maze.api.dto;
 
 import java.util.List;
-import java.util.Map;
 
 public class MazeLayoutDto {
     public int width;

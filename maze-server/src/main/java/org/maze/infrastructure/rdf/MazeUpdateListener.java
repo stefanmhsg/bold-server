@@ -7,7 +7,7 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.sail.SailConnectionListener;
 import org.maze.api.websocket.MazeBroadcaster;
 import org.maze.api.websocket.events.AgentMovedEvent;
-import org.maze.api.websocket.events.CellStateChangeEvent;
+import org.maze.api.websocket.events.UiUpsertEvent;
 import org.maze.api.websocket.events.MazeEvent;
 import org.maze.domain.vocab.MazeVocab;
 import org.slf4j.Logger;
@@ -37,24 +37,34 @@ public class MazeUpdateListener implements SailConnectionListener {
         String subjectKey = st.getSubject().stringValue();
         MazeEvent event = pendingEvents.get(subjectKey);
 
+        // Update existing event if present
         if (event != null) {
             event.processStatement(st);
-        } else {
-            // Try to detect new event
-            if (AgentMovedEvent.isRelevant(st)) {
-                event = new AgentMovedEvent();
-                event.processStatement(st);
-                pendingEvents.put(subjectKey, event);
-            } else if (st.getPredicate().stringValue().equals(MazeVocab.STATE)) {
-                event = new CellStateChangeEvent(subjectKey);
-                event.processStatement(st);
-                pendingEvents.put(subjectKey, event);
-            }
+            return;
         }
+
+        // Try to detect new event
+        if (AgentMovedEvent.isRelevant(st)) {
+            event = new AgentMovedEvent();
+            event.processStatement(st);
+            pendingEvents.put(subjectKey, event);
+            return;
+        } 
+
+        // UI state projection (locks, arrows, items, etc.)
+        if (UiUpsertEvent.isRelevant(st)) {
+            event = new UiUpsertEvent(subjectKey);
+            event.processStatement(st);
+            pendingEvents.put(subjectKey, event);
+            return;
+        }
+
+        return;
     }
 
     @Override
     public void statementRemoved(Statement st, boolean inferred) {
+        // Ignore removals
         log.debug("[NOTIFYING SAIL] REMOVED: {} {} {}", st.getSubject(), st.getPredicate(), st.getObject());
     }
 

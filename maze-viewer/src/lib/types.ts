@@ -1,3 +1,5 @@
+import type { UiCommand } from "./mazeState.svelte";
+
 export interface MazeLayout {
     width: number;
     height: number;
@@ -30,7 +32,7 @@ export interface Item {
     value: string;
 }
 
-export interface Lock {
-    isLocked: boolean;
-    keyNeeded: string | null;
+export interface MazeAdminSnapshot {
+    layout: MazeLayout;
+    ui: UiCommand[];
 }

@@ -43,7 +43,13 @@ public final class MazeVocab {
      * Stigmergy vocabulary namespace.
      * Used for agent communication via environment markers.
      */
-    public static final String STIGMERGY_NS = "https://example.org/stigmark#";
+    public static final String STIGMERGY_NS = "https://example.org/stigmark#"; //TODO
+
+    /**
+     * UI vocabulary namespace.
+     * Used for UI element properties and types.
+     */
+    public static final String UI_NS = "https://example.org/ui#"; //TODO
     
     // ============ Common Predicates ============
     
@@ -97,6 +103,17 @@ public final class MazeVocab {
      */
     public static final String QUANTITATIVE = STIGMERGY_NS + "quantitative";
     
+    // ============ UI Vocabulary ============
+    /**
+     * Predicate for UI element Konva-type (e.g., Rect, Circle).
+     */
+    public static final String UI_TYPE = UI_NS + "konvaType";
+    
+    /**
+     * Predicate for UI element direction (e.g., N, E, S, W).
+     */
+    public static final String UI_DIRECTION = UI_NS + "direction";
+
     // ============ State Management ============
     
     /**
@@ -104,7 +121,7 @@ public final class MazeVocab {
      * When these predicates are updated by rules, old values are replaced (not accumulated).
      * This ensures state consistency - e.g., a cell can't be both locked and unlocked.
      */
-    @Deprecated
+    @Deprecated // TODO
     public static final Set<String> STATE_PREDICATES = Set.of(
         HAS_STATUS,
         STATE,
@@ -119,7 +136,7 @@ public final class MazeVocab {
      * @param predicateUri the predicate URI to check
      * @return true if this is a state predicate
      */
-    @Deprecated
+    @Deprecated // TODO
     public static boolean isStatePredicate(String predicateUri) {
         return STATE_PREDICATES.contains(predicateUri);
     }

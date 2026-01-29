@@ -50,7 +50,7 @@
             <h1 class="text-2xl font-bold mb-4">Maze Viewer</h1>
             {#if data.maze}
                 <div class="overflow-auto">
-                    <MazeCanvas maze={data.maze} onCellSelect={handleCellSelect} />
+                    <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} onCellSelect={handleCellSelect} />
                 </div>
             {:else}
                 <div class="p-8 bg-gray-100 rounded text-center text-gray-500">
@@ -98,7 +98,7 @@
 
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Cell Updates</h3>
-            <CellEventLog events={mazeState.cellEvents} />
+            <CellEventLog />
         </div>
     </div>
 </div>

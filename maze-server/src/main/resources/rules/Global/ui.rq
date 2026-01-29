@@ -1,0 +1,31 @@
+PREFIX dyn:  <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ui:   <https://example.org/ui#>
+
+DELETE {
+
+}
+INSERT {
+    GRAPH ?lockedCell {
+        ?cell ui:hasUiElement ?lockUiElement .
+        
+        ?lockUiElement ui:konvaType "Rect" ;
+                       ui:layer "layer" ;
+                       ui:x 212 ;
+                       ui:y 44 ;
+                       ui:width 12 ;
+                       ui:height 12 ;
+                       ui:fill "red" ;
+                       ui:stroke "black" ;
+                       ui:strokeWidth 1 .
+    }
+}
+WHERE {
+    GRAPH ?lockedCell {
+        ?cell a maze:Cell , dyn:Lock ;
+                dyn:state dyn:locked ;
+    }
+    BIND(IRI(CONCAT(STR(?cell), "/ui/lock")) AS ?lockUiElement)
+}
+
