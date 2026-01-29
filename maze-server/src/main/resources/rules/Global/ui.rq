@@ -3,8 +3,11 @@ PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX ui:   <https://example.org/ui#>
 
+# Rule to add UI elements for locked cells & keep red if locked
 DELETE {
-
+    GRAPH ?lockedCell {
+        ?lockUiElement ui:fill ?oldFill .
+    }
 }
 INSERT {
     GRAPH ?lockedCell {
@@ -28,5 +31,103 @@ WHERE {
                 dyn:state dyn:locked ;
     }
     BIND(IRI(CONCAT(STR(?cell), "/ui/lock")) AS ?lockUiElement)
-}
 
+    OPTIONAL {
+        GRAPH ?lockedCell {
+            ?lockUiElement ui:fill ?oldFill .
+        }
+    }
+};
+
+# Rule to update UI elements for unlocked cells & turn green if unlocked
+DELETE {
+  GRAPH ?unlockedCell {
+    ?lockUiElement ui:fill ?oldFill .
+  }
+}
+INSERT {
+  GRAPH ?unlockedCell {
+    ?lockUiElement ui:fill "green" .
+  }
+}
+WHERE {
+  GRAPH ?unlockedCell {
+    ?cell a maze:Cell , dyn:Lock ;
+          dyn:state dyn:unlocked .
+  }
+
+  BIND( IRI(CONCAT(STR(?cell), "/ui/lock")) AS ?lockUiElement )
+
+  OPTIONAL {
+    GRAPH ?unlockedCell {
+      ?lockUiElement ui:fill ?oldFill .
+    }
+  }
+};
+
+
+# Rule to add UI elements for green arrow signifiers
+INSERT {
+    GRAPH ?signifierCell {
+        ?cell ui:hasUiElement ?greenArrowUiElement .
+        
+        ?greenArrowUiElement ui:konvaType "Arrow" ;
+                             ui:layer "layer" ;
+                             ui:direction ?direction ; # N, E, S, W depending on door direction.
+                             ui:anchor "C" ; # center of the cell
+                             ui:offsetX 0 ;
+                             ui:offsetY 0 ;
+                             ui:fill "green" ;
+                             ui:stroke "green" ;
+                             ui:opacity 0.6 ;
+                             ui:strokeWidth 4 .
+    }
+}
+WHERE {
+    GRAPH ?signifierCell {
+        ?cell a maze:Cell ;
+                maze:green ?targetCell ;
+                ?dir ?targetCell .
+    }
+    VALUES (?dir ?direction) {
+        (maze:north "N")
+        (maze:east  "E")
+        (maze:south "S")
+        (maze:west  "W")
+    }    
+    BIND(IRI(CONCAT(STR(?cell), "/ui/greenArrow", ?direction)) AS ?greenArrowUiElement)
+};
+
+# Rule to remove UI elements for green arrow signifiers when no longer needed
+DELETE {
+    GRAPH ?signifierCell {
+        ?cell ui:hasUiElement ?greenArrowUiElement .
+        ?greenArrowUiElement ?p ?o .
+    }
+}
+WHERE {
+    GRAPH ?signifierCell {
+        ?cell a maze:Cell ;
+              ui:hasUiElement ?greenArrowUiElement .
+
+        ?greenArrowUiElement ui:konvaType "Arrow" ;
+                             ui:direction ?direction .
+    }
+
+    VALUES (?dir ?direction) {
+        (maze:north "N")
+        (maze:east  "E")
+        (maze:south "S")
+        (maze:west  "W")
+    }
+
+    # This arrow must no longer be justified by maze state
+    FILTER NOT EXISTS {
+        GRAPH ?signifierCell {
+            ?cell maze:green ?targetCell ;
+                  ?dir ?targetCell .
+        }
+    }
+    # Only for green arrow UI elements
+    FILTER STRSTARTS(STR(?greenArrowUiElement), CONCAT(STR(?cell), "/ui/greenArrow"))
+}
