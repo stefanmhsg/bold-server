@@ -114,6 +114,24 @@ public final class MazeVocab {
      */
     public static final String UI_DIRECTION = UI_NS + "direction";
 
+    /**
+     * Predicate for UI element positional anchor:
+     * NW  N  NE
+     * W   C   E
+     * SW  S  SE
+     */
+    public static final String UI_ANCHOR   = UI_NS + "anchor";
+    
+    /**
+     * Predicate for UI element X offset from anchor.
+     */
+    public static final String UI_OFFSET_X = UI_NS + "offsetX";
+    
+    /**
+     * Predicate for UI element Y offset from anchor.
+     */
+    public static final String UI_OFFSET_Y = UI_NS + "offsetY";
+
     // ============ State Management ============
     
     /**

@@ -12,8 +12,9 @@ INSERT {
         
         ?lockUiElement ui:konvaType "Rect" ;
                        ui:layer "layer" ;
-                       ui:x 212 ;
-                       ui:y 44 ;
+                       ui:anchor "SE" ;
+                       ui:offsetX 0 ;
+                       ui:offsetY 0 ;
                        ui:width 12 ;
                        ui:height 12 ;
                        ui:fill "red" ;

@@ -387,19 +387,102 @@
                 return;
             }
 
+            const resolvedAttrs = resolveUiAttrs(cmd);
+
             const createdNode = new Ctor({
                 id,
-                ...attrs
+                ...resolvedAttrs
             });
 
             targetLayer.add(createdNode);
             uiNodes.set(id, createdNode);
         } else {
-            node.setAttrs(attrs);
+            const resolvedAttrs = resolveUiAttrs(cmd);
+            node.setAttrs(resolvedAttrs);
         }
 
         targetLayer.batchDraw();
     }
+
+    function resolveUiAttrs(cmd: UiCommand) {
+        const { attrs, id } = cmd;
+
+        const cellId = getCellIdFromUiId(id);
+        if (!cellId) return attrs;
+        
+        const cell = maze.cells.find((c: { id: string; }) => c.id === cellId);
+        if (!cell) return attrs;
+
+        // Only resolve if anchor is present
+        if (!attrs.anchor) return attrs;
+
+        const anchor = String(attrs.anchor);
+        const offsetX = Number(attrs.offsetX ?? 0);
+        const offsetY = Number(attrs.offsetY ?? 0);
+
+        const { x, y } = resolveAnchor(cell, anchor);
+
+        const resolved = { ...attrs };
+
+        resolved.x = x + offsetX;
+        resolved.y = y + offsetY;
+
+        delete resolved.anchor;
+        delete resolved.offsetX;
+        delete resolved.offsetY;
+
+        return resolved;
+    }
+
+    /**
+     * Extract cell ID from UI element ID
+     * e.g., "http://127.0.1.1:8080/cells/5/ui/lock" -> "http://127.0.1.1:8080/cells/5"
+     * OR, e.g., "http://127.0.1.1:8080/cells/12/24/ui/something" -> "http://127.0.1.1:8080/cells/12/24"
+     * @param uiId
+     */
+    function getCellIdFromUiId(uiId: string): string | null {
+        const marker = "/ui/";
+        const idx = uiId.indexOf(marker);
+        if (idx === -1) return null;
+        return uiId.substring(0, idx);
+    }
+
+    /**
+     * Resolve anchor position within a cell
+     * E.g., "NW", "C", "SE", etc.
+     * @param cell
+     * @param anchor
+     */
+    function resolveAnchor(
+        cell: Cell,
+        anchor: string
+    ): { x: number; y: number } {
+        const baseX = cell.x * CELL_SIZE + PADDING;
+        const baseY = cell.y * CELL_SIZE + PADDING;
+    
+        const margin = 0.5; // fraction of cell
+        const left   = baseX + CELL_SIZE * 0.25;
+        const right  = baseX + CELL_SIZE * 0.75;
+        const top    = baseY + CELL_SIZE * 0.25;
+        const bottom = baseY + CELL_SIZE * 0.75;
+        
+        const cx = baseX + CELL_SIZE / 2;
+        const cy = baseY + CELL_SIZE / 2;
+        
+        switch (anchor) {
+            case "NW": return { x: left,  y: top };
+            case "N":  return { x: cx,    y: top };
+            case "NE": return { x: right, y: top };
+            case "W":  return { x: left,  y: cy };
+            case "C":  return { x: cx,    y: cy };
+            case "E":  return { x: right, y: cy };
+            case "SW": return { x: left,  y: bottom };
+            case "S":  return { x: cx,    y: bottom };
+            case "SE": return { x: right, y: bottom };
+            default:   return { x: cx,    y: cy };
+        }
+    }
+
 
     /*
     function drawGreenArrow(cell: Cell, x: number, y: number) {
