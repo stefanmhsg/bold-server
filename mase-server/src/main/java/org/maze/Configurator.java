@@ -27,7 +27,7 @@ public class Configurator {
     public static final String RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL = "gsp/";
 
     public static void main(String[] args) throws Exception {
-        log.info("Starting BOLD Maze Server...");
+        log.info("Starting MASE Maze Server...");
         
         // Parse command line arguments
         String task = args.length > 0 ? args[0] : "sim-UnsafeMaze";

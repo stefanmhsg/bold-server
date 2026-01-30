@@ -19,10 +19,10 @@ public class ServerConfiguration {
     private static final Logger log = LoggerFactory.getLogger(ServerConfiguration.class);
     
     // TODO
-    private static final String SERVER_HTTP_PORT_KEY = "bold.server.httpPort";
+    private static final String SERVER_HTTP_PORT_KEY = "mase.server.httpPort";
     private static final String SERVER_HTTP_PORT_DEFAULT = "8080";
-    private static final String INIT_DATASET_KEY = "bold.init.dataset";
-    private static final String SERVER_PROTOCOL_KEY = "bold.server.protocol";
+    private static final String INIT_DATASET_KEY = "mase.init.dataset";
+    private static final String SERVER_PROTOCOL_KEY = "mase.server.protocol";
     
     private final Properties properties;
     private final String taskName;
@@ -68,7 +68,7 @@ public class ServerConfiguration {
      * @return List of patterns, or empty list if not configured
      */
     public List<String> getRuleExecutionOrder() {
-        String orderValue = properties.getProperty("bold.rules.execution.order");
+        String orderValue = properties.getProperty("mase.rules.execution.order");
         
         if (orderValue == null || orderValue.trim().isEmpty()) {
             log.debug("No rule execution order configured");

@@ -74,10 +74,10 @@ public class WebServerFactory {
         URI serverBaseURI = server.getURI();
         log.info("Jetty Server reported base URI: {}", serverBaseURI);
         
-        String envUri = System.getenv("BOLD_SERVER_BASE_URI");
+        String envUri = System.getenv("MASE_SERVER_BASE_URI");
         if (envUri != null) {
             serverBaseURI = new URI(envUri);
-            log.info("Using BOLD_SERVER_BASE_URI from environment: {}", serverBaseURI);
+            log.info("Using MASE_SERVER_BASE_URI from environment: {}", serverBaseURI);
         }
         
         return serverBaseURI;
@@ -108,7 +108,7 @@ public class WebServerFactory {
         ldConfig.register(JacksonFeature.class);
         
         Servlet ldContainer = new ServletContainer(ldConfig);
-        ServletHolder ldHolder = new ServletHolder("BOLD LD dereferencing servlet", ldContainer);
+        ServletHolder ldHolder = new ServletHolder("MASE LD dereferencing servlet", ldContainer);
         
         // Mount on /* for linked data dereferencing
         context.addServlet(ldHolder, "/*");
