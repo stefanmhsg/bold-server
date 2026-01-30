@@ -106,7 +106,7 @@ public class Configurator {
      * Resolve base URI from environment variable or default.
      */
     private static URI resolveBaseUri() throws Exception {
-        String envUri = System.getenv("BOLD_SERVER_BASE_URI");
+        String envUri = System.getenv("MASE_SERVER_BASE_URI");
         if (envUri != null) {
             return new URI(envUri);
         }

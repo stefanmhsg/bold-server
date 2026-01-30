@@ -61,16 +61,18 @@ distributions {
             from('data') { into('data') }
             from('query') { into('query') }
             from('.') { include('*.properties') }
+            // Extract rules from resources to distribution
+            from('src/main/resources/rules') { into('src/main/resources/rules') }
         }
     }
 }
 
-tasks.register('runBold', JavaExec) {
+tasks.register('runMase', JavaExec) {
     group = 'application'
     description = 'Run the application.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set(application.mainClass)
-    environment 'BOLD_SERVER_BASE_URI', 'http://127.0.1.1:8080/'
+    environment 'MASE_SERVER_BASE_URI', 'http://127.0.1.1:8080/'
     dependsOn 'installDist'
 }
 

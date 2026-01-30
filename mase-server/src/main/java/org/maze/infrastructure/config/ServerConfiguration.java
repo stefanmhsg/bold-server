@@ -18,6 +18,7 @@ public class ServerConfiguration {
     
     private static final Logger log = LoggerFactory.getLogger(ServerConfiguration.class);
     
+    // TODO
     private static final String SERVER_HTTP_PORT_KEY = "bold.server.httpPort";
     private static final String SERVER_HTTP_PORT_DEFAULT = "8080";
     private static final String INIT_DATASET_KEY = "bold.init.dataset";
