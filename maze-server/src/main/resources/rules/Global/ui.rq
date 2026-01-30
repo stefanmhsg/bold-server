@@ -30,7 +30,7 @@ WHERE {
         ?cell a maze:Cell , dyn:Lock ;
                 dyn:state dyn:locked ;
     }
-    BIND(IRI(CONCAT(STR(?cell), "/ui/lock")) AS ?lockUiElement)
+    BIND(IRI(CONCAT(STR(?cell), "#ui-lock")) AS ?lockUiElement)
 
     OPTIONAL {
         GRAPH ?lockedCell {
@@ -56,7 +56,7 @@ WHERE {
           dyn:state dyn:unlocked .
   }
 
-  BIND( IRI(CONCAT(STR(?cell), "/ui/lock")) AS ?lockUiElement )
+  BIND( IRI(CONCAT(STR(?cell), "#ui-lock")) AS ?lockUiElement )
 
   OPTIONAL {
     GRAPH ?unlockedCell {
@@ -95,7 +95,7 @@ WHERE {
         (maze:south "S")
         (maze:west  "W")
     }    
-    BIND(IRI(CONCAT(STR(?cell), "/ui/greenArrow", ?direction)) AS ?greenArrowUiElement)
+    BIND(IRI(CONCAT(STR(?cell), "#ui-greenArrow", ?direction)) AS ?greenArrowUiElement)
 };
 
 # Rule to remove UI elements for green arrow signifiers when no longer needed
@@ -129,5 +129,5 @@ WHERE {
         }
     }
     # Only for green arrow UI elements
-    FILTER STRSTARTS(STR(?greenArrowUiElement), CONCAT(STR(?cell), "/ui/greenArrow"))
+    FILTER STRSTARTS(STR(?greenArrowUiElement), CONCAT(STR(?cell), "#ui-greenArrow"))
 }

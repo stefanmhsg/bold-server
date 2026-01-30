@@ -468,12 +468,12 @@
 
     /**
      * Extract cell ID from UI element ID
-     * e.g., "http://127.0.1.1:8080/cells/5/ui/lock" -> "http://127.0.1.1:8080/cells/5"
-     * OR, e.g., "http://127.0.1.1:8080/cells/12/24/ui/something" -> "http://127.0.1.1:8080/cells/12/24"
+     * e.g., "http://127.0.1.1:8080/cells/5#ui-lock" -> "http://127.0.1.1:8080/cells/5"
+     * OR, e.g., "http://127.0.1.1:8080/cells/12/24#ui-something" -> "http://127.0.1.1:8080/cells/12/24"
      * @param uiId
      */
     function getCellIdFromUiId(uiId: string): string | null {
-        const marker = "/ui/";
+        const marker = "#ui";
         const idx = uiId.indexOf(marker);
         if (idx === -1) return null;
         return uiId.substring(0, idx);
