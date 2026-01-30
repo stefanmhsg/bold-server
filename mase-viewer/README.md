@@ -11,4 +11,11 @@ npm run dev
 npm run dev -- --open
 ```
 
-
+docker
+```sh
+# build the viewer
+docker build . -t mase-viewer
+# run the viewer
+docker run -p 3000:3000 -it mase-viewer
+```
+The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or the port you specified).
