@@ -143,16 +143,14 @@ public class Configurator {
             return null;
         }
         
-        // Check for known maze patterns
-        if (task.contains("UnsafeMaze")) {
-            return "UnsafeMaze";
-        } else if (task.contains("BigMaze")) {
-            return "BigMaze";
-        } else if (task.contains("MidMaze")) {
-            return "MidMaze";
+        // Remove "sim-" prefix if present
+        if (task.startsWith("sim-")) {
+            return task.substring(4); // Skip "sim-" (4 characters)
         }
         
-        // If no known maze found, return null (will load generic rules)
-        return null;
+        log.warn("Unrecognized task format: {}. Using as-is. Check if rules loaded properly.", task);
+        
+        // If no prefix, return the task as-is
+        return task;
     }
 }
