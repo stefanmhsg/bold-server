@@ -23,7 +23,7 @@ gradle runMase --args="sim-UnsafeMaze  Stigmergy"
 Docker
 ```shell script
 docker build . -t mase-server
-docker run -p 8080:8080 -e TASKNAME=setup-UnsafeMaze -it mase-server
+docker run -p 8080:8080 -e TASKNAME=sim-UnsafeMaze -it mase-server
 ```
 
 ---

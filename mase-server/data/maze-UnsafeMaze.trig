@@ -13,7 +13,7 @@
 #define the root of our scenario, where the maze exists
 </maze> {
     </maze> a ldp:BasicContainer ;
-        a maze:BeginnerMaze ; 
+        a maze:SmallMaze ; 
         ldp:contains </map> ;
         xhv:start </cells/0> .
 }
@@ -22,6 +22,11 @@
 </counter> {
     </counter>  a maze:Counter; 
                 rdf:value 0 .
+}
+
+#the colors for stations and products
+</colors> {
+    maze:green a maze:Color .
 }
 
 # map of maze
@@ -265,7 +270,7 @@
 #                       --> Exit
 
 
-
+#NAMED_GRAPHS_START
 </cells/999> {
     </cells/999> a maze:Cell ;
         rdfs:label "Exit";
@@ -539,9 +544,6 @@
         maze:south  maze:Wall;
         maze:east   </cells/6>.
 }
+#NAMED_GRAPHS_END
 
-#the colors for stations and products
-</colors> {
-    maze:green a maze:Color .
-}
 
