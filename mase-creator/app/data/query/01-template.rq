@@ -1,0 +1,43 @@
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+
+# </map>
+# The map graph lists all cells. Adjacency statements must match the cell graphs exactly. Simply do full replacement.
+DELETE WHERE { GRAPH </map> { ?s ?p ?o } } ;
+INSERT {
+  GRAPH </map> {
+    </map> a maze:Map .
+    ?cell a maze:Cell ;
+          maze:north ?n ;
+          maze:south ?s ;
+          maze:east  ?e ;
+          maze:west  ?w .
+  }
+}
+WHERE {
+  GRAPH ?g {
+    ?cell a maze:Cell ;
+          maze:north ?n ;
+          maze:south ?s ;
+          maze:east  ?e ;
+          maze:west  ?w .
+  }
+  FILTER STRSTARTS(STR(?g), STR("</cells/"))
+} ;
+
+# </cells>
+# The cells container lists all cells. Also do full replacement.
+DELETE WHERE { GRAPH </cells> { ?s ?p ?o } } ;
+INSERT {
+  GRAPH </cells> {
+    </cells> a ldp:BasicContainer ;
+             ldp:contains ?cell .
+  }
+}
+WHERE {
+  GRAPH ?g {
+    ?cell a maze:Cell .
+  }
+  FILTER STRSTARTS(STR(?g), STR("</cells/"))
+}

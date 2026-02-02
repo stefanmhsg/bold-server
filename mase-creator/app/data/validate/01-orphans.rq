@@ -1,0 +1,17 @@
+# Cell graphs missing in </cells> container
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+SELECT ?cell ?graph
+WHERE {
+  GRAPH ?graph {
+    ?cell a maze:Cell .
+  }
+  FILTER STRSTARTS(STR(?graph), STR("</cells/"))
+  FILTER NOT EXISTS {
+    GRAPH </cells> {
+      </cells> ldp:contains ?cell .
+    }
+  }
+}
+ORDER BY ?cell

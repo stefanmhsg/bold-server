@@ -1,0 +1,26 @@
+# Cells that have a neighbor but the neighbor does not point back
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+SELECT ?cell ?neighbor ?dir ?inverse ?graph
+WHERE {
+  VALUES (?dir ?inverse) {
+    (maze:north maze:south)
+    (maze:south maze:north)
+    (maze:east  maze:west)
+    (maze:west  maze:east)
+  }
+
+  GRAPH ?graph {
+    ?cell ?dir ?neighbor .
+  }
+
+  FILTER (?neighbor != maze:Wall)
+
+  FILTER NOT EXISTS {
+    GRAPH ?g2 {
+      ?neighbor ?inverse ?cell .
+    }
+  }
+}
+ORDER BY ?cell ?dir

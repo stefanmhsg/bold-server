@@ -32,7 +32,7 @@ public class MaseCreator {
     private static final Path OUTPUT_TRIG =
             Path.of("data/output/MaseCreator.trig");
 
-    private static final String BASE_IRI = "http://127.0.1.1:3030";
+    private static final String BASE_IRI = "http://127.0.1.1:8080";
 
     public static void main(String[] args) throws IOException {
 
@@ -87,31 +87,22 @@ public class MaseCreator {
 
         System.out.println("Running validation queries");
 
-        boolean valid = true;
-
         for (Path validation : validations) {
-            String sparql = Files.readString(validation);
+            String content = Files.readString(validation);
+            String[] lines = content.split("\n", 2);
+            String comment = lines[0].startsWith("#") ? lines[0].substring(1).trim() : validation.getFileName().toString();
 
-            boolean result = dataset.calculateRead(() -> {
+            dataset.executeRead(() -> {
                 try (QueryExecution qexec =
-                             org.apache.jena.query.QueryExecutionFactory.create(sparql, dataset)) {
-                    return qexec.execAsk();
+                             org.apache.jena.query.QueryExecutionFactory.create(content, dataset)) {
+                    org.apache.jena.query.ResultSet results = qexec.execSelect();
+                    
+                    System.out.println("Validation: " + comment);
+                    while (results.hasNext()) {
+                        System.out.println("  " + results.next());
+                    }
                 }
             });
-
-            System.out.println(
-                    "Validation " + validation.getFileName() + " -> " + result
-            );
-
-            if (!result) {
-                valid = false;
-            }
-        }
-
-        if (!valid) {
-            System.err.println("Maze validation failed");
-        } else {
-            System.out.println("Maze validation passed");
         }
     }
 
@@ -141,7 +132,7 @@ public class MaseCreator {
 
     private static void exposeDataset(Dataset dataset) {
 
-        int port = 3030;
+        int port = 8080;
         FusekiServer server =
                 FusekiServer.create()
                         .port(port)

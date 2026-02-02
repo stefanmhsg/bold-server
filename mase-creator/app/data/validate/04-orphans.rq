@@ -1,0 +1,19 @@
+# Cells listed in </map> graph but missing as cell graphs
+PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+SELECT ?cell
+WHERE {
+  GRAPH </map> {
+    ?cell a maze:Cell .
+  }
+  FILTER NOT EXISTS {
+    GRAPH ?g {
+      ?cell a maze:Cell .
+    }
+    FILTER STRSTARTS(STR(?g), STR("</cells/"))
+  }
+}
+ORDER BY ?cell
+
+
