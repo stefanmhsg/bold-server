@@ -21,7 +21,7 @@ import java.util.List;
 public class MaseCreator {
 
     private static final Path INPUT_TRIG =
-            Path.of("data/input/SmallMaze.trig");
+            Path.of("data/input/MidMaze.trig");
 
     private static final Path QUERY_DIR =
             Path.of("data/query");

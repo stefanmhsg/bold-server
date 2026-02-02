@@ -4,7 +4,16 @@ PREFIX ldp: <http://www.w3.org/ns/ldp#>
 
 # </map>
 # The map graph lists all cells. Adjacency statements must match the cell graphs exactly. Simply do full replacement.
-DELETE WHERE { GRAPH </map> { ?s ?p ?o } } ;
+DELETE {
+  GRAPH </map> {
+    ?s ?p ?o .
+  }
+}
+WHERE {
+  GRAPH </map> {
+    ?s ?p ?o .
+  }
+} ;
 INSERT {
   GRAPH </map> {
     </map> a maze:Map .
@@ -24,6 +33,8 @@ WHERE {
           maze:west  ?w .
   }
   FILTER STRSTARTS(STR(?g), STR("</cells/"))
+  FILTER (?g != </cells>)
+  FILTER (?g != </map>)
 } ;
 
 # </cells>
@@ -40,4 +51,6 @@ WHERE {
     ?cell a maze:Cell .
   }
   FILTER STRSTARTS(STR(?g), STR("</cells/"))
+  FILTER (?g != </cells>)
+  FILTER (?g != </map>)
 }
