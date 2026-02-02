@@ -49,7 +49,7 @@
         <h1 class="text-2xl font-bold">Maze Viewer</h1>
         
         {#if data.maze}
-            <div class="resize overflow-hidden border-2 border-gray-300 rounded bg-white" style="height: 800px;">
+            <div class="resize overflow-hidden border-2 border-gray-300 rounded bg-white" style="height: 600px;">
                 <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} onCellSelect={handleCellSelect} />
             </div>
         {:else}
@@ -88,7 +88,7 @@
     </div>
 
     <!-- Right Column: Event Logs -->
-    <div class="w-full lg:w-96 flex flex-col gap-4">
+    <div class="w-full lg:w-[500px] flex flex-col gap-4">
         <div class="flex justify-between items-center">
             <h2 class="text-xl font-bold">Live Events</h2>
             <span class:text-green-600={mazeState.status === 'connected'} 

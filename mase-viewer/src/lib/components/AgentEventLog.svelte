@@ -10,7 +10,7 @@
             <tr>
                 <th class="p-2">Time</th>
                 <th class="p-2">Agent</th>
-                <th class="p-2">Loc</th>
+                <th class="p-2">Location</th>
             </tr>
         </thead>
         <tbody>
@@ -20,7 +20,7 @@
                         {new Date(event.timestamp).toLocaleTimeString()}
                     </td>
                     <td class="p-2 font-medium">{event.agent}</td>
-                    <td class="p-2 font-mono text-xs truncate max-w-[100px]" title={event.cell}>
+                    <td class="p-2 font-mono text-xs truncate max-w-[200px]" title={event.cell}>
                         {event.cell.split('/').pop()}
                     </td>
                 </tr>
