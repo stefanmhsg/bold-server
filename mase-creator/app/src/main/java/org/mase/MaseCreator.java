@@ -1,27 +1,38 @@
 package org.mase;
 
 import org.apache.jena.query.*;
+import org.apache.jena.query.Dataset;
+import org.apache.jena.query.DatasetFactory;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.rdfconnection.RDFConnection;
 import org.apache.jena.rdfconnection.RDFConnectionFactory;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.fuseki.main.FusekiServer;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.List;
 
 public class MaseCreator {
 
     private static final Path INPUT_TRIG =
-            Path.of("app/data/input/maze.trig");
+            Path.of("data/input/SmallMaze.trig");
 
     private static final Path QUERY_DIR =
-            Path.of("app/data/query");
+            Path.of("data/query");
 
     private static final Path VALIDATION_DIR =
-            Path.of("app/data/validate");
+            Path.of("data/validate");
 
     private static final Path OUTPUT_TRIG =
-            Path.of("app/data/output/maze.generated.trig");
+            Path.of("data/output/MaseCreator.trig");
+
+    private static final String BASE_IRI = "http://127.0.1.1:3030";
 
     public static void main(String[] args) throws IOException {
 
@@ -31,6 +42,7 @@ public class MaseCreator {
         RDFDataMgr.read(
                 dataset,
                 INPUT_TRIG.toUri().toString(),
+                BASE_IRI,
                 Lang.TRIG
         );
 
@@ -44,7 +56,7 @@ public class MaseCreator {
 
         List<Path> updates =
                 Files.list(QUERY_DIR)
-                        .filter(p -> p.toString().endsWith(".ru"))
+                        .filter(p -> p.toString().endsWith(".rq"))
                         .sorted(Comparator.comparing(Path::getFileName))
                         .toList();
 
@@ -53,7 +65,7 @@ public class MaseCreator {
                 System.out.println("Applying update " + update.getFileName());
                 String sparql = Files.readString(update);
 
-                Txn.executeWrite(dataset, () -> {
+                dataset.executeWrite(() -> {
                     conn.update(sparql);
                 });
             }
@@ -80,7 +92,7 @@ public class MaseCreator {
         for (Path validation : validations) {
             String sparql = Files.readString(validation);
 
-            boolean result = Txn.calculateRead(dataset, () -> {
+            boolean result = dataset.calculateRead(() -> {
                 try (QueryExecution qexec =
                              org.apache.jena.query.QueryExecutionFactory.create(sparql, dataset)) {
                     return qexec.execAsk();
@@ -109,28 +121,41 @@ public class MaseCreator {
 
         System.out.println("Exporting maze to output");
 
-        Txn.executeRead(dataset, () -> {
+        dataset.executeRead(() -> {
             try (OutputStream out = Files.newOutputStream(OUTPUT_TRIG)) {
-                RDFDataMgr.write(out, dataset, Lang.TRIG);
+                org.apache.jena.riot.RDFWriter.create()
+                        .base(BASE_IRI)
+                        .format(org.apache.jena.riot.RDFFormat.TRIG_PRETTY)
+                        .source(dataset.asDatasetGraph())
+                        .output(out);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
+
+        // Remove BASE declaration from output. RDFWriter adds it automatically.
+        String content = Files.readString(OUTPUT_TRIG);
+        content = content.replaceFirst("BASE\\s+<[^>]+>\\s*\n", "");
+        Files.writeString(OUTPUT_TRIG, content);
     }
 
     private static void exposeDataset(Dataset dataset) {
 
+        int port = 3030;
         FusekiServer server =
                 FusekiServer.create()
-                        .add("/maze", dataset)
+                        .port(port)
+                        .add("/", dataset)
                         .build();
 
         server.start();
 
-
         System.out.println("MASE creator running");
-        System.out.println("SPARQL endpoint  : http://localhost:3030/mase/sparql");
-        System.out.println("GSP endpoint     : http://localhost:3030/mase/data");
+        System.out.println("SPARQL query     : " + BASE_IRI + "/query");
+        System.out.println("SPARQL update    : " + BASE_IRI + "/update");
+        System.out.println("GSP endpoint     : " + BASE_IRI + "/data");
+        System.out.println("Dataset          : " + BASE_IRI);
+        System.out.println("Example cell GSP : " + BASE_IRI + "/data?graph=" + BASE_IRI + "/cells/4/4");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Stopping MASE creator");

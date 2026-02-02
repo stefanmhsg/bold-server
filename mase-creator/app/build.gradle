@@ -40,7 +40,11 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = 'org.mase.App'
+    mainClass = 'org.mase.MaseCreator'
+}
+
+tasks.named('run') {
+    workingDir = file('.')
 }
 
 tasks.named('test') {

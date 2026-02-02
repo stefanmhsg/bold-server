@@ -1,0 +1,6 @@
+INSERT {
+  ?s ?p ?o
+}
+WHERE {
+  FILTER(false)
+}
