@@ -5,6 +5,27 @@
         events: AgentMovedEvent[];
         onAgentSelect?: (agentUri: string) => void;
     }>();
+
+    /**
+     * Extract cell coordinates from cell URI.
+     * Handles formats like /cells/5 or /cells/x/y
+     */
+    function formatCellLocation(cellUri: string): string {
+        const parts = cellUri.split('/');
+        const cellsIndex = parts.indexOf('cells');
+        
+        if (cellsIndex !== -1 && cellsIndex < parts.length - 1) {
+            const coords = parts.slice(cellsIndex + 1);
+            // If there are two segments after /cells/, it's x/y format
+            if (coords.length >= 2) {
+                return coords.join('/');
+            }
+            // Otherwise return the single segment
+            return coords[0];
+        }
+        
+        return cellUri.split('/').pop() || cellUri;
+    }
 </script>
 
 <div class="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
@@ -29,7 +50,7 @@
                         {event.agent.split('/').pop()}
                     </td>
                     <td class="p-2 font-mono text-xs truncate max-w-[200px]" title={event.cell}>
-                        {event.cell.split('/').pop()}
+                        {formatCellLocation(event.cell)}
                     </td>
                 </tr>
             {/each}

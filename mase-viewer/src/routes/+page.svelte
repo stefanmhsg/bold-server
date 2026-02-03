@@ -23,6 +23,51 @@
         mazeState.connect();
     });
 
+    /**
+     * Remove unused @prefix declarations from Turtle RDF.
+     * Only keeps prefixes that are actually used in the content.
+     * Mase-Server includes all prefixes that exist in the store, thus filter for readability.
+     */
+    function cleanUnusedPrefixes(turtle: string): string {
+        const lines = turtle.split('\n');
+        const prefixLines: { prefix: string; line: string; index: number }[] = [];
+        const contentLines: string[] = [];
+        
+        // Separate prefix declarations from content
+        lines.forEach((line, index) => {
+            const prefixMatch = line.match(/^@prefix\s+(\w+):/);
+            if (prefixMatch) {
+                prefixLines.push({ prefix: prefixMatch[1], line, index });
+            } else {
+                contentLines.push(line);
+            }
+        });
+        
+        // Find which prefixes are actually used in the content
+        const usedPrefixes = new Set<string>();
+        const content = contentLines.join('\n');
+        
+        prefixLines.forEach(({ prefix }) => {
+            // Check if prefix is used with colon notation (e.g., "maze:", "rdf:")
+            const prefixPattern = new RegExp(`\\b${prefix}:`, 'g');
+            if (prefixPattern.test(content)) {
+                usedPrefixes.add(prefix);
+            }
+        });
+        
+        // Rebuild with only used prefixes
+        const usedPrefixLines = prefixLines
+            .filter(({ prefix }) => usedPrefixes.has(prefix))
+            .map(({ line }) => line);
+        
+        // Return cleaned content
+        if (usedPrefixLines.length > 0) {
+            return [...usedPrefixLines, '', ...contentLines].join('\n');
+        } else {
+            return contentLines.join('\n');
+        }
+    }
+
     async function handleCellSelect(cellId: string) {
         selectedCellId = cellId;
         isLoadingCell = true;
@@ -38,7 +83,8 @@
             });
 
             if (response.ok) {
-                selectedCellData = await response.text();
+                const rawData = await response.text();
+                selectedCellData = cleanUnusedPrefixes(rawData);
             } else {
                 selectedCellData = `Error: ${response.status} ${response.statusText}`;
             }
@@ -66,7 +112,8 @@
             });
 
             if (response.ok) {
-                selectedAgentData = await response.text();
+                const rawData = await response.text();
+                selectedAgentData = cleanUnusedPrefixes(rawData);
             } else {
                 selectedAgentData = `Error: ${response.status} ${response.statusText}`;
             }
