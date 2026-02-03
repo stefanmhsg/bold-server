@@ -115,6 +115,28 @@
                 {/if}
             </div>
         {/if}
+    </div>
+
+    <!-- Right Column: Event Logs -->
+    <div class="w-full lg:w-[500px] flex flex-col gap-4 flex-1">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Live Events</h2>
+            <span class:text-green-600={mazeState.status === 'connected'} 
+                  class:text-red-600={mazeState.status === 'disconnected' || mazeState.status === 'error'}
+                  class="font-bold text-sm uppercase">
+                {mazeState.status}
+            </span>
+        </div>
+
+        <div>
+            <h3 class="font-semibold mb-2 text-gray-700">Agent Movements</h3>
+            <AgentEventLog events={mazeState.agentEvents} onAgentSelect={handleAgentSelect} />
+        </div>
+
+        <div>
+            <h3 class="font-semibold mb-2 text-gray-700">Cell Updates</h3>
+            <CellEventLog />
+        </div>
 
         <!-- Agent Inspector -->
         {#if selectedAgentId}
@@ -143,27 +165,5 @@
                 {/if}
             </div>
         {/if}
-    </div>
-
-    <!-- Right Column: Event Logs -->
-    <div class="w-full lg:w-[500px] flex flex-col gap-4 flex-1">
-        <div class="flex justify-between items-center">
-            <h2 class="text-xl font-bold">Live Events</h2>
-            <span class:text-green-600={mazeState.status === 'connected'} 
-                  class:text-red-600={mazeState.status === 'disconnected' || mazeState.status === 'error'}
-                  class="font-bold text-sm uppercase">
-                {mazeState.status}
-            </span>
-        </div>
-
-        <div>
-            <h3 class="font-semibold mb-2 text-gray-700">Agent Movements</h3>
-            <AgentEventLog events={mazeState.agentEvents} onAgentSelect={handleAgentSelect} />
-        </div>
-
-        <div>
-            <h3 class="font-semibold mb-2 text-gray-700">Cell Updates</h3>
-            <CellEventLog />
-        </div>
     </div>
 </div>
