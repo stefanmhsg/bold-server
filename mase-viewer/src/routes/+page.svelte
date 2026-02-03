@@ -15,6 +15,9 @@
     let selectedAgentData = $state<string | null>(null);
     let selectedAgentId = $state<string | null>(null);
     let isLoadingAgent = $state(false);
+    let turtleInput = $state<string>('');
+    let isPosting = $state(false);
+    let postMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
 
     onMount(() => {
         mazeState.connect();
@@ -50,6 +53,8 @@
         selectedAgentId = agentUri;
         isLoadingAgent = true;
         selectedAgentData = null;
+        turtleInput = '';
+        postMessage = null;
 
         try {
             // The agentUri is the full URI (e.g. http://127.0.1.1:8080/agents/mybot)
@@ -69,6 +74,39 @@
             selectedAgentData = `Error fetching agent data: ${e}`;
         } finally {
             isLoadingAgent = false;
+        }
+    }
+
+    async function handleAgentPost() {
+        if (!selectedAgentId || !turtleInput.trim()) return;
+
+        isPosting = true;
+        postMessage = null;
+
+        try {
+            const response = await fetch(selectedAgentId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/turtle',
+                    'Accept': '*/*'
+                },
+                body: turtleInput
+            });
+
+            if (response.ok) {
+                const responseText = await response.text();
+                postMessage = { type: 'success', text: `Success: ${responseText}` };
+                turtleInput = '';
+                // Auto-reload agent data after successful POST
+                await handleAgentSelect(selectedAgentId);
+            } else {
+                const errorText = await response.text();
+                postMessage = { type: 'error', text: `Error ${response.status}: ${errorText}` };
+            }
+        } catch (e) {
+            postMessage = { type: 'error', text: `Error posting data: ${e}` };
+        } finally {
+            isPosting = false;
         }
     }
 </script>
@@ -148,21 +186,56 @@
                             {selectedAgentId}
                         </span>
                     </div>
-                    <button 
-                        onclick={() => selectedAgentId = null}
-                        class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded px-2 py-1"
-                        title="Close inspector">
-                        ✕
-                    </button>
+                    <div class="flex gap-2">
+                        <button 
+                            onclick={() => selectedAgentId && handleAgentSelect(selectedAgentId)}
+                            class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded px-2 py-1"
+                            title="Reload agent data"
+                            disabled={isLoadingAgent}>
+                            ↻
+                        </button>
+                        <button 
+                            onclick={() => selectedAgentId = null}
+                            class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded px-2 py-1"
+                            title="Close inspector">
+                            ✕
+                        </button>
+                    </div>
                 </h2>
                 
                 {#if isLoadingAgent}
                     <div class="text-gray-500 italic p-4">Loading agent RDF data...</div>
                 {:else if selectedAgentData}
-                    <pre class="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed">{selectedAgentData}</pre>
+                    <pre class="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed mb-4">{selectedAgentData}</pre>
                 {:else}
-                    <div class="text-gray-400 italic">No data available</div>
+                    <div class="text-gray-400 italic mb-4">No data available</div>
                 {/if}
+
+                <!-- POST Turtle RDF Form -->
+                <div class="border-t pt-4">
+                    <h3 class="font-semibold mb-2 text-gray-700">POST RDF Triples</h3>
+                    <textarea 
+                        bind:value={turtleInput}
+                        placeholder={`<${selectedAgentId}> foaf:knows <me> .`}
+                        class="w-full h-32 p-3 bg-gray-50 border border-gray-300 rounded font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={isPosting}
+                    ></textarea>
+                    
+                    <div class="flex items-center gap-3 mt-2">
+                        <button 
+                            onclick={handleAgentPost}
+                            disabled={isPosting || !turtleInput.trim()}
+                            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium">
+                            {isPosting ? 'Posting...' : 'POST to Agent Graph'}
+                        </button>
+                        
+                        {#if postMessage}
+                            <div class={postMessage.type === 'success' ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
+                                {postMessage.text}
+                            </div>
+                        {/if}
+                    </div>
+                </div>
             </div>
         {/if}
     </div>
