@@ -53,7 +53,7 @@
         selectedAgentId = agentUri;
         isLoadingAgent = true;
         selectedAgentData = null;
-        turtleInput = '';
+        turtleInput = `<${agentUri}> foaf:knows "me" .`;
         postMessage = null;
 
         try {
@@ -136,12 +136,21 @@
                             {selectedCellId}
                         </span>
                     </div>
-                    <button 
-                        onclick={() => selectedCellId = null}
-                        class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded px-2 py-1"
-                        title="Close inspector">
-                        ✕
-                    </button>
+                    <div class="flex gap-2">
+                        <button 
+                            onclick={() => selectedCellId && handleCellSelect(selectedCellId)}
+                            class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded px-2 py-1"
+                            title="Reload cell data"
+                            disabled={isLoadingCell}>
+                            ↻
+                        </button>
+                        <button 
+                            onclick={() => selectedCellId = null}
+                            class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded px-2 py-1"
+                            title="Close inspector">
+                            ✕
+                        </button>
+                    </div>
                 </h2>
                 
                 {#if isLoadingCell}
@@ -216,7 +225,6 @@
                     <h3 class="font-semibold mb-2 text-gray-700">POST RDF Triples</h3>
                     <textarea 
                         bind:value={turtleInput}
-                        placeholder={`<${selectedAgentId}> foaf:knows <me> .`}
                         class="w-full h-32 p-3 bg-gray-50 border border-gray-300 rounded font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
                         disabled={isPosting}
                     ></textarea>
