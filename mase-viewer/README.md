@@ -2,7 +2,9 @@
 
 ## Getting Started
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Install dependencies with `npm install` (or `pnpm install` or `yarn`).
+
+Start a development server:
 
 ```sh
 npm run dev
@@ -19,3 +21,9 @@ docker build . -t mase-viewer
 docker run -p 3000:3000 -it mase-viewer
 ```
 The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or the port you specified).
+
+
+<img src="Maze Viewer v2.png" width="800">
+
+
+- Double click on a cell to open the cell inspector and view the current state of the RDF graph.

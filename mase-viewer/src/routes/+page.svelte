@@ -88,7 +88,7 @@
     </div>
 
     <!-- Right Column: Event Logs -->
-    <div class="w-full lg:w-[500px] flex flex-col gap-4">
+    <div class="w-full lg:w-[500px] flex flex-col gap-4 flex-1">
         <div class="flex justify-between items-center">
             <h2 class="text-xl font-bold">Live Events</h2>
             <span class:text-green-600={mazeState.status === 'connected'} 
