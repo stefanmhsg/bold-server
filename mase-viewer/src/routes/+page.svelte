@@ -12,6 +12,10 @@
     let selectedCellId = $state<string | null>(null);
     let isLoadingCell = $state(false);
 
+    let selectedAgentData = $state<string | null>(null);
+    let selectedAgentId = $state<string | null>(null);
+    let isLoadingAgent = $state(false);
+
     onMount(() => {
         mazeState.connect();
     });
@@ -39,6 +43,32 @@
             selectedCellData = `Error fetching cell data: ${e}`;
         } finally {
             isLoadingCell = false;
+        }
+    }
+
+    async function handleAgentSelect(agentUri: string) {
+        selectedAgentId = agentUri;
+        isLoadingAgent = true;
+        selectedAgentData = null;
+
+        try {
+            // The agentUri is the full URI (e.g. http://127.0.1.1:8080/agents/mybot)
+            // We fetch it directly, requesting Turtle format
+            const response = await fetch(agentUri, {
+                headers: {
+                    'Accept': 'text/turtle'
+                }
+            });
+
+            if (response.ok) {
+                selectedAgentData = await response.text();
+            } else {
+                selectedAgentData = `Error: ${response.status} ${response.statusText}`;
+            }
+        } catch (e) {
+            selectedAgentData = `Error fetching agent data: ${e}`;
+        } finally {
+            isLoadingAgent = false;
         }
     }
 </script>
@@ -85,6 +115,34 @@
                 {/if}
             </div>
         {/if}
+
+        <!-- Agent Inspector -->
+        {#if selectedAgentId}
+            <div class="border rounded-lg shadow-sm p-4 bg-white overflow-auto">
+                <h2 class="text-lg font-bold mb-2 flex items-center gap-2 justify-between">
+                    <div class="flex items-center gap-2">
+                        <span>Agent Inspector</span>
+                        <span class="text-sm font-normal text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
+                            {selectedAgentId}
+                        </span>
+                    </div>
+                    <button 
+                        onclick={() => selectedAgentId = null}
+                        class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded px-2 py-1"
+                        title="Close inspector">
+                        ✕
+                    </button>
+                </h2>
+                
+                {#if isLoadingAgent}
+                    <div class="text-gray-500 italic p-4">Loading agent RDF data...</div>
+                {:else if selectedAgentData}
+                    <pre class="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed">{selectedAgentData}</pre>
+                {:else}
+                    <div class="text-gray-400 italic">No data available</div>
+                {/if}
+            </div>
+        {/if}
     </div>
 
     <!-- Right Column: Event Logs -->
@@ -100,7 +158,7 @@
 
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Agent Movements</h3>
-            <AgentEventLog events={mazeState.agentEvents} />
+            <AgentEventLog events={mazeState.agentEvents} onAgentSelect={handleAgentSelect} />
         </div>
 
         <div>

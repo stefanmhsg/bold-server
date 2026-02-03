@@ -1,7 +1,10 @@
 <script lang="ts">
     import type { AgentMovedEvent } from '$lib/mazeState.svelte';
 
-    let { events } = $props<{ events: AgentMovedEvent[] }>();
+    let { events, onAgentSelect } = $props<{ 
+        events: AgentMovedEvent[];
+        onAgentSelect?: (agentUri: string) => void;
+    }>();
 </script>
 
 <div class="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
@@ -19,7 +22,12 @@
                     <td class="p-2 text-gray-500 text-sm whitespace-nowrap">
                         {new Date(event.timestamp).toLocaleTimeString()}
                     </td>
-                    <td class="p-2 font-medium">{event.agent}</td>
+                    <td 
+                        class="p-2 font-medium cursor-pointer hover:bg-blue-50 hover:text-blue-600" 
+                        ondblclick={() => onAgentSelect?.(event.agent)}
+                        title="Double-click to inspect agent graph">
+                        {event.agent.split('/').pop()}
+                    </td>
                     <td class="p-2 font-mono text-xs truncate max-w-[200px]" title={event.cell}>
                         {event.cell.split('/').pop()}
                     </td>
