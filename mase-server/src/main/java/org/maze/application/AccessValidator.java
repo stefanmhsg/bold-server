@@ -24,12 +24,14 @@ public class AccessValidator {
     private static final Logger log = LoggerFactory.getLogger(AccessValidator.class);
     
     private final SailRepository repository;
+    private final SparqlService sparqlService;
 
     // Entrance cell never changes during runtime
     private volatile String cachedEntranceCell = null;
     
-    public AccessValidator(SailRepository repository) {
+    public AccessValidator(SailRepository repository, SparqlService sparqlService) {
         this.repository = repository;
+        this.sparqlService = sparqlService;
     }
     
     /**
@@ -122,6 +124,10 @@ public class AccessValidator {
             }
             
             log.info("Agent {} starting at entrance: {}", agentName, requestedCellUri);
+
+            // Create Graph for Agent IRI when entering the maze
+            createAgentGraph(agentUri);
+
             return AccessResult.allow();
         }
         
@@ -323,6 +329,38 @@ public class AccessValidator {
         }
     }
 
+    /**
+     * Create an empty named graph for the agent's IRI.
+     * This graph can be used to store agent-specific data and metadata.
+     * 
+     * @param agentUri the full URI of the agent
+     */
+    private void createAgentGraph(String agentUri) {
+        try {
+            // SPARQL UPDATE to create agent graph with metadata triple
+            String sparqlUpdate = 
+                "PREFIX maze: <" + MazeVocab.MAZE_NS + "> \n" +
+                "INSERT DATA { \n" +
+                "  GRAPH <" + agentUri + "> { \n" +
+                "    <" + agentUri + "> a maze:Agent . \n" +
+                "  } \n" +
+                "}";
+            
+            log.debug("Creating agent graph with SPARQL: {}", sparqlUpdate);
+            
+            var result = sparqlService.executeQuery(sparqlUpdate, null);
+            
+            if (result.success()) {
+                log.info("Successfully created named graph for agent: {}", agentUri);
+            } else {
+                log.error("Failed to create agent graph for {}: {}", agentUri, result.errorMessage());
+            }
+            
+        } catch (Exception e) {
+            log.error("Exception while creating agent graph for {}", agentUri, e);
+        }
+    }
+    
     /**
      * Check if a URI represents a cell resource (as opposed to maze metadata).
      */

@@ -86,10 +86,10 @@ public class WebServerFactory {
     private void configureRestEndpoints(ServletContextHandler context, 
                                        SailRepository repository, 
                                        MazeRuleService gameEngine) {
-        // Initialize services
-        AccessValidator accessValidator = new AccessValidator(repository);
-        PostHandler postHandler = new PostHandler(repository, gameEngine);
+        // Initialize services - SparqlService must be created first
         SparqlService sparqlService = new SparqlService(repository);
+        AccessValidator accessValidator = new AccessValidator(repository, sparqlService);
+        PostHandler postHandler = new PostHandler(repository, gameEngine);
         
         // Share repository, game engine, and services via ServletContext
         context.setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);
