@@ -61,7 +61,7 @@ public class MazeBroadcaster {
 
         rememberMessage(message);
         
-        log.info("[BROADCASTER] Broadcasting: {}", message);
+        log.debug("[BROADCASTER] Broadcasting: {}", message);
         
         for (Session session : sessions) {
             if (session.isOpen()) {

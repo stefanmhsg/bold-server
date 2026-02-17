@@ -76,6 +76,14 @@ tasks.register('runMase', JavaExec) {
     dependsOn 'installDist'
 }
 
+tasks.register('runBobAgent', JavaExec) {
+    group = 'application'
+    description = 'Run sample dfs agent bob against a running server.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('org.maze.examples.SampleDfsAgentBob')
+    dependsOn 'classes'
+}
+
 test {
     useJUnitPlatform()
 }

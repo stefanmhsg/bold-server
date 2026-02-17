@@ -26,6 +26,15 @@ docker build . -t mase-server
 docker run -p 8080:8080 -e TASKNAME=sim-UnsafeMaze -it mase-server
 ```
 
+Run sample dfs agent (name: `bob`) against a running server:
+```shell script
+gradle runBobAgent
+```
+
+The sample agent always sends `Authorization: bob`, starts with `GET /maze`, enters the discovered start cell with `dyn:entersFrom`, then navigates in depth-first-search ordered by `west, north, east, south`. If the current cell is locked and `dyn:needsAction` requires a key type that was previously observed via `GET`, it posts `dyn:keyValue` to unlock and re-checks the cell. It finishes when it reaches `/cells/999` via `maze:exit`.
+
+Detailed example-agent documentation: [src/main/java/org/maze/examples/README.md](src/main/java/org/maze/examples/README.md)
+
 ---
 
 ## Defining UI Elements in RDF
