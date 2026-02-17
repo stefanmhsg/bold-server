@@ -173,7 +173,7 @@ public class LinkedDataDereferenceResource {
         
         // Execute POST operation
         PostHandler postHandler = getPostHandler();
-        PostResult postResult = postHandler.performPost(agentName, graphIRI, model);
+        PostResult postResult = postHandler.performPost(agentName, graphIRI, model, body);
         
         if (!postResult.isSuccess()) {
             log.warn("POST to {} failed for agent {}: {}", graphIRI, agentName, postResult.errorMessage());

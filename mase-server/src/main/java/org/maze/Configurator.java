@@ -8,13 +8,17 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.rdf4j.model.vocabulary.CONFIG.Sail;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
+import org.maze.api.websocket.MazeBroadcaster;
 import org.maze.application.MazeRuleService;
+import org.maze.application.tx.TransactionTraceContext;
 import org.maze.infrastructure.config.ServerConfiguration;
 import org.maze.infrastructure.rdf.DataLoader;
 import org.maze.infrastructure.rdf.RepositoryFactory;
 import org.maze.infrastructure.web.WebServerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Main entry point for the maze server.
@@ -23,6 +27,7 @@ import org.slf4j.LoggerFactory;
 public class Configurator {
 
     private static final Logger log = LoggerFactory.getLogger(Configurator.class);
+    private static final ObjectMapper mapper = new ObjectMapper();
     
     public static final String RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL = "gsp/";
 
@@ -56,13 +61,16 @@ public class Configurator {
 
         // Run rules once at startup to ensure initial consistency
         SailRepositoryConnection conn = null;
+        TransactionTraceContext startupTrace = TransactionTraceContext.forStartup();
         try {
             conn = repository.getConnection();
             conn.begin();
 
             log.info("Running initial maze rules on startup...");
-            ruleService.executeRules(conn);
+            ruleService.executeRules(conn, startupTrace);
             conn.commit();
+            startupTrace.markCommitted();
+            MazeBroadcaster.broadcast(mapper.writeValueAsString(startupTrace.getEvent()));
 
             log.info("Initial rule execution finished");
         } catch (Exception e) {
@@ -73,6 +81,12 @@ public class Configurator {
                 } catch (Exception rollbackError) {
                     log.error("Rollback during startup failed: ", rollbackError);
                 }
+            }
+            startupTrace.markFailed(e.getMessage());
+            try {
+                MazeBroadcaster.broadcast(mapper.writeValueAsString(startupTrace.getEvent()));
+            } catch (Exception broadcastError) {
+                log.error("Failed to broadcast startup transaction event", broadcastError);
             }
             log.error("Initial rule execution failed: ", e);
             throw e;

@@ -3,6 +3,20 @@ export interface BaseEvent {
     timestamp: number;
 }
 
+export interface TransactionTriple {
+    subject: string;
+    predicate: string;
+    object: string;
+    context: string | null;
+}
+
+export interface RuleChange {
+    ruleName: string;
+    error?: string | null;
+    added: TransactionTriple[];
+    removed: TransactionTriple[];
+}
+
 export interface AgentMovedEvent extends BaseEvent {
     type: 'AGENT_MOVED';
     agent: string;
@@ -20,7 +34,22 @@ export interface UiUpsertEvent extends BaseEvent, UiCommand {
     type: 'UI_UPSERT';
 }
 
-export type MazeEvent = AgentMovedEvent | UiUpsertEvent;
+export interface TransactionEvent extends BaseEvent {
+    type: 'TRANSACTION';
+    trigger: 'POST' | 'STARTUP' | string;
+    status: 'COMMITTED' | 'ROLLED_BACK' | 'FAILED' | string;
+    agent?: string | null;
+    graph?: string | null;
+    requestBody?: string | null;
+    error?: string | null;
+    startedAt: number;
+    finishedAt: number;
+    mergeAdded: TransactionTriple[];
+    mergeRemoved: TransactionTriple[];
+    rules: RuleChange[];
+}
+
+export type MazeEvent = AgentMovedEvent | UiUpsertEvent | TransactionEvent;
 
 export class MazeStore {
     events = $state<MazeEvent[]>([]);
@@ -30,6 +59,7 @@ export class MazeStore {
     // Derived views for specific event types
     agentEvents = $derived(this.events.filter(e => e.type === 'AGENT_MOVED') as AgentMovedEvent[]);
     uiEvents = $derived(this.events.filter(e => e.type === 'UI_UPSERT') as UiUpsertEvent[]);
+    transactionEvents = $derived(this.events.filter(e => e.type === 'TRANSACTION') as TransactionEvent[]);
 
     connect() {
         if (this.socket) return;
@@ -48,6 +78,10 @@ export class MazeStore {
                 
                 // Ignore heartbeat messages
                 if (data.type === "PING") {
+                    return;
+                }
+
+                if (!isMazeEventPayload(data)) {
                     return;
                 }
 
@@ -76,6 +110,30 @@ export class MazeStore {
             this.status = "error";
         };
     }
+}
+
+function isMazeEventPayload(payload: any): payload is Omit<MazeEvent, 'timestamp'> {
+    if (!payload || typeof payload !== 'object' || typeof payload.type !== 'string') {
+        return false;
+    }
+
+    if (payload.type === 'AGENT_MOVED') {
+        return typeof payload.agent === 'string' && typeof payload.cell === 'string';
+    }
+
+    if (payload.type === 'UI_UPSERT') {
+        return typeof payload.id === 'string' && typeof payload.attrs === 'object';
+    }
+
+    if (payload.type === 'TRANSACTION') {
+        return Array.isArray(payload.rules)
+            && Array.isArray(payload.mergeAdded)
+            && Array.isArray(payload.mergeRemoved)
+            && typeof payload.trigger === 'string'
+            && typeof payload.status === 'string';
+    }
+
+    return false;
 }
 
 export const mazeState = new MazeStore();

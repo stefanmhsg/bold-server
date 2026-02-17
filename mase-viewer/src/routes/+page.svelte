@@ -229,7 +229,7 @@
 
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Cell Updates</h3>
-            <CellEventLog />
+            <CellEventLog events={mazeState.transactionEvents} />
         </div>
 
         <!-- Agent Inspector -->

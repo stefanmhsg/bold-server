@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
+import org.maze.application.tx.TransactionTraceContext;
 import org.maze.domain.rules.MazeRule;
 import org.maze.infrastructure.storage.MazeRuleLoader;
 import org.slf4j.Logger;
@@ -61,15 +62,30 @@ public class MazeRuleService {
      * @param connection the active repository connection with an open transaction
      */
     public void executeRules(SailRepositoryConnection connection) {
+        executeRules(connection, null);
+    }
+
+    public void executeRules(SailRepositoryConnection connection, TransactionTraceContext traceContext) {
         log.debug("Executing {} maze rules", rules.size());
                 
         for (MazeRule rule : rules) {
+            if (traceContext != null) {
+                traceContext.beginRule(rule.getName(), connection);
+            }
+
             try {
                 sparqlService.executeQuery(rule.getSparqlQuery(), "text/plain", rule.getName(), connection);
             } catch (Exception e) {
+                if (traceContext != null) {
+                    traceContext.markCurrentRuleError(e.getMessage());
+                }
                 // Log and continue on failure (don't rollback operations)
                 log.error("Error executing rule '{}' ({}): {}", 
                         rule.getName(), rule.getRuleType(), e.getMessage(), e);
+            } finally {
+                if (traceContext != null) {
+                    traceContext.endRule(connection);
+                }
             }
         }
     }
