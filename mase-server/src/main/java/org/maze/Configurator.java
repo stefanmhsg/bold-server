@@ -35,7 +35,7 @@ public class Configurator {
         log.info("Starting MASE Maze Server...");
         
         // Parse command line arguments
-        String task = args.length > 0 ? args[0] : "sim-UnsafeMaze";
+        String task = args.length > 0 ? args[0] : "sim-SmallMaze";
         List<String> additionalRulesets = parseAdditionalRulesets(args);
         
         // Load configuration
@@ -147,10 +147,10 @@ public class Configurator {
     
     /**
      * Extracts the maze name from a task string.
-     * Examples: "sim-UnsafeMaze" -> "UnsafeMaze", "sim-BigMaze" -> "BigMaze"
+     * Examples: "sim-SmallMaze" -> "SmallMaze", "sim-BigMaze" -> "BigMaze"
      * 
-     * @param task The task string (e.g., "sim-UnsafeMaze")
-     * @return The maze name (e.g., "UnsafeMaze"), or null if no maze detected
+     * @param task The task string (e.g., "sim-SmallMaze")
+     * @return The maze name (e.g., "SmallMaze"), or null if no maze detected
      */
     private static String extractMazeName(String task) {
         if (task == null || task.isEmpty()) {

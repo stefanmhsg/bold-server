@@ -169,7 +169,7 @@ public class MazeRuleLoader {
      * Dynamically discovers all .rq files in the specified subdirectory.
      * Supports nested paths like "Global/Stigmergy".
      * 
-     * @param pathName Name of the subdirectory path (e.g., "UnsafeMaze", "Global/Stigmergy"), or null for root rules
+     * @param pathName Name of the subdirectory path (e.g., "SmallMaze", "Global/Stigmergy"), or null for root rules
      * @return List of discovered rule filenames (with subdirectory prefix if applicable)
      */
     public List<String> discoverRuleFiles(String pathName) {
@@ -197,8 +197,8 @@ public class MazeRuleLoader {
      * Discover all .rq files in a resource directory using FileUtils.
      * Since the server runs from file system (not JAR), we can use simple file pattern matching.
      * 
-     * @param resourcePath The resource path to search (e.g., "/rules/" or "/rules/UnsafeMaze/")
-     * @param prefix The prefix to add to discovered filenames (e.g., "" or "UnsafeMaze/")
+     * @param resourcePath The resource path to search (e.g., "/rules/" or "/rules/SmallMaze/")
+     * @param prefix The prefix to add to discovered filenames (e.g., "" or "SmallMaze/")
      * @return List of rule filenames with prefix
      */
     private List<String> discoverRuleFilesInResource(String resourcePath, String prefix) {
@@ -206,7 +206,7 @@ public class MazeRuleLoader {
         
         try {
             // Convert resource path to file system path pattern
-            // E.g., "/rules/UnsafeMaze/" -> "src/main/resources/rules/UnsafeMaze/*.rq"
+            // E.g., "/rules/SmallMaze/" -> "src/main/resources/rules/SmallMaze/*.rq"
             String fileSystemPath = "src/main/resources" + resourcePath + "*.rq";
             
             // Use FileUtils to discover all .rq files

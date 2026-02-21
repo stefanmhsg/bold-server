@@ -7,7 +7,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      TASKNAME: ${TASKNAME:-sim-UnsafeMaze}
+      TASKNAME: ${TASKNAME:-sim-SmallMaze}
 
   mase-viewer:
     build:

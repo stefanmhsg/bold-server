@@ -6,7 +6,7 @@ This is the server for the Linked Data Multi-Agent System Environment (MASE) pla
 
 ### Gradle
 
-Dev - deafults to "UnsafeMaze" (loads rules/Global per default)
+Dev - deafults to "SmallMaze" (loads rules/Global per default)
 ```shell script
 gradle runMase
 ```
@@ -18,14 +18,14 @@ gradle runMase --args="sim-MidMaze"
 
 Specifing maze AND rules as argument (loads rules/Global per default AND rules/Global/Stigmergy)
 ```shell script
-gradle runMase --args="sim-UnsafeMaze  Stigmergy"
+gradle runMase --args="sim-SmallMaze  Stigmergy"
 ```
 
 
 ### Docker
 ```shell script
 docker build . -t mase-server
-docker run -p 8080:8080 -e TASKNAME=sim-UnsafeMaze -it mase-server
+docker run -p 8080:8080 -e TASKNAME=sim-SmallMaze -it mase-server
 ```
 ### Example Agent
 

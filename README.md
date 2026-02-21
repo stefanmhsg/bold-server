@@ -14,7 +14,7 @@ docker compose up --build
 - Viewer: http://127.0.1.1:3000/ or http://localhost:3000
 
 ## Choose maze scenario
-Default scenario is `sim-UnsafeMaze`.
+Default scenario is `sim-SmallMaze`.
 
 ```powershell
 $env:TASKNAME="sim-MidMaze"
@@ -22,10 +22,10 @@ docker compose up --build
 ```
 
 ## Maze + ruleset example (Stigmergy)
-Pass both values in `TASKNAME` (equivalent to Gradle `--args="sim-UnsafeMaze Stigmergy"`).
+Pass both values in `TASKNAME` (equivalent to Gradle `--args="sim-SmallMaze Stigmergy"`).
 
 ```powershell
-$env:TASKNAME="sim-UnsafeMaze Stigmergy"
+$env:TASKNAME="sim-SmallMaze Stigmergy"
 docker compose up --build
 ```
 
