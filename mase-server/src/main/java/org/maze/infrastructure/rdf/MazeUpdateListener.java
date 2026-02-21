@@ -86,7 +86,7 @@ public class MazeUpdateListener implements SailConnectionListener {
     private void broadcastEvent(MazeEvent event) {
         try {
             String json = objectMapper.writeValueAsString(event);
-            log.info("Broadcasting Event: {}", json);
+            log.debug("Broadcasting Event: {}", json);
             MazeBroadcaster.broadcast(json);
         } catch (Exception e) {
             log.error("Failed to serialize event", e);
