@@ -4,6 +4,8 @@ This is the server for the Linked Data Multi-Agent System Environment (MASE) pla
 
 ## Getting Started
 
+### Gradle
+
 Dev - deafults to "UnsafeMaze" (loads rules/Global per default)
 ```shell script
 gradle runMase
@@ -20,11 +22,12 @@ gradle runMase --args="sim-UnsafeMaze  Stigmergy"
 ```
 
 
-Docker
+### Docker
 ```shell script
 docker build . -t mase-server
 docker run -p 8080:8080 -e TASKNAME=sim-UnsafeMaze -it mase-server
 ```
+### Example Agent
 
 Run sample dfs agent (name: `bob`) against a running server:
 ```shell script

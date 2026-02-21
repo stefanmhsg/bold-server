@@ -15,6 +15,14 @@ gradle runMase --args="sim-SmallMaze"
 ```shell
 gradle runBobAgent
 ```
+## Docker
+
+1. Run Docker Compose 
+
+2. Run agent with Docker (server must already be running):
+```powershell
+docker compose exec mase-server sh -lc "java -cp '/opt/mase/install/mase-server/lib/*' org.maze.examples.SampleDfsAgentBob"
+```
 
 ## How it operates
 

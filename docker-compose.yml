@@ -1,0 +1,20 @@
+services:
+  mase-server:
+    build:
+      context: ./mase-server
+      dockerfile: Dockerfile
+    container_name: mase-server
+    ports:
+      - "8080:8080"
+    environment:
+      TASKNAME: ${TASKNAME:-sim-UnsafeMaze}
+
+  mase-viewer:
+    build:
+      context: ./mase-viewer
+      dockerfile: Dockerfile
+    container_name: mase-viewer
+    depends_on:
+      - mase-server
+    ports:
+      - "3000:3000"
