@@ -9,3 +9,5 @@ agent-paths/
 agent-requests/
 .github/copilot-instructions.md
 .vscode/settings.json
+
+.vscode/
