@@ -1,10 +1,10 @@
-# Maze Viewer
+# MASE Viewer
 
 ## Getting Started
 
 Install dependencies with `npm install` (or `pnpm install` or `yarn`).
 
-Start a development server:
+#### Start a development server:
 
 ```sh
 npm run dev
@@ -13,7 +13,7 @@ npm run dev
 npm run dev -- --open
 ```
 
-docker
+#### Docker
 ```sh
 # build the viewer
 docker build . -t mase-viewer
@@ -22,8 +22,6 @@ docker run -p 3000:3000 -it mase-viewer
 ```
 The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or the port you specified).
 
-
-<img src="Maze Viewer v2.png" width="800">
 
 
 ## What you can do in MASE Viewer
@@ -43,3 +41,5 @@ The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or t
 	- `<context = graph_uri> :`
 	- `<s> <p> <o>`
 - Resize both event tables vertically (up/down) to see more or fewer rows while keeping layout width fixed.
+
+<img src="Maze Viewer v9.png" width="800">

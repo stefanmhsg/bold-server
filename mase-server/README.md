@@ -1,6 +1,6 @@
 # Linked Data MASE Server
 
-This is the server for the Linked Data Multi-Agent System Environment (MASE) platform. It allows users to run simulations of interactive maze scenarios accessible to agents via [Graph Store Protocol (GSP)](https://www.w3.org/TR/sparql12-graph-store-protocol/). A corresponding front end for visualization purposes is available (see [maze-viewer]()).
+This is the server for the Linked Data Multi-Agent System Environment (MASE) platform. It allows users to run simulations of interactive maze scenarios accessible to agents via HTTP GET and POST. A corresponding front end for visualization purposes is available (see [MASE viewer](../mase-viewer/README.md)).
 
 ## Getting Started
 
@@ -27,6 +27,10 @@ gradle runMase --args="sim-SmallMaze  Stigmergy"
 docker build . -t mase-server
 docker run -p 8080:8080 -e TASKNAME=sim-SmallMaze -it mase-server
 ```
+
+### Entry Point
+http://127.0.1.1:8080/maze
+
 ### Example Agent
 
 Run sample dfs agent (name: `bob`) against a running server:
