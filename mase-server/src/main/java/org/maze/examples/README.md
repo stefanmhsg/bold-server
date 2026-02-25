@@ -10,7 +10,7 @@ This project ships with a runnable sample agent: `org.maze.examples.BobLeftWallF
 gradle runMase --args="sim-SmallMaze"
 ```
 
-1. In another terminal, run the sample agent:
+2. In another terminal, run the sample agent:
 
 ```shell
 gradle runBobAgent
