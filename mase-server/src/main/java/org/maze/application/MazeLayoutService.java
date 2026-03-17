@@ -28,6 +28,11 @@ public class MazeLayoutService {
     private static final Logger log = LoggerFactory.getLogger(MazeLayoutService.class);
     private final SailRepository repository;
 
+    private static final String NORTH = "north";
+    private static final String SOUTH = "south";
+    private static final String EAST = "east";
+    private static final String WEST = "west";
+
     public MazeLayoutService(SailRepository repository) {
         this.repository = repository;
     }
@@ -187,6 +192,8 @@ public class MazeLayoutService {
     private void calculateLayout(Map<String, CellDto> cellMap, String startCellId) {
         Queue<String> queue = new ArrayDeque<>();
         Set<String> visited = new HashSet<>();
+        Map<String, List<IncomingReference>> incomingByTarget = buildIncomingIndex(cellMap);
+        Map<String, String> occupiedPositions = new HashMap<>();
         
         CellDto start = cellMap.get(startCellId);
         start.x = 0;
@@ -194,29 +201,169 @@ public class MazeLayoutService {
         
         queue.add(startCellId);
         visited.add(startCellId);
+        occupiedPositions.put(positionKey(start.x, start.y), startCellId);
+
+        expandPlacedCells(cellMap, visited, queue, incomingByTarget, occupiedPositions);
+
+        int nextComponentX = maxX(cellMap, visited) + 3;
+        for (String cellId : cellMap.keySet()) {
+            if (visited.contains(cellId)) {
+                continue;
+            }
+
+            CellDto seed = cellMap.get(cellId);
+            seed.x = nextComponentX;
+            seed.y = 0;
+
+            visited.add(cellId);
+            queue.add(cellId);
+            occupiedPositions.put(positionKey(seed.x, seed.y), cellId);
+
+            expandPlacedCells(cellMap, visited, queue, incomingByTarget, occupiedPositions);
+            nextComponentX = maxX(cellMap, visited) + 3;
+        }
+    }
+
+    private void expandPlacedCells(
+            Map<String, CellDto> cellMap,
+            Set<String> visited,
+            Queue<String> queue,
+            Map<String, List<IncomingReference>> incomingByTarget,
+            Map<String, String> occupiedPositions) {
 
         while (!queue.isEmpty()) {
             String currentId = queue.poll();
             CellDto current = cellMap.get(currentId);
 
-            processNeighbor(current, "north", 0, -1, cellMap, visited, queue);
-            processNeighbor(current, "south", 0, 1, cellMap, visited, queue);
-            processNeighbor(current, "east", 1, 0, cellMap, visited, queue);
-            processNeighbor(current, "west", -1, 0, cellMap, visited, queue);
+            processNeighbor(current, NORTH, 0, -1, cellMap, visited, queue, occupiedPositions);
+            processNeighbor(current, SOUTH, 0, 1, cellMap, visited, queue, occupiedPositions);
+            processNeighbor(current, EAST, 1, 0, cellMap, visited, queue, occupiedPositions);
+            processNeighbor(current, WEST, -1, 0, cellMap, visited, queue, occupiedPositions);
+            processIncomingNeighbors(current, cellMap, visited, queue, incomingByTarget, occupiedPositions);
         }
     }
 
     private void processNeighbor(CellDto current, String direction, int dx, int dy, 
-                               Map<String, CellDto> cellMap, Set<String> visited, Queue<String> queue) {
+                               Map<String, CellDto> cellMap, Set<String> visited, Queue<String> queue,
+                               Map<String, String> occupiedPositions) {
         String neighborId = current.connections.get(direction);
         if (neighborId != null && !neighborId.equals("wall") && !neighborId.contains("Wall")) {
             if (!visited.contains(neighborId) && cellMap.containsKey(neighborId)) {
                 CellDto neighbor = cellMap.get(neighborId);
-                neighbor.x = current.x + dx;
-                neighbor.y = current.y + dy;
-                visited.add(neighborId);
-                queue.add(neighborId);
+                placeCell(neighbor, neighborId, current.x + dx, current.y + dy, visited, queue, occupiedPositions);
             }
+        }
+    }
+
+    private void processIncomingNeighbors(
+            CellDto current,
+            Map<String, CellDto> cellMap,
+            Set<String> visited,
+            Queue<String> queue,
+            Map<String, List<IncomingReference>> incomingByTarget,
+            Map<String, String> occupiedPositions) {
+        List<IncomingReference> incoming = incomingByTarget.getOrDefault(current.id, List.of());
+        for (IncomingReference ref : incoming) {
+            if (visited.contains(ref.sourceId)) {
+                continue;
+            }
+
+            CellDto source = cellMap.get(ref.sourceId);
+            if (source == null) {
+                continue;
+            }
+
+            int x = current.x - dxFor(ref.direction);
+            int y = current.y - dyFor(ref.direction);
+            placeCell(source, ref.sourceId, x, y, visited, queue, occupiedPositions);
+        }
+    }
+
+    private void placeCell(
+            CellDto cell,
+            String cellId,
+            int x,
+            int y,
+            Set<String> visited,
+            Queue<String> queue,
+            Map<String, String> occupiedPositions) {
+        String key = positionKey(x, y);
+        String occupiedBy = occupiedPositions.get(key);
+        if (occupiedBy != null && !occupiedBy.equals(cellId)) {
+            log.warn("Skipping layout placement for {} at ({}, {}) because position is already occupied by {}", cellId, x, y, occupiedBy);
+            return;
+        }
+
+        cell.x = x;
+        cell.y = y;
+        visited.add(cellId);
+        queue.add(cellId);
+        occupiedPositions.put(key, cellId);
+    }
+
+    private Map<String, List<IncomingReference>> buildIncomingIndex(Map<String, CellDto> cellMap) {
+        Map<String, List<IncomingReference>> incomingByTarget = new HashMap<>();
+        for (CellDto cell : cellMap.values()) {
+            addIncomingReference(incomingByTarget, cellMap, cell, NORTH);
+            addIncomingReference(incomingByTarget, cellMap, cell, SOUTH);
+            addIncomingReference(incomingByTarget, cellMap, cell, EAST);
+            addIncomingReference(incomingByTarget, cellMap, cell, WEST);
+        }
+        return incomingByTarget;
+    }
+
+    private void addIncomingReference(
+            Map<String, List<IncomingReference>> incomingByTarget,
+            Map<String, CellDto> cellMap,
+            CellDto cell,
+            String direction) {
+        String targetId = cell.connections.get(direction);
+        if (targetId == null || targetId.equals("wall") || targetId.contains("Wall") || !cellMap.containsKey(targetId)) {
+            return;
+        }
+        incomingByTarget
+                .computeIfAbsent(targetId, ignored -> new ArrayList<>())
+                .add(new IncomingReference(cell.id, direction));
+    }
+
+    private int maxX(Map<String, CellDto> cellMap, Set<String> visited) {
+        int maxX = 0;
+        for (String cellId : visited) {
+            CellDto cell = cellMap.get(cellId);
+            if (cell != null) {
+                maxX = Math.max(maxX, cell.x);
+            }
+        }
+        return maxX;
+    }
+
+    private int dxFor(String direction) {
+        return switch (direction) {
+            case EAST -> 1;
+            case WEST -> -1;
+            default -> 0;
+        };
+    }
+
+    private int dyFor(String direction) {
+        return switch (direction) {
+            case NORTH -> -1;
+            case SOUTH -> 1;
+            default -> 0;
+        };
+    }
+
+    private String positionKey(int x, int y) {
+        return x + ":" + y;
+    }
+
+    private static final class IncomingReference {
+        private final String sourceId;
+        private final String direction;
+
+        private IncomingReference(String sourceId, String direction) {
+            this.sourceId = sourceId;
+            this.direction = direction;
         }
     }
 
