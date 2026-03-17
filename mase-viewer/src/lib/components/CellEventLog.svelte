@@ -73,7 +73,7 @@
                     <th class="p-2">Trigger</th>
                     <th class="p-2">Agent</th>
                     <th class="p-2">Graph</th>
-                    <th class="p-2">Rules Changed</th>
+                    <th class="p-2">Rules / Changes</th>
                 </tr>
             </thead>
             <tbody>

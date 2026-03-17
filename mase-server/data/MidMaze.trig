@@ -37,7 +37,8 @@
   </cells/0> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/0/2>; maze:east maze:Wall . 
   </cells/0/2> a maze:Cell ; maze:north </cells/0>; maze:west maze:Wall; maze:south  </cells/1/2>; maze:east maze:Wall . 
   </cells/1/2> a maze:Cell ; maze:north </cells/0/2>; maze:west maze:Wall; maze:south  </cells/2/2>; maze:east maze:Wall . 
-  </cells/1/5> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/1/6> . 
+  </cells/1/4> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/2/4>; maze:east </cells/1/5> .
+  </cells/1/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/1/4>; maze:south  maze:Wall; maze:east </cells/1/6> . 
   </cells/1/6> a maze:Cell ; maze:north maze:Wall; maze:west </cells/1/5>; maze:south  </cells/2/6>; maze:east </cells/1/7> . 
   </cells/1/7> a maze:Cell ; maze:north maze:Wall; maze:west </cells/1/6>; maze:south  maze:Wall; maze:east maze:Wall . 
   </cells/1/10> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/2/10>; maze:east maze:Wall . 
@@ -181,7 +182,8 @@
   </cells/1/248> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/2/248>; maze:east maze:Wall . 
   </cells/2/1> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/2/2> . 
   </cells/2/2> a maze:Cell ; maze:north </cells/1/2>; maze:west </cells/2/1>; maze:south  </cells/3/2>; maze:east </cells/2/3> . 
-  </cells/2/3> a maze:Cell ; maze:north maze:Wall; maze:west </cells/2/2>; maze:south  maze:Wall; maze:east maze:Wall . 
+  </cells/2/3> a maze:Cell ; maze:north maze:Wall; maze:west </cells/2/2>; maze:south  maze:Wall; maze:east </cells/2/4> . 
+  </cells/2/4> a maze:Cell ; maze:north </cells/1/4>; maze:west </cells/2/3>; maze:south  maze:Wall; maze:east maze:Wall . 
   </cells/2/6> a maze:Cell ; maze:north </cells/1/6>; maze:west maze:Wall; maze:south  </cells/3/6>; maze:east maze:Wall . 
   </cells/2/9> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/3/9>; maze:east </cells/2/10> . 
   </cells/2/10> a maze:Cell ; maze:north </cells/1/10>; maze:west </cells/2/9>; maze:south  maze:Wall; maze:east </cells/2/11> . 
@@ -3229,6 +3231,7 @@
         ldp:contains </cells/0> ,
         </cells/0/2> ,
         </cells/1/2> ,
+        </cells/1/4> ,
         </cells/1/5> ,
         </cells/1/6> ,
         </cells/1/7> ,
@@ -3374,6 +3377,7 @@
         </cells/2/1> ,
         </cells/2/2> ,
         </cells/2/3> ,
+        </cells/2/4> ,
         </cells/2/6> ,
         </cells/2/9> ,
         </cells/2/10> ,
@@ -9515,7 +9519,8 @@
 </cells/0> { </cells/0> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/0/2>; maze:east maze:Wall; maze:green </cells/0/2> . }
 </cells/0/2> { </cells/0/2> a maze:Cell ; maze:north </cells/0>; maze:west maze:Wall; maze:south  </cells/1/2>; maze:east maze:Wall; maze:green </cells/1/2> . }
 </cells/1/2> { </cells/1/2> a maze:Cell ; maze:north </cells/0/2>; maze:west maze:Wall; maze:south  </cells/2/2>; maze:east maze:Wall; maze:green </cells/2/2> . }
-</cells/1/5> {   </cells/1/5> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/1/6> .  }
+</cells/1/4> {   </cells/1/4> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/2/4>; maze:east </cells/1/5> .  }
+</cells/1/5> {   </cells/1/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/1/4>; maze:south  maze:Wall; maze:east </cells/1/6> .  }
 </cells/1/6> {   </cells/1/6> a maze:Cell ; maze:north maze:Wall; maze:west </cells/1/5>; maze:south  </cells/2/6>; maze:east </cells/1/7> .  }
 </cells/1/7> {   </cells/1/7> a maze:Cell ; maze:north maze:Wall; maze:west </cells/1/6>; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/1/10> {   </cells/1/10> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/2/10>; maze:east maze:Wall .  }
@@ -9663,7 +9668,8 @@
         dyn:fitsInLock </cells/3/2> ;
         dyn:keyValue "greenkey" .
 }
-</cells/2/3> {   </cells/2/3> a maze:Cell ; maze:north maze:Wall; maze:west </cells/2/2>; maze:south  maze:Wall; maze:east maze:Wall .  }
+</cells/2/3> {   </cells/2/3> a maze:Cell ; maze:north maze:Wall; maze:west </cells/2/2>; maze:south  maze:Wall; maze:east </cells/2/4> .  }
+</cells/2/4> {   </cells/2/4> a maze:Cell ; maze:north </cells/1/4>; maze:west </cells/2/3>; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/2/6> {   </cells/2/6> a maze:Cell ; maze:north </cells/1/6>; maze:west maze:Wall; maze:south  </cells/3/6>; maze:east maze:Wall .  }
 </cells/2/9> {   </cells/2/9> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/3/9>; maze:east </cells/2/10> .  }
 </cells/2/10> {   </cells/2/10> a maze:Cell ; maze:north </cells/1/10>; maze:west </cells/2/9>; maze:south  maze:Wall; maze:east </cells/2/11> .  }
