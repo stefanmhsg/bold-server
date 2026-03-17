@@ -2,7 +2,7 @@ PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX http: <http://www.w3.org/2011/http#>
 
-# Unlock cell with green key /3/2 - leads to cell 4/2 (south direction)
+# Unlock cell with green key /12/5 - leads to cell 13/5 (south direction)
 DELETE {
   GRAPH ?g {
     # remove old state of this lock
@@ -14,8 +14,9 @@ DELETE {
 }
 INSERT {
   GRAPH ?g {
-    # ensure the door to the east is present
-    ?cell maze:south <http://127.0.1.1:8080/cells/4/2> .
+    # ensure the door to the south is present
+    ?cell maze:south <http://127.0.1.1:8080/cells/13/5> .
+    ?cell maze:green <http://127.0.1.1:8080/cells/13/5> .
 
     # new state for the cell
     ?cell dyn:state dyn:unlocked .
