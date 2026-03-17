@@ -1,0 +1,158 @@
+PREFIX dyn:  <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX sm:   <https://example.org/stigmark#>
+
+# Remove Signifiers outside of the signifier-zone
+DELETE {
+    GRAPH ?g {
+        ?cell maze:green ?target .
+    }
+}
+WHERE {
+    GRAPH ?g {
+        ?cell a maze:Cell .
+        ?cell maze:green ?target .
+    }
+    BIND(STRAFTER(STR(?cell), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # beyond reference cell /cells/12/5 -> for some overlap use && instead of ||
+    FILTER(?x > 12 || ?y > 5)
+} ;
+
+# stigmergy-traffic-increment: increment the counter
+DELETE {
+    # Remove old quantitative count
+    GRAPH ?oldGraph {
+        ?subnode sm:quantitative ?count .
+    }
+}
+INSERT {
+    # Update existing marker subnode with incremented count
+    GRAPH ?oldGraph {
+        ?subnode sm:quantitative ?newCount .
+    }
+}
+WHERE {
+    # the move event
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom ?oldGraph .
+    }
+
+    # find the cell the agent is currently in
+    GRAPH ?oldGraph {
+        ?oldGraph maze:contains ?agent .
+
+        # ensure marker does already exist
+        ?oldGraph sm:hasMarker ?marker .
+        
+        # find existing subnode for this target
+        ?marker sm:contains ?subnode .
+        ?subnode sm:refersTo ?targetGraph .
+        ?subnode sm:quantitative ?count .
+    }
+
+    BIND(?count + 1 AS ?newCount)
+
+    # limit to zone
+    BIND(STRAFTER(STR(?oldGraph), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # starting at cell 13/5 and ending at cell 28/13 
+    FILTER(?x > 12 && ?x < 29)
+    FILTER(?y < 14)
+} ;
+
+# stigmergy-traffic-add: Add a direction to the existing marker
+INSERT {
+    # Origin Graph: Stigmergy marker creation
+    GRAPH ?oldGraph {
+        ?marker sm:contains _:node .
+        _:node sm:refersTo ?targetGraph .
+        _:node sm:quantitative 1 .
+    }
+}
+WHERE {
+    # the move event
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom ?oldGraph .
+    }
+
+    # find the cell the agent is currently in
+    GRAPH ?oldGraph {
+        ?oldGraph maze:contains ?agent .
+
+        # ensure marker does already exist
+        ?oldGraph sm:hasMarker ?marker .
+    }
+
+    # ensure NO subnode for this target exists yet
+    FILTER NOT EXISTS {
+        GRAPH ?oldGraph{
+            ?marker sm:contains ?anyNode .
+            ?anyNode sm:refersTo ?targetGraph .
+        }
+    }  
+    # limit to zone
+    BIND(STRAFTER(STR(?oldGraph), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # starting at cell 13/5 and ending at cell 28/13 
+    FILTER(?x > 12 && ?x < 29)
+    FILTER(?y < 14)
+} ;
+
+# Stigmergy-traffic-new: Create a marker within the stigmergy-zone. Start at 13/5 until 28/13 
+INSERT {
+    # Origin Graph: Stigmergy marker creation
+    GRAPH ?oldGraph {
+        ?oldGraph sm:hasMarker ?newMarker .
+        ?newMarker a sm:Marker .
+        ?newMarker sm:contains _:node .
+        _:node sm:refersTo ?targetGraph .
+        _:node sm:quantitative 1 .
+    }
+}
+WHERE {
+    # the move event
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom ?oldGraph .
+    }
+
+    # find the cell the agent is currently in
+    GRAPH ?oldGraph {
+        ?oldGraph maze:contains ?agent .
+        
+        # ensure marker does NOT already exist
+        FILTER NOT EXISTS { ?oldGraph sm:hasMarker ?anyMarker }        
+    }
+    
+    # create new marker IRI
+    BIND(IRI(CONCAT(STR(?oldGraph), "#marker")) AS ?newMarker)
+
+    # limit to zone
+    BIND(STRAFTER(STR(?oldGraph), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # starting at cell 13/5 and ending at cell 28/13 
+    FILTER(?x > 12 && ?x < 29)
+    FILTER(?y < 14)
+} 
+
+
+
+
