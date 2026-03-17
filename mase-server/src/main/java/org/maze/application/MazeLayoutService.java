@@ -141,6 +141,12 @@ public class MazeLayoutService {
                 }
             }
         }
+        // Keep the logical exit target for movement semantics, but do not expose it
+        // as a drawable maze cell in the admin layout snapshot.
+        if (exitCell != null) {
+            cellMap.remove(exitCell);
+        }
+
         if (startCell != null && cellMap.containsKey(startCell)) {
             calculateLayout(cellMap, startCell);
         } else {
