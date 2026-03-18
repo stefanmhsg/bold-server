@@ -3,6 +3,73 @@ PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX ldp: <http://www.w3.org/ns/ldp#>
 PREFIX sm:   <https://example.org/stigmark#>
+PREFIX ui:   <https://example.org/ui#>
+
+# Mark the location of the keys
+INSERT {
+  GRAPH ?gg {
+    ?cellg ui:hasUiElement ?uigreenkey .
+
+    ?uigreenkey ui:konvaType "Circle";
+      ui:layer "layer";
+      ui:anchor "SE";
+      ui:offsetX 0;
+      ui:offsetY 0;
+      ui:width 12;
+      ui:height 12;
+      ui:fill "green";
+      ui:stroke "black";
+      ui:strokeWidth 1 .
+  }
+  GRAPH ?gb {
+    ?cellb ui:hasUiElement ?uibluekey .
+
+    ?uibluekey ui:konvaType "Circle";
+      ui:layer "layer";
+      ui:anchor "SE";
+      ui:offsetX 0;
+      ui:offsetY 0;
+      ui:width 12;
+      ui:height 12;
+      ui:fill "blue";
+      ui:stroke "black";
+      ui:strokeWidth 1 .
+  }
+  GRAPH ?gr {
+    ?cellr ui:hasUiElement ?uiredkey .
+
+    ?uiredkey ui:konvaType "Circle";
+      ui:layer "layer";
+      ui:anchor "SE";
+      ui:offsetX 0;
+      ui:offsetY 0;
+      ui:width 12;
+      ui:height 12;
+      ui:fill "red";
+      ui:stroke "black";
+      ui:strokeWidth 1 .
+  }
+}
+WHERE {
+  # green
+  GRAPH ?gg {
+    ?cellg a maze:Cell .
+    ?greeniri dyn:keyValue "greenkey" .
+  }
+  BIND(IRI(CONCAT(STR(?cellg), "#ui-greenkey")) AS ?uigreenkey)    
+  # blue
+  GRAPH ?gb {
+    ?cellb a maze:Cell .
+    ?blueiri dyn:keyValue "bluekey" .
+  }
+  BIND(IRI(CONCAT(STR(?cellb), "#ui-bluekey")) AS ?uibluekey)
+  # red
+  GRAPH ?gr {
+    ?cellr a maze:Cell .
+    ?rediri dyn:keyValue "redkey" .
+  }
+  BIND(IRI(CONCAT(STR(?cellr), "#ui-redkey")) AS ?uiredkey)
+} ;
 
 # Remove Signifiers outside of the signifier-zone
 DELETE {
