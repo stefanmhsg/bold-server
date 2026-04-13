@@ -163,7 +163,14 @@
     <!-- Left Column: Maze Visualization -->
     <div class="flex-1 flex flex-col gap-6">
         <div class="flex items-center justify-between gap-3">
-            <h1 class="text-2xl font-bold">Maze Viewer</h1>
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold">Maze Viewer</h1>
+                {#if data.scenarioName}
+                    <span class="px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 border border-blue-200">
+                        Scenario: {data.scenarioName}
+                    </span>
+                {/if}
+            </div>
             <button
                 onclick={() => showOptimalRoute.update((v) => !v)}
                 class="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50"
