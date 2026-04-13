@@ -1,6 +1,6 @@
 # Example Agent: `bob` (DFS)
 
-This project ships with a runnable sample agent: `org.maze.examples.BobLeftWallFollowerAgent`.
+This project ships with a runnable sample agent: `org.maze.examples.SampleDfsAgentBob`.
 
 ## Run
 

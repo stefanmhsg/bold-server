@@ -1,6 +1,71 @@
 PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
 PREFIX http: <http://www.w3.org/2011/http#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+# --------------------
+# RESET AFTER ONE MOVE
+# --------------------
+
+# Reset the cell if one agent has moved through the door -> Single passage & re-lock policy
+DELETE {
+  GRAPH ?g {
+
+    # remove old state of this lock
+    ?cell dyn:state ?oldState .
+
+    # remove any old status & timestamp on this action
+    ?blueAction dyn:hasStatus ?oldStatus ;
+                xsd:dateTime ?oldTimestamp .
+
+    # remove the door to the south
+    ?cell maze:east <http://127.0.1.1:8080/cells/28/14> ;
+          maze:green <http://127.0.1.1:8080/cells/28/14> .
+
+    # remove the key
+    ?cell dyn:keyValue ?anyKeyValue .
+  }
+}
+INSERT {
+  GRAPH ?g {
+    # locked state for the cell
+    ?cell dyn:state dyn:locked .
+
+    # mark the action as open
+    ?blueAction dyn:hasStatus dyn:open .
+  }
+}
+WHERE {
+  GRAPH ?g {
+    ?cell a maze:Cell , dyn:Lock ;
+          dyn:needsAction ?blueAction ;
+          maze:east <http://127.0.1.1:8080/cells/28/14> .
+
+    ?blueAction http:body ?body ;
+                xsd:dateTime ?unlockTimestamp .
+
+    ?body dyn:foundAt dyn:BlueKey .
+
+    OPTIONAL { ?cell dyn:state ?oldState . }
+    OPTIONAL { ?cell dyn:keyValue ?anyKeyValue . }
+    OPTIONAL { ?blueAction dyn:hasStatus ?oldStatus . }
+    OPTIONAL { ?blueAction xsd:dateTime ?oldTimestamp . }
+
+    ?moveEvent a dyn:moveSuccessEvent ;
+              dyn:targetCell ?targetCell ;
+              xsd:dateTime ?moveTimestamp .
+  
+  # Only apply if a Move occured AFTER the cell was unlocked
+  FILTER(?moveTimestamp > ?unlockTimestamp)
+  FILTER(?targetCell = <http://127.0.1.1:8080/cells/28/14>)
+
+  }
+} ;
+
+
+# ------------------
+# UNLOCK CELL IF KEY
+# ------------------
 
 # Unlock cell with blue key /28/13 - leads to cell 28/14
 DELETE {
@@ -8,8 +73,9 @@ DELETE {
     # remove old state of this lock
     ?cell dyn:state ?oldState .
 
-    # remove any old status on this action
-    ?blueAction dyn:hasStatus ?oldStatus .
+    # remove any old status & timestamp on this action
+    ?blueAction dyn:hasStatus ?oldStatus ;
+                xsd:dateTime ?oldTimestamp .
   }
 }
 INSERT {
@@ -22,7 +88,8 @@ INSERT {
     ?cell dyn:state dyn:unlocked .
 
     # mark the action as done
-    ?blueAction dyn:hasStatus dyn:done .
+    ?blueAction dyn:hasStatus dyn:done ;
+                xsd:dateTime ?timestamp .
   }
 }
 WHERE {
@@ -38,5 +105,8 @@ WHERE {
 
     OPTIONAL { ?cell dyn:state ?oldState . }
     OPTIONAL { ?blueAction dyn:hasStatus ?oldStatus . }
+    OPTIONAL { ?blueAction xsd:dateTime ?oldTimestamp . }
+
+    BIND( NOW() AS ?timestamp )
   }
 }

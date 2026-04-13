@@ -5,70 +5,84 @@ PREFIX ldp: <http://www.w3.org/ns/ldp#>
 PREFIX sm:   <https://example.org/stigmark#>
 PREFIX ui:   <https://example.org/ui#>
 
+# ---------------
+# KEY UI-ELEMENTS
+# ---------------
+
 # Mark the location of the keys
 INSERT {
-  GRAPH ?gg {
-    ?cellg ui:hasUiElement ?uigreenkey .
+    GRAPH ?g {
+        ?cell ui:hasUiElement ?uiKey .
 
-    ?uigreenkey ui:konvaType "Circle";
-      ui:layer "layer";
-      ui:anchor "SE";
-      ui:offsetX 0;
-      ui:offsetY 0;
-      ui:width 12;
-      ui:height 12;
-      ui:fill "green";
-      ui:stroke "black";
-      ui:strokeWidth 1 .
-  }
-  GRAPH ?gb {
-    ?cellb ui:hasUiElement ?uibluekey .
-
-    ?uibluekey ui:konvaType "Circle";
-      ui:layer "layer";
-      ui:anchor "SE";
-      ui:offsetX 0;
-      ui:offsetY 0;
-      ui:width 12;
-      ui:height 12;
-      ui:fill "blue";
-      ui:stroke "black";
-      ui:strokeWidth 1 .
-  }
-  GRAPH ?gr {
-    ?cellr ui:hasUiElement ?uiredkey .
-
-    ?uiredkey ui:konvaType "Circle";
-      ui:layer "layer";
-      ui:anchor "SE";
-      ui:offsetX 0;
-      ui:offsetY 0;
-      ui:width 12;
-      ui:height 12;
-      ui:fill "red";
-      ui:stroke "black";
-      ui:strokeWidth 1 .
+        ?uiKey ui:konvaType "Circle";
+            ui:layer "layer";
+            ui:anchor "SE";
+            ui:offsetX 0;
+            ui:offsetY 0;
+            ui:width 12;
+            ui:height 12;
+            ui:fill ?fill;
+            ui:stroke "black";
+            ui:strokeWidth 1 .
   }
 }
 WHERE {
-  # green
-  GRAPH ?gg {
-    ?cellg a maze:Cell .
-    ?greeniri dyn:keyValue "greenkey" .
-  }
-  BIND(IRI(CONCAT(STR(?cellg), "#ui-greenkey")) AS ?uigreenkey)    
-  # blue
-  GRAPH ?gb {
-    ?cellb a maze:Cell .
-    ?blueiri dyn:keyValue "bluekey" .
-  }
-  BIND(IRI(CONCAT(STR(?cellb), "#ui-bluekey")) AS ?uibluekey)
-  # red
-  GRAPH ?gr {
-    ?cellr a maze:Cell .
-    ?rediri dyn:keyValue "redkey" .
-  }
-  BIND(IRI(CONCAT(STR(?cellr), "#ui-redkey")) AS ?uiredkey)
+    VALUES (?key ?suffix ?fill) {
+        ("greenkey" "#ui-greenkey" "green")
+        ("bluekey"  "#ui-bluekey"  "blue")
+        ("redkey"   "#ui-redkey"   "red")
+    }
+
+    GRAPH ?g {
+        ?cell a maze:Cell .
+
+        {
+            ?cell dyn:keyValue ?key .
+        }
+        UNION
+        {
+            ?keyNode dyn:keyValue ?key .
+        }
+    }
+
+    BIND(IRI(CONCAT(STR(?cell), ?suffix)) AS ?uiKey)
+} ;
+
+# Cleanup key UI elements when keys are no longer present
+DELETE {
+    GRAPH ?g {
+        ?cell ui:hasUiElement ?uiKey .
+        ?uiKey ?p ?o .
+    }
+}
+WHERE {
+    VALUES (?key ?suffix) {
+        ("greenkey" "#ui-greenkey")
+        ("bluekey"  "#ui-bluekey")
+        ("redkey"   "#ui-redkey")
+    }
+
+    GRAPH ?g {
+        ?cell a maze:Cell .
+    }
+
+    BIND(IRI(CONCAT(STR(?cell), ?suffix)) AS ?uiKey)
+
+    GRAPH ?g {
+        ?uiKey ?p ?o .
+    }
+
+    FILTER NOT EXISTS {
+        GRAPH ?g {
+            {
+                ?cell dyn:keyValue ?key .
+            }
+            UNION
+            {
+                ?keyNode dyn:keyValue ?key .
+            }
+        }
+    }
 } ;
 
 # --------------
