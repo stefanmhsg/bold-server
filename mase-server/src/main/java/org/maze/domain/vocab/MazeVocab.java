@@ -137,6 +137,11 @@ public final class MazeVocab {
      */
     public static final String UI_OFFSET_Y = UI_NS + "offsetY";
 
+    /**
+     * Predicate linking a cell to a UI element.
+     */
+    public static final String UI_HAS_UI_ELEMENT = UI_NS + "hasUiElement";
+
     // ============ State Management ============
     
     /**

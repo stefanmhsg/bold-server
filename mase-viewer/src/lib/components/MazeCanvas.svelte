@@ -62,9 +62,6 @@
         Path: Konva.Path
     };
 
-
-
-
     onMount(() => {
         if (!maze || !container) return;
 
@@ -340,6 +337,11 @@
             return;
         }
 
+        if (newestEvent.type === "UI_DELETE") {
+            removeUiNode(newestEvent.id);
+            return;
+        }
+
     });
 
     $effect(() => {
@@ -505,6 +507,17 @@
         cellBaseFillById.set(cellId, effectiveFill);
         rect.fill(effectiveFill);
         layer.batchDraw();
+    }
+
+    function removeUiNode(id: string) {
+        const node = uiNodes.get(id);
+        if (!node) return;
+
+        node.destroy();
+        uiNodes.delete(id);
+
+        layer.batchDraw();
+        agentLayer.batchDraw();
     }
 
     function resolveUiAttrs(cmd: UiCommand) {

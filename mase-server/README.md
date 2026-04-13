@@ -133,3 +133,51 @@ Example UI element definition for a cell background color (without `ui:konvaType
 Example SPARQL Update queries to add and change UI elements can be found in [ui.rq](src/main/resources/rules/Global/ui.rq).
 
 ---
+
+## Maze Event Broadcasting
+
+MASE broadcasts runtime state changes to connected viewers via WebSocket (`/ws`, see [MazeBroadcaster.java](src/main/java/org/maze/api/websocket/MazeBroadcaster.java)).
+The broadcast stream is generated from RDF statement changes and committed transactions,
+so visual updates can happen without reloading the page.
+
+### Background
+
+- The server executes SPARQL UPDATE rules after POST requests.
+- During execution, RDF add/remove operations are observed by a connection listener ([MazeUpdateListener.java](src/main/java/org/maze/infrastructure/rdf/MazeUpdateListener.java)).
+- Events are buffered and sent after successful commit to avoid partial/rolled-back UI states.
+
+### Event Types
+
+- `AGENT_MOVED`
+  Implemented by [AgentMovedEvent.java](src/main/java/org/maze/api/websocket/events/AgentMovedEvent.java).
+  Signals agent movement between cells.
+
+- `UI_UPSERT`
+  Implemented by [UiUpsertEvent.java](src/main/java/org/maze/api/websocket/events/UiUpsertEvent.java).
+  Signals that a UI element was added or updated (e.g., lock color, arrow, key marker).
+
+- `UI_DELETE`
+  Implemented by [UiDeleteEvent.java](src/main/java/org/maze/api/websocket/events/UiDeleteEvent.java).
+  Signals that a UI element should be removed from the canvas.
+
+- `TRANSACTION`
+  Implemented by [TransactionEvent.java](src/main/java/org/maze/api/websocket/events/TransactionEvent.java).
+  Provides a trace of merged triples and per-rule added/removed triples for debugging/inspection.
+
+### Relation to Viewer Rendering
+
+- On startup, the viewer loads a UI snapshot (current RDF UI state) via [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) and [ +page.ts](../mase-viewer/src/routes/+page.ts).
+- During runtime, incremental WebSocket events are applied:
+  - `UI_UPSERT` -> create/update Konva node
+  - `UI_DELETE` -> destroy Konva node
+  - `AGENT_MOVED` -> update agent marker position
+- Runtime event handling in viewer is implemented in [mazeState.svelte.ts](../mase-viewer/src/lib/mazeState.svelte.ts) and [MazeCanvas.svelte](../mase-viewer/src/lib/components/MazeCanvas.svelte).
+- This keeps the Konva scene synchronized with RDF state in near real time.
+
+In short: RDF is the source of truth, broadcasting is the transport, and the viewer applies
+events as visual deltas on top of the initial snapshot.
+
+
+## Logging
+
+Change the logging level in [jetty-logging.properties](../mase-server/src/main/resources/jetty-logging.properties)

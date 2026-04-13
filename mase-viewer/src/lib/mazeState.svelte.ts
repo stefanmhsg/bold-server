@@ -34,6 +34,11 @@ export interface UiUpsertEvent extends BaseEvent, UiCommand {
     type: 'UI_UPSERT';
 }
 
+export interface UiDeleteEvent extends BaseEvent {
+    type: 'UI_DELETE';
+    id: string;
+}
+
 export interface TransactionEvent extends BaseEvent {
     type: 'TRANSACTION';
     trigger: 'POST' | 'STARTUP' | string;
@@ -49,7 +54,7 @@ export interface TransactionEvent extends BaseEvent {
     rules: RuleChange[];
 }
 
-export type MazeEvent = AgentMovedEvent | UiUpsertEvent | TransactionEvent;
+export type MazeEvent = AgentMovedEvent | UiUpsertEvent | UiDeleteEvent | TransactionEvent;
 
 export class MazeStore {
     events = $state<MazeEvent[]>([]);
@@ -59,6 +64,7 @@ export class MazeStore {
     // Derived views for specific event types
     agentEvents = $derived(this.events.filter(e => e.type === 'AGENT_MOVED') as AgentMovedEvent[]);
     uiEvents = $derived(this.events.filter(e => e.type === 'UI_UPSERT') as UiUpsertEvent[]);
+    uiDeleteEvents = $derived(this.events.filter(e => e.type === 'UI_DELETE') as UiDeleteEvent[]);
     transactionEvents = $derived(this.events.filter(e => e.type === 'TRANSACTION') as TransactionEvent[]);
 
     connect() {
@@ -123,6 +129,10 @@ function isMazeEventPayload(payload: any): payload is Omit<MazeEvent, 'timestamp
 
     if (payload.type === 'UI_UPSERT') {
         return typeof payload.id === 'string' && typeof payload.attrs === 'object';
+    }
+
+    if (payload.type === 'UI_DELETE') {
+        return typeof payload.id === 'string';
     }
 
     if (payload.type === 'TRANSACTION') {
