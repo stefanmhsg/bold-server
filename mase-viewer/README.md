@@ -42,4 +42,11 @@ The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or t
 	- `<s> <p> <o>`
 - Resize both event tables vertically (up/down) to see more or fewer rows while keeping layout width fixed.
 
+## Background Coloring and Optimal Route
+
+- Cell background coloring is driven by RDF UI updates: use `ui:layer "cellBackground"` together with `ui:fill`.
+- Optimal route coloring is frontend-only (visual aid only) and can be toggled in the UI.
+- The route set is selected by scenario, therefore the admin snapshot must provide `scenarioName` in the loaded data.
+- If `scenarioName` is missing or has no configured route mapping, no optimal-route overlay is applied.
+
 <img src="Maze Viewer v9.png" width="800">
