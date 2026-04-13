@@ -92,8 +92,36 @@ WHERE {
     BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
-    # beyond reference cell /cells/12/5 -> for some overlap use && instead of ||
-    FILTER(?x > 12 || ?y > 5)
+    
+    FILTER(
+        # delete beyond reference cell /cells/12/5
+        (?x > 12 || ?y > 5)
+        &&
+        # except the mixed zone
+        !(
+          (
+            (
+            # Base Frame 1
+            (
+                ?x > 27 && ?x < 41 &&
+                ?y > 13 && ?y < 37
+            ) ||
+            # Base Frame 2
+            (
+                ?x >= 22 && 
+                ?x <= 27 && 
+                ?y >= 12 && 
+                ?y <= 16
+            )
+            ) &&
+            # Exclude
+            ?coords NOT IN ("40/28", "40/30", "40/36", "28/20", "28/21", "29/21", "28/22", "28/35") 
+          )
+          # Include
+          ||
+          ?coords IN ("33/37") 
+        )
+    )
 } ;
 
 # Set Cell Background Color
@@ -113,14 +141,23 @@ WHERE {
 
     # limit to zone
     BIND(STRAFTER(STR(?g), "/cells/") AS ?coords)
-    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+    FILTER(CONTAINS(?coords, "/"))  # keep only x/y
   
     BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
-    # starting at cell 13/5 and ending at cell 28/13 
-    FILTER(?x < 13)
-    FILTER(?y < 19)
+    FILTER(
+      (
+        # Base Frame
+        ?x < 13 &&
+        ?y < 19 &&
+        # Exclude
+        ?coords NOT IN ("12/12", "12/14") 
+      )
+      # Include
+      ||
+      ?coords IN ("5/19", "4/19", "13/16", "13/17", "13/18") 
+    )
 } ;
 
 # --------------
@@ -169,8 +206,27 @@ WHERE {
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
     # starting at cell 13/5 and ending at cell 28/13 
-    FILTER(?x > 12 && ?x < 29)
-    FILTER(?y < 14)
+    FILTER(
+      (
+        (
+        # Base Frame 1
+        (
+            ?x > 12 && ?x < 29 &&
+            ?y < 10
+        ) ||
+        # Base Frame 2
+        (
+            ?x > 20 && ?x < 29 &&
+            ?y >= 10 && ?y < 12
+        )
+        ) &&
+        # Exclude
+        ?coords NOT IN ("") 
+      )
+      # Include
+      ||
+      ?coords IN ("28/12", "28/13") 
+    )
 } ;
 
 # stigmergy-traffic-add: Add a direction to the existing marker
@@ -211,8 +267,27 @@ WHERE {
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
     # starting at cell 13/5 and ending at cell 28/13 
-    FILTER(?x > 12 && ?x < 29)
-    FILTER(?y < 14)
+    FILTER(
+      (
+        (
+        # Base Frame 1
+        (
+            ?x > 12 && ?x < 29 &&
+            ?y < 10
+        ) ||
+        # Base Frame 2
+        (
+            ?x > 20 && ?x < 29 &&
+            ?y >= 10 && ?y < 12
+        )
+        ) &&
+        # Exclude
+        ?coords NOT IN ("") 
+      )
+      # Include
+      ||
+      ?coords IN ("28/12", "28/13") 
+    )
 } ;
 
 # Stigmergy-traffic-new: Create a marker within the stigmergy-zone. Start at 13/5 until 28/13 
@@ -251,8 +326,27 @@ WHERE {
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
     # starting at cell 13/5 and ending at cell 28/13 
-    FILTER(?x > 12 && ?x < 29)
-    FILTER(?y < 14)
+    FILTER(
+      (
+        (
+        # Base Frame 1
+        (
+            ?x > 12 && ?x < 29 &&
+            ?y < 10
+        ) ||
+        # Base Frame 2
+        (
+            ?x > 20 && ?x < 29 &&
+            ?y >= 10 && ?y < 12
+        )
+        ) &&
+        # Exclude
+        ?coords NOT IN ("") 
+      )
+      # Include
+      ||
+      ?coords IN ("28/12", "28/13") 
+    )
 } ;
 
 # Set Cell Background Color
@@ -278,8 +372,131 @@ WHERE {
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
     # starting at cell 13/5 and ending at cell 28/13 
-    FILTER(?x > 12 && ?x < 29)
-    FILTER(?y < 14)
+    FILTER(
+      (
+        (
+        # Base Frame 1
+        (
+            ?x > 12 && ?x < 29 &&
+            ?y < 10
+        ) ||
+        # Base Frame 2
+        (
+            ?x > 20 && ?x < 29 &&
+            ?y >= 10 && ?y < 12
+        )
+        ) &&
+        # Exclude
+        ?coords NOT IN ("") 
+      )
+      # Include
+      ||
+      ?coords IN ("28/12", "28/13") 
+    )
+} ;
+
+# ----------
+# MIXED ZONE
+# ----------
+
+# Set Cell Background Color
+INSERT {
+    GRAPH ?g {
+        ?cell ui:hasUiElement ?cellColor .
+
+        ?cellColor ui:layer "cellBackground" ;
+                             ui:fill "#ffe4c2" .
+    }
+}
+WHERE {
+    GRAPH ?g {
+        ?cell a maze:Cell .
+    }
+    BIND(IRI(CONCAT(STR(?cell), "#ui-bg")) AS ?cellColor)
+
+    # limit to zone
+    BIND(STRAFTER(STR(?g), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # starting at cell 28/14 and ending at cell 36/36 
+    FILTER(
+      (
+        (
+        # Base Frame 1
+        (
+            ?x > 27 && ?x < 41 &&
+            ?y > 13 && ?y < 37
+        ) ||
+        # Base Frame 2
+        (
+            ?x >= 22 && 
+            ?x <= 27 && 
+            ?y >= 12 && 
+            ?y <= 16
+        )
+        ) &&
+        # Exclude
+        ?coords NOT IN ("40/28", "40/30", "40/36", "28/20", "28/21", "29/21", "28/22", "28/35") 
+      )
+      # Include
+      ||
+      ?coords IN ("33/37") 
+    )
+} ;
+
+# ----------
+# FINAL ZONE
+# ----------
+
+# Set Cell Background Color
+INSERT {
+    GRAPH ?g {
+        ?cell ui:hasUiElement ?cellColor .
+
+        ?cellColor ui:layer "cellBackground" ;
+                             ui:fill "#ffc2c8" .
+    }
+}
+WHERE {
+    GRAPH ?g {
+        ?cell a maze:Cell .
+    }
+    BIND(IRI(CONCAT(STR(?cell), "#ui-bg")) AS ?cellColor)
+
+    # limit to zone
+    BIND(STRAFTER(STR(?g), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # starting at cell 36/37 and ending at cell 54/58 
+    FILTER(
+      (
+        (
+        # Base Frame 1
+        (
+            ?x > 39 &&
+            ?y > 27
+        ) ||
+        # Base Frame 2
+        (
+            ?x >= 31 && 
+            ?x <= 39 && 
+            ?y >= 38 && 
+            ?y <= 44
+        )
+        ) &&
+        # Exclude
+        ?coords NOT IN ("40/33") 
+      )
+      # Include
+      ||
+      ?coords IN ("36/37") 
+    )
 } 
 
 
