@@ -415,6 +415,35 @@ public class MazeLayoutService {
         return false;
     }
 
+    public String getMazeScenarioName() {
+        String query =
+                "SELECT ?type WHERE { <http://127.0.1.1:8080/maze> a ?type . }";
+
+        try (SailRepositoryConnection conn = repository.getConnection();
+             TupleQueryResult result = conn.prepareTupleQuery(query).evaluate()) {
+            while (result.hasNext()) {
+                BindingSet bs = result.next();
+                String type = bs.getValue("type").stringValue();
+                if (type.endsWith("#BasicContainer") || type.endsWith("#Container")) {
+                    continue;
+                }
+                return localName(type);
+            }
+        }
+
+        return null;
+    }
+
+    private String localName(String iri) {
+        int hashIdx = iri.lastIndexOf('#');
+        int slashIdx = iri.lastIndexOf('/');
+        int idx = Math.max(hashIdx, slashIdx);
+        if (idx < 0 || idx + 1 >= iri.length()) {
+            return iri;
+        }
+        return iri.substring(idx + 1);
+    }
+
     private static final class IncomingReference {
         private final String sourceId;
         private final String direction;

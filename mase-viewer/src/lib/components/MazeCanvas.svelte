@@ -3,10 +3,13 @@
     import Konva from 'konva';
     import type { MazeLayout, Cell } from '$lib/types';
     import { mazeState, type UiCommand } from '$lib/mazeState.svelte';
+    import { getOptimalRouteOverlay } from '$lib/optimalRoutes';
+    import { showOptimalRoute } from '$lib/routeOverlayStore';
 
-    let { maze, uiSnapshot, onCellSelect } = $props<{ 
+    let { maze, uiSnapshot, scenarioName, onCellSelect } = $props<{ 
         maze: MazeLayout,
         uiSnapshot: UiCommand[],
+        scenarioName?: string | null,
         onCellSelect?: (cellId: string) => void 
     }>();
 
@@ -17,6 +20,7 @@
     let agentLayer: Konva.Layer;
     let cellRects: Map<string, Konva.Rect> = new Map();
     let cellBaseFillById: Map<string, string> = new Map();
+    let cellUiFillById: Map<string, string> = new Map();
     let agents: Map<string, Konva.Star> = new Map();
     let agentColors: Map<string, string> = new Map();
     let agentPositions: Map<string, string> = new Map();
@@ -41,6 +45,9 @@
     const CELL_SIZE = 60;
     const WALL_THICKNESS = 4;
     const PADDING = 20;
+
+    const optimalRouteOverlay = $derived(getOptimalRouteOverlay(scenarioName));
+    const optimalRouteColor = $derived(optimalRouteOverlay?.color ?? '#ffc3ff');
 
     const KONVA_REGISTRY: Record<
         string,
@@ -158,19 +165,22 @@
             const x = cell.x * CELL_SIZE + PADDING;
             const y = cell.y * CELL_SIZE + PADDING;
 
+            cellUiFillById.set(cell.id, '#ffffff');
+            const baseFill = getCellBaseFill(cell);
+
             // Draw Cell Background
             const rect = new Konva.Rect({
                 x: x,
                 y: y,
                 width: CELL_SIZE,
                 height: CELL_SIZE,
-                fill: '#ffffff',
+                fill: baseFill,
                 stroke: '#ddd',
                 strokeWidth: 1
             });
 
             cellRects.set(cell.id, rect);
-            cellBaseFillById.set(cell.id, '#ffffff');
+            cellBaseFillById.set(cell.id, baseFill);
             
             if (onCellSelect) {
                 rect.on('dblclick', () => {
@@ -263,6 +273,41 @@
         walls.forEach(w => layer.add(w));
     }
 
+    function isOptimalRouteCell(cell: Cell): boolean {
+        if (!$showOptimalRoute) {
+            return false;
+        }
+
+        if (!optimalRouteOverlay) {
+            return false;
+        }
+
+        const marker = '/cells/';
+        const idx = cell.id.indexOf(marker);
+        if (idx === -1) return false;
+
+        const suffix = cell.id.substring(idx + marker.length);
+        return optimalRouteOverlay.cellIdSuffixes.has(suffix);
+    }
+
+    function getCellBaseFill(cell: Cell): string {
+        const uiFill = cellUiFillById.get(cell.id) ?? '#ffffff';
+        return isOptimalRouteCell(cell) ? optimalRouteColor : uiFill;
+    }
+
+    function refreshAllCellFills() {
+        maze.cells.forEach((cell: Cell) => {
+            const rect = cellRects.get(cell.id);
+            if (!rect) return;
+
+            const fill = getCellBaseFill(cell);
+            cellBaseFillById.set(cell.id, fill);
+            rect.fill(fill);
+        });
+
+        layer.batchDraw();
+    }
+
     function isWall(connection: string): boolean {
         return connection === 'wall' || connection.endsWith('#Wall');
     }
@@ -295,6 +340,14 @@
             return;
         }
 
+    });
+
+    $effect(() => {
+        $showOptimalRoute;
+        optimalRouteOverlay;
+
+        if (!layer) return;
+        refreshAllCellFills();
     });
     
     function updateAgentPosition(agentId: string, cellId: string) {
@@ -444,8 +497,13 @@
         const rect = cellRects.get(cellId);
         if (!rect) return;
 
-        cellBaseFillById.set(cellId, fill);
-        rect.fill(fill);
+        cellUiFillById.set(cellId, fill);
+
+        const cell = maze.cells.find((c: Cell) => c.id === cellId);
+        const effectiveFill = cell ? getCellBaseFill(cell) : fill;
+
+        cellBaseFillById.set(cellId, effectiveFill);
+        rect.fill(effectiveFill);
         layer.batchDraw();
     }
 
@@ -556,89 +614,6 @@
             default:   return { x: cx,    y: cy };
         }
     }
-
-
-    /*
-    function drawGreenArrow(cell: Cell, x: number, y: number) {
-        const targetId = cell.connections.green;
-        if (!targetId) return;
-
-        const targetCell = maze.cells.find(c => c.id === targetId);
-        if (!targetCell) return;
-
-        const dx = targetCell.x - cell.x;
-        const dy = targetCell.y - cell.y;
-
-        // Calculate angle in degrees
-        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-        const arrow = new Konva.Arrow({
-            x: x + CELL_SIZE / 2,
-            y: y + CELL_SIZE / 2,
-            points: [-15, 0, 15, 0],
-            pointerLength: 8,
-            pointerWidth: 8,
-            fill: '#22c55e', // Green-500
-            stroke: '#22c55e',
-            strokeWidth: 4,
-            rotation: angle,
-            opacity: 0.6
-        });
-        
-        layer.add(arrow);
-    }
-    */
-
-    /*
-    function drawLock(cell: Cell, x: number, y: number) {
-        const lockSize = 12;
-        const padding = 4;
-        
-        const rect = new Konva.Rect({
-            x: x + CELL_SIZE - lockSize - padding,
-            y: y + padding,
-            width: lockSize,
-            height: lockSize,
-            fill: cell.lock?.isLocked ? 'red' : 'green',
-            stroke: 'black',
-            strokeWidth: 1
-        });
-        layer.add(rect);
-        locks.set(cell.id, rect); // Store reference
-    }
-    */
-
-    /*
-    function drawItems(cell: Cell, x: number, y: number) {
-        const itemRadius = 6;
-        const padding = 4;
-        const startY = y + CELL_SIZE - itemRadius * 2 - padding;
-        let startX = x + padding;
-
-        cell.items.forEach((item, index) => {
-             const circle = new Konva.Circle({
-                x: startX + (index * (itemRadius * 2 + padding)) + itemRadius,
-                y: startY + itemRadius,
-                radius: itemRadius,
-                fill: 'gold',
-                stroke: 'black',
-                strokeWidth: 1
-             });
-             layer.add(circle);
-        });
-    }
-    */
-
-    /*
-    function updateCellLockState(cellId: string, isLocked: boolean) {
-        const lockShape = locks.get(cellId);
-        if (lockShape) {
-            lockShape.fill(isLocked ? 'red' : 'green');
-            layer.draw(); // Redraw layer to show changes
-        }
-    }
-    */
-
 
 </script>
 

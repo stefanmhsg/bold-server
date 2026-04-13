@@ -40,8 +40,10 @@ public class MazeAdminResource {
         MazeAdminSnapshotDto snapshot = new MazeAdminSnapshotDto();
         snapshot.layout = layoutService.getMazeLayout();
         snapshot.ui = layoutService.getUiSnapshot();
+        snapshot.scenario = layoutService.getMazeScenarioName();
 
-        log.info("Admin requested maze snapshot: {}x{}, ui elements: {}",
+        log.info("Admin requested maze snapshot: scenario={}, {}x{}, ui elements: {}",
+            snapshot.scenario,
             snapshot.layout.width,
             snapshot.layout.height,
             snapshot.ui.size()

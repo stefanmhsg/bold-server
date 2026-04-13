@@ -35,4 +35,5 @@ export interface Item {
 export interface MazeAdminSnapshot {
     layout: MazeLayout;
     ui: UiCommand[];
+    scenario?: string | null;
 }

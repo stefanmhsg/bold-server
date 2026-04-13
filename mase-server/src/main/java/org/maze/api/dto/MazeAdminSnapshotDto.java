@@ -5,5 +5,6 @@ import java.util.List;
 public class MazeAdminSnapshotDto {
     public MazeLayoutDto layout;
     public List<UiUpsertDto> ui;
+    public String scenario;
 }
 

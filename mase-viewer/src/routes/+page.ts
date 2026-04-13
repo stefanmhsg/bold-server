@@ -13,11 +13,12 @@ export const load: PageLoad = async ({ fetch }) => {
 
         return {
             maze: snapshot.layout,
-            uiSnapshot: snapshot.ui
+            uiSnapshot: snapshot.ui,
+            scenarioName: snapshot.scenario ?? null
         };
 
     } catch (error) {
         console.error("Failed to load maze layout", error);
     }
-    return { maze: null, uiSnapshot: [] };
+    return { maze: null, uiSnapshot: [], scenarioName: null };
 };

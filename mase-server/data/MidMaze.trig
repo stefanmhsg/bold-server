@@ -14,7 +14,7 @@
 #define the root of our scenario, where the maze exists
 # sequence lenghth 13520562
 </maze> {
-    </maze> a ldp:BasicContainer , maze:BeginnerMaze ;
+    </maze> a ldp:BasicContainer , maze:MidMaze ;
         maze:transitions maze:north, maze:south, maze:east, maze:west , maze:exit ;
         ldp:contains </map> ;
         xhv:start </cells/0> .

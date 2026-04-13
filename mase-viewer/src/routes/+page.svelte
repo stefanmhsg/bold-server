@@ -5,6 +5,7 @@
     import MazeCanvas from '$lib/components/MazeCanvas.svelte';
     import AgentEventLog from '$lib/components/AgentEventLog.svelte';
     import CellEventLog from '$lib/components/CellEventLog.svelte';
+    import { showOptimalRoute } from '$lib/routeOverlayStore';
 
     let { data } = $props<{ data: PageData }>();
 
@@ -161,11 +162,20 @@
 <div class="p-4 flex flex-col lg:flex-row gap-6">
     <!-- Left Column: Maze Visualization -->
     <div class="flex-1 flex flex-col gap-6">
-        <h1 class="text-2xl font-bold">Maze Viewer</h1>
+        <div class="flex items-center justify-between gap-3">
+            <h1 class="text-2xl font-bold">Maze Viewer</h1>
+            <button
+                onclick={() => showOptimalRoute.update((v) => !v)}
+                class="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50"
+                type="button"
+            >
+                {$showOptimalRoute ? 'Hide Optimal Route' : 'Show Optimal Route'}
+            </button>
+        </div>
         
         {#if data.maze}
             <div class="resize overflow-hidden border-2 border-gray-300 rounded bg-white" style="height: 600px;">
-                <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} onCellSelect={handleCellSelect} />
+                <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} scenarioName={data.scenarioName} onCellSelect={handleCellSelect} />
             </div>
         {:else}
             <div class="p-8 bg-gray-100 rounded text-center text-gray-500">
