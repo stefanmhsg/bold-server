@@ -3,6 +3,10 @@ PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX ui:   <https://example.org/ui#>
 
+# ----------
+# LOCK CELLS
+# ----------
+
 # Rule to add UI elements for locked cells & keep red if locked
 DELETE {
     GRAPH ?lockedCell {
@@ -65,6 +69,9 @@ WHERE {
   }
 };
 
+# ---------------------
+# GREEN ARROW SIGNIFIER
+# ---------------------
 
 # Rule to add UI elements for green arrow signifiers
 INSERT {
@@ -131,3 +138,8 @@ WHERE {
     # Only for green arrow UI elements
     FILTER STRSTARTS(STR(?greenArrowUiElement), CONCAT(STR(?cell), "#ui-greenArrow"))
 }
+
+# -----------------
+# STIGMERGY MARKERS
+# -----------------
+

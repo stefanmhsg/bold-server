@@ -25,6 +25,15 @@
     let agentColors: Map<string, string> = new Map();
     let agentPositions: Map<string, string> = new Map();
     let uiNodes: Map<string, Konva.Shape | Konva.Group> = new Map();
+    let uiPathImageCache: Map<string, CachedPathRender> = new Map();
+    let uiPathImagePromises: Map<string, Promise<CachedPathRender>> = new Map();
+    let uiPathRenderKeysById: Map<string, string> = new Map();
+
+    type CachedPathRender = {
+        image: HTMLImageElement;
+        bounds: { x: number; y: number; width: number; height: number };
+        pad: number;
+    };
 
 
     const AGENT_COLORS = [
@@ -61,6 +70,152 @@
         Star: Konva.Star,
         Path: Konva.Path
     };
+
+    function isPathCommand(cmd: UiCommand): boolean {
+        return cmd.konvaType === "Path" && typeof cmd.attrs?.data === "string";
+    }
+
+    function pathRenderCacheKey(attrs: Record<string, any>): string {
+        // Cache by geometry and paint attributes that affect raster output.
+        return JSON.stringify({
+            data: attrs.data,
+            fill: attrs.fill ?? null,
+            stroke: attrs.stroke ?? null,
+            strokeWidth: attrs.strokeWidth ?? null,
+            lineJoin: attrs.lineJoin ?? null,
+            lineCap: attrs.lineCap ?? null
+        });
+    }
+
+    async function getCachedPathImage(attrs: Record<string, any>): Promise<CachedPathRender> {
+        const key = pathRenderCacheKey(attrs);
+        const existingImage = uiPathImageCache.get(key);
+        if (existingImage) return existingImage;
+
+        const existingPromise = uiPathImagePromises.get(key);
+        if (existingPromise) return existingPromise;
+
+        const promise = rasterizePathToImage(attrs).then((render) => {
+            uiPathImageCache.set(key, render);
+            uiPathImagePromises.delete(key);
+            return render;
+        }).catch((error) => {
+            uiPathImagePromises.delete(key);
+            throw error;
+        });
+
+        uiPathImagePromises.set(key, promise);
+        return promise;
+    }
+
+    function rasterizePathToImage(attrs: Record<string, any>): Promise<CachedPathRender> {
+        return new Promise((resolve, reject) => {
+            try {
+                const path = new Konva.Path({
+                    data: attrs.data,
+                    fill: attrs.fill,
+                    stroke: attrs.stroke,
+                    strokeWidth: attrs.strokeWidth ?? 0,
+                    lineJoin: attrs.lineJoin,
+                    lineCap: attrs.lineCap
+                });
+
+                const bounds = path.getClientRect({ skipTransform: true, skipShadow: true });
+                const pad = 2;
+                const width = Math.max(1, Math.ceil(bounds.width + pad * 2));
+                const height = Math.max(1, Math.ceil(bounds.height + pad * 2));
+
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+                if (!ctx) {
+                    reject(new Error("Could not create canvas context for path rasterization"));
+                    return;
+                }
+
+                ctx.translate(-bounds.x + pad, -bounds.y + pad);
+
+                const p2d = new Path2D(String(attrs.data));
+                if (attrs.fill) {
+                    ctx.fillStyle = String(attrs.fill);
+                    ctx.fill(p2d);
+                }
+                if (attrs.stroke && (attrs.strokeWidth ?? 0) > 0) {
+                    ctx.strokeStyle = String(attrs.stroke);
+                    ctx.lineWidth = Number(attrs.strokeWidth ?? 0);
+                    if (attrs.lineJoin) ctx.lineJoin = String(attrs.lineJoin) as CanvasLineJoin;
+                    if (attrs.lineCap) ctx.lineCap = String(attrs.lineCap) as CanvasLineCap;
+                    ctx.stroke(p2d);
+                }
+
+                const img = new Image();
+                img.onload = () => resolve({ image: img, bounds, pad });
+                img.onerror = () => reject(new Error("Failed to load rasterized path image"));
+                img.src = canvas.toDataURL("image/png");
+            } catch (error) {
+                reject(error instanceof Error ? error : new Error("Unknown path rasterization error"));
+            }
+        });
+    }
+
+    async function upsertPathAsImage(cmd: UiCommand, targetLayer: Konva.Layer) {
+        const resolvedAttrs = resolveUiAttrs(cmd);
+        const cacheKey = pathRenderCacheKey(resolvedAttrs);
+        uiPathRenderKeysById.set(cmd.id, cacheKey);
+
+        try {
+            const cached = await getCachedPathImage(resolvedAttrs);
+
+            // Ignore stale async completions for nodes that were updated again.
+            if (uiPathRenderKeysById.get(cmd.id) !== cacheKey) return;
+
+            let node = uiNodes.get(cmd.id);
+            if (!(node instanceof Konva.Image)) {
+                node?.destroy();
+                node = new Konva.Image({ id: cmd.id, image: new Image() });
+                targetLayer.add(node);
+                uiNodes.set(cmd.id, node);
+            }
+
+            const imageAttrs: Record<string, any> = { ...resolvedAttrs };
+            delete imageAttrs.data;
+            delete imageAttrs.fill;
+            delete imageAttrs.stroke;
+            delete imageAttrs.strokeWidth;
+            delete imageAttrs.lineJoin;
+            delete imageAttrs.lineCap;
+
+            imageAttrs.image = cached.image;
+            imageAttrs.width = cached.image.width;
+            imageAttrs.height = cached.image.height;
+            // Place and rotate around the rendered path center, so anchor positions
+            // remain intuitive even when SVG path coordinates are absolute.
+            imageAttrs.x = Number(resolvedAttrs.x ?? 0);
+            imageAttrs.y = Number(resolvedAttrs.y ?? 0);
+            imageAttrs.offsetX = cached.pad + cached.bounds.width / 2;
+            imageAttrs.offsetY = cached.pad + cached.bounds.height / 2;
+
+            node.setAttrs(imageAttrs);
+            targetLayer.batchDraw();
+        } catch (error) {
+            console.warn("Path rasterization failed, falling back to Konva.Path", error);
+
+            const Ctor = KONVA_REGISTRY[cmd.konvaType];
+            if (!Ctor) return;
+
+            let node = uiNodes.get(cmd.id);
+            if (!node) {
+                node = new Ctor({ id: cmd.id, ...resolvedAttrs });
+                targetLayer.add(node);
+                uiNodes.set(cmd.id, node);
+            } else {
+                node.setAttrs(resolvedAttrs);
+            }
+            targetLayer.batchDraw();
+        }
+    }
 
     onMount(() => {
         if (!maze || !container) return;
@@ -469,6 +624,12 @@
         }
 
         const targetLayer = effectiveLayer === "agent" ? agentLayer : layer;
+
+        if (isPathCommand(cmd)) {
+            void upsertPathAsImage(cmd, targetLayer);
+            return;
+        }
+
         let node = uiNodes.get(id);
 
         if (!node) {
@@ -537,7 +698,7 @@
 
         // Convert direction (N/E/S/W) to rotation degrees
         if (resolved.direction) {
-            resolved.rotation = resolveDirection(String(resolved.direction));
+            resolved.rotation = resolveDirection(String(resolved.direction), konvaType);
             delete resolved.direction;
         }
 
@@ -580,15 +741,29 @@
     }
 
     /**
-     * Convert cardinal direction to rotation angle in degrees
-     * N → 270°, E → 0°, S → 90°, W → 180°
+     * Convert cardinal direction to rotation angle in degrees.
+     * Arrow defaults point East at 0° (Konva Arrow points on +X axis).
+     * Footstep Path defaults point North at 0°.
      */
-    function resolveDirection(direction: string): number {
-        switch (direction) {
-            case "N": return 270;
-            case "E": return 0;
-            case "S": return 90;
-            case "W": return 180;
+    function resolveDirection(direction: string, konvaType: string): number {
+        const normalized = direction.toUpperCase();
+
+        if (konvaType === "Arrow") {
+            switch (normalized) {
+                case "N": return 270;
+                case "E": return 0;
+                case "S": return 90;
+                case "W": return 180;
+                default:  return 0;
+            }
+        }
+
+        // Default mapping for Path and other shapes whose 0° points North.
+        switch (normalized) {
+            case "N": return 0;
+            case "E": return 90;
+            case "S": return 180;
+            case "W": return 270;
             default:  return 0;
         }
     }

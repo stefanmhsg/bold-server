@@ -31,7 +31,7 @@ import org.maze.domain.vocab.MazeVocab;
 public class CcrsAgent {
 
     private static final String BASE_URI = "http://127.0.1.1:8080";
-    private static final String AGENT_NAME = "ccrs-agent-2";
+    private static final String AGENT_NAME = "ccrs-agent-1";
     private static final String MAZE_URI = BASE_URI + "/maze";
     private static final int MAX_STEPS = 2_000;
 
