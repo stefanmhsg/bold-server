@@ -108,6 +108,11 @@ public final class MazeVocab {
      * Predicate for UI element Konva-type (e.g., Rect, Circle).
      */
     public static final String UI_TYPE = UI_NS + "konvaType";
+
+    /**
+     * Predicate for UI element render layer.
+     */
+    public static final String UI_LAYER = UI_NS + "layer";
     
     /**
      * Predicate for UI element direction (e.g., N, E, S, W).

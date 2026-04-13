@@ -71,6 +71,10 @@ WHERE {
   BIND(IRI(CONCAT(STR(?cellr), "#ui-redkey")) AS ?uiredkey)
 } ;
 
+# --------------
+# SIGNIFIER ZONE
+# --------------
+
 # Remove Signifiers outside of the signifier-zone
 DELETE {
     GRAPH ?g {
@@ -91,6 +95,37 @@ WHERE {
     # beyond reference cell /cells/12/5 -> for some overlap use && instead of ||
     FILTER(?x > 12 || ?y > 5)
 } ;
+
+# Set Cell Background Color
+INSERT {
+    GRAPH ?g {
+        ?cell ui:hasUiElement ?cellColor .
+
+        ?cellColor ui:layer "cellBackground" ;
+                             ui:fill "#e9ffdb" .
+    }
+}
+WHERE {
+    GRAPH ?g {
+        ?cell a maze:Cell .
+    }
+    BIND(IRI(CONCAT(STR(?cell), "#ui-bg")) AS ?cellColor)
+
+    # limit to zone
+    BIND(STRAFTER(STR(?g), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # starting at cell 13/5 and ending at cell 28/13 
+    FILTER(?x < 13)
+    FILTER(?y < 19)
+} ;
+
+# --------------
+# STIGMERGY ZONE
+# --------------
 
 # stigmergy-traffic-increment: increment the counter
 DELETE {
@@ -218,8 +253,33 @@ WHERE {
     # starting at cell 13/5 and ending at cell 28/13 
     FILTER(?x > 12 && ?x < 29)
     FILTER(?y < 14)
+} ;
+
+# Set Cell Background Color
+INSERT {
+    GRAPH ?g {
+        ?cell ui:hasUiElement ?cellColor .
+
+        ?cellColor ui:layer "cellBackground" ;
+                             ui:fill "#dbfdff" .
+    }
+}
+WHERE {
+    GRAPH ?g {
+        ?cell a maze:Cell .
+    }
+    BIND(IRI(CONCAT(STR(?cell), "#ui-bg")) AS ?cellColor)
+
+    # limit to zone
+    BIND(STRAFTER(STR(?g), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # starting at cell 13/5 and ending at cell 28/13 
+    FILTER(?x > 12 && ?x < 29)
+    FILTER(?y < 14)
 } 
-
-
 
 

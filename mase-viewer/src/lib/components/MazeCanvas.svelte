@@ -15,6 +15,8 @@
     let layer: Konva.Layer;
 
     let agentLayer: Konva.Layer;
+    let cellRects: Map<string, Konva.Rect> = new Map();
+    let cellBaseFillById: Map<string, string> = new Map();
     let agents: Map<string, Konva.Star> = new Map();
     let agentColors: Map<string, string> = new Map();
     let agentPositions: Map<string, string> = new Map();
@@ -166,6 +168,9 @@
                 stroke: '#ddd',
                 strokeWidth: 1
             });
+
+            cellRects.set(cell.id, rect);
+            cellBaseFillById.set(cell.id, '#ffffff');
             
             if (onCellSelect) {
                 rect.on('dblclick', () => {
@@ -179,7 +184,7 @@
                 });
                 rect.on('mouseleave', () => {
                     stage.container().style.cursor = 'default';
-                    rect.fill('#ffffff');
+                    rect.fill(cellBaseFillById.get(cell.id) ?? '#ffffff');
                     layer.draw();
                 });
             }
@@ -395,8 +400,20 @@
 
     function applyUiUpsert(cmd: UiCommand) {
         const { id, konvaType, layer: layerName, attrs } = cmd;
+        const effectiveLayer = typeof attrs?.layer === "string" ? attrs.layer : layerName;
 
-        const targetLayer = layerName === "agent" ? agentLayer : layer;
+        // Semantic hook: ui:layer "cellBackground" + ui:fill "..." updates the base cell fill.
+        if (effectiveLayer === "cellBackground") {
+            const cellId = getCellIdFromUiId(id);
+            const fill = attrs?.fill;
+
+            if (cellId && typeof fill === "string") {
+                setCellBackground(cellId, fill);
+            }
+            return;
+        }
+
+        const targetLayer = effectiveLayer === "agent" ? agentLayer : layer;
         let node = uiNodes.get(id);
 
         if (!node) {
@@ -423,10 +440,22 @@
         targetLayer.batchDraw();
     }
 
+    function setCellBackground(cellId: string, fill: string) {
+        const rect = cellRects.get(cellId);
+        if (!rect) return;
+
+        cellBaseFillById.set(cellId, fill);
+        rect.fill(fill);
+        layer.batchDraw();
+    }
+
     function resolveUiAttrs(cmd: UiCommand) {
         const { attrs, id, konvaType } = cmd;
         
         const resolved = { ...attrs };
+
+        // ui:layer is transport metadata, not a Konva attribute.
+        delete resolved.layer;
 
         // Apply Arrow defaults if not present
         if (konvaType === "Arrow") {

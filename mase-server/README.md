@@ -54,6 +54,7 @@ The mapping principle is simple:
 
 - One RDF resource corresponds to one visual element.
 - The RDF predicate `ui:konvaType` defines which Konva node type is instantiated, such as `Rect`, `Circle` or `Arrow`.
+- Exception: semantic layer `ui:layer "cellBackground"` can be used to set a cell background color directly via `ui:fill`, without requiring `ui:konvaType`.
 - RDF predicates under the ui namespace map one to one to Konva attributes.
 - UI elements are attached to cells and interpreted relative to cell layout by the frontend. Therefore, the IRI of the cell should be part of the UI element's IRI e.g. `<http://127.0.1.1:8080/cells/5#ui-lock>`.
 
@@ -69,7 +70,7 @@ Core predicates include:
   String identifying the Konva node type to instantiate. Examples include `Rect`, `Circle` or `Arrow`.
 
 - `ui:layer`
-  Konva layer on canvas.
+  Konva layer on canvas. Special value `cellBackground` updates the base fill of a cell (semantic mode, no Konva node creation).
 
 - `ui:anchor`
   Anchor point within the parent cell based on 3x3 grid to position the element. Examples include C for center, NW for top-left, N for top-center, SE for bottom-right, etc.
@@ -120,6 +121,13 @@ Example UI element definition for an arrow icon as a green arrow pointing south:
   ui:stroke "green";
   ui:opacity 0.6;
   ui:strokeWidth 4 .
+```
+
+Example UI element definition for a cell background color (without `ui:konvaType`):
+
+```turtle
+<http://127.0.1.1:8080/cells/5#ui-bg> ui:layer "cellBackground";
+  ui:fill "#fde68a" .
 ```
 
 Example SPARQL Update queries to add and change UI elements can be found in [ui.rq](src/main/resources/rules/Global/ui.rq).

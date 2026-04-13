@@ -29,6 +29,11 @@ public class UiUpsertEvent extends MazeEvent {
             return;
         }
 
+        if (pred.equals(MazeVocab.UI_LAYER)) {
+            this.layer = obj;
+            return;
+        }
+
         // Generic UI attributes (x, y, width, fill, rotation, direction, anchor, offsetX, offsetY, ...)
         if (pred.startsWith(MazeVocab.UI_NS)) {
             String attr = pred.substring(MazeVocab.UI_NS.length());

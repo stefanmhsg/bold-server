@@ -444,7 +444,7 @@ public class MazeLayoutService {
                 "PREFIX ui: <" + namespace + "> " +
                 "SELECT ?ui ?p ?o ?layer ?konvaType WHERE { " +
                 "  ?cell ui:hasUiElement ?ui . " +
-                "  ?ui ui:konvaType ?konvaType . " +
+                "  OPTIONAL { ?ui ui:konvaType ?konvaType } " +
                 "  OPTIONAL { ?ui ui:layer ?layer } " +
                 "  ?ui ?p ?o . " +
                 "}";
@@ -464,7 +464,9 @@ public class MazeLayoutService {
                         u.layer = bs.hasBinding("layer")
                             ? bs.getValue("layer").stringValue()
                             : "overlay";
-                        u.konvaType = bs.getValue("konvaType").stringValue();
+                        u.konvaType = bs.hasBinding("konvaType")
+                            ? bs.getValue("konvaType").stringValue()
+                            : null;
                         return u;
                     });
 
