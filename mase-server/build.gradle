@@ -84,6 +84,14 @@ tasks.register('runBobAgent', JavaExec) {
     dependsOn 'classes'
 }
 
+tasks.register('runCcrsAgent', JavaExec) {
+    group = 'application'
+    description = 'Run sample ccrs agent against a running server.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('org.maze.examples.CcrsAgent')
+    dependsOn 'classes'
+}
+
 test {
     useJUnitPlatform()
 }

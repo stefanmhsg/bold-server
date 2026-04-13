@@ -219,27 +219,54 @@ WHERE {
     BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
-    # starting at cell 13/5 and ending at cell 28/13 
+    # starting at cell 13/5 and ending at cell 28/13 plus the mixed zone
     FILTER(
-      (
+        # Stigmergy Zone
         (
-        # Base Frame 1
-        (
-            ?x > 12 && ?x < 29 &&
-            ?y < 10
+            (
+              (
+              # Base Frame 1
+              (
+                  ?x > 12 && ?x < 29 &&
+                  ?y < 10
+              ) ||
+              # Base Frame 2
+              (
+                  ?x > 20 && ?x < 29 &&
+                  ?y >= 10 && ?y < 12
+              )
+              ) &&
+              # Exclude
+              ?coords NOT IN ("") 
+            )
+            # Include
+            ||
+            ?coords IN ("28/12", "28/13") 
         ) ||
-        # Base Frame 2
+        # Mixed Zone
         (
-            ?x > 20 && ?x < 29 &&
-            ?y >= 10 && ?y < 12
+            (
+              (
+              # Base Frame 1
+              (
+                  ?x > 27 && ?x < 41 &&
+                  ?y > 13 && ?y < 37
+              ) ||
+              # Base Frame 2
+              (
+                  ?x >= 22 && 
+                  ?x <= 27 && 
+                  ?y >= 12 && 
+                  ?y <= 16
+              )
+              ) &&
+              # Exclude
+              ?coords NOT IN ("40/28", "40/30", "40/36", "28/20", "28/21", "29/21", "28/22", "28/35") 
+            )
+            # Include
+            ||
+            ?coords IN ("33/37") 
         )
-        ) &&
-        # Exclude
-        ?coords NOT IN ("") 
-      )
-      # Include
-      ||
-      ?coords IN ("28/12", "28/13") 
     )
 } ;
 
@@ -280,27 +307,54 @@ WHERE {
     BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
-    # starting at cell 13/5 and ending at cell 28/13 
+    # starting at cell 13/5 and ending at cell 28/13 plus the mixed zone
     FILTER(
-      (
+        # Stigmergy Zone
         (
-        # Base Frame 1
-        (
-            ?x > 12 && ?x < 29 &&
-            ?y < 10
+            (
+              (
+              # Base Frame 1
+              (
+                  ?x > 12 && ?x < 29 &&
+                  ?y < 10
+              ) ||
+              # Base Frame 2
+              (
+                  ?x > 20 && ?x < 29 &&
+                  ?y >= 10 && ?y < 12
+              )
+              ) &&
+              # Exclude
+              ?coords NOT IN ("") 
+            )
+            # Include
+            ||
+            ?coords IN ("28/12", "28/13") 
         ) ||
-        # Base Frame 2
+        # Mixed Zone
         (
-            ?x > 20 && ?x < 29 &&
-            ?y >= 10 && ?y < 12
+            (
+              (
+              # Base Frame 1
+              (
+                  ?x > 27 && ?x < 41 &&
+                  ?y > 13 && ?y < 37
+              ) ||
+              # Base Frame 2
+              (
+                  ?x >= 22 && 
+                  ?x <= 27 && 
+                  ?y >= 12 && 
+                  ?y <= 16
+              )
+              ) &&
+              # Exclude
+              ?coords NOT IN ("40/28", "40/30", "40/36", "28/20", "28/21", "29/21", "28/22", "28/35") 
+            )
+            # Include
+            ||
+            ?coords IN ("33/37") 
         )
-        ) &&
-        # Exclude
-        ?coords NOT IN ("") 
-      )
-      # Include
-      ||
-      ?coords IN ("28/12", "28/13") 
     )
 } ;
 
@@ -339,27 +393,54 @@ WHERE {
     BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
-    # starting at cell 13/5 and ending at cell 28/13 
+    # starting at cell 13/5 and ending at cell 28/13 plus the mixed zone
     FILTER(
-      (
+        # Stigmergy Zone
         (
-        # Base Frame 1
-        (
-            ?x > 12 && ?x < 29 &&
-            ?y < 10
+            (
+              (
+              # Base Frame 1
+              (
+                  ?x > 12 && ?x < 29 &&
+                  ?y < 10
+              ) ||
+              # Base Frame 2
+              (
+                  ?x > 20 && ?x < 29 &&
+                  ?y >= 10 && ?y < 12
+              )
+              ) &&
+              # Exclude
+              ?coords NOT IN ("") 
+            )
+            # Include
+            ||
+            ?coords IN ("28/12", "28/13") 
         ) ||
-        # Base Frame 2
+        # Mixed Zone
         (
-            ?x > 20 && ?x < 29 &&
-            ?y >= 10 && ?y < 12
+            (
+              (
+              # Base Frame 1
+              (
+                  ?x > 27 && ?x < 41 &&
+                  ?y > 13 && ?y < 37
+              ) ||
+              # Base Frame 2
+              (
+                  ?x >= 22 && 
+                  ?x <= 27 && 
+                  ?y >= 12 && 
+                  ?y <= 16
+              )
+              ) &&
+              # Exclude
+              ?coords NOT IN ("40/28", "40/30", "40/36", "28/20", "28/21", "29/21", "28/22", "28/35") 
+            )
+            # Include
+            ||
+            ?coords IN ("33/37") 
         )
-        ) &&
-        # Exclude
-        ?coords NOT IN ("") 
-      )
-      # Include
-      ||
-      ?coords IN ("28/12", "28/13") 
     )
 } ;
 
