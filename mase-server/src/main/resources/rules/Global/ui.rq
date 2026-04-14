@@ -109,7 +109,16 @@ WHERE {
 DELETE {
     GRAPH ?signifierCell {
         ?cell ui:hasUiElement ?greenArrowUiElement .
-        ?greenArrowUiElement ?p ?o .
+        ?greenArrowUiElement ui:konvaType "Arrow" ;
+                             ui:layer "layer" ;
+                             ui:direction ?direction ;
+                             ui:anchor "C" ; # center of the cell
+                             ui:offsetX 0 ;
+                             ui:offsetY 0 ;
+                             ui:fill "green" ;
+                             ui:stroke "green" ;
+                             ui:opacity 0.6 ;
+                             ui:strokeWidth 4 .
     }
 }
 WHERE {
