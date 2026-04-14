@@ -552,7 +552,7 @@
 </cells/31/40> {   </cells/31/40> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/32/40>; maze:east </cells/31/41> .  }
 </cells/31/41> {   </cells/31/41> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/40>; maze:south maze:Wall; maze:east </cells/31/42> .  }
 </cells/31/42> {   </cells/31/42> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/41>; maze:south  maze:Wall; maze:east </cells/31/43> .  }
-</cells/31/43> {   </cells/31/43> a maze:Cell ; maze:north </cells/30/43>; maze:west </cells/31/42>; maze:south  </cells/32/43>; maze:east maze:Wall .  }
+</cells/31/43> {   </cells/31/43> a maze:Cell ; maze:north </cells/30/43>; maze:west </cells/31/42>; maze:south  </cells/32/43>; maze:east maze:Wall; maze:orange </cells/32/43> .  } # orange signifiers for re-direct of broken cell.
 </cells/32/17> { </cells/32/17> a maze:Cell ; maze:north </cells/31/17>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/32/18>; maze:green </cells/32/18> . }
 </cells/32/18> { </cells/32/18> a maze:Cell ; maze:north maze:Wall; maze:west </cells/32/17>; maze:south  maze:Wall; maze:east </cells/32/19>; maze:green </cells/32/19> . }
 </cells/32/19> { </cells/32/19> a maze:Cell ; maze:north </cells/31/19>; maze:west </cells/32/18>; maze:south  </cells/33/19>; maze:east maze:Wall; maze:green </cells/33/19> . }
@@ -563,7 +563,7 @@
 </cells/32/33> {   </cells/32/33> a maze:Cell ; maze:north </cells/31/33>; maze:west maze:Wall; maze:south  </cells/33/33>; maze:east maze:Wall .  }
 </cells/32/36> {   </cells/32/36> a maze:Cell ; maze:north </cells/31/36>; maze:west maze:Wall; maze:south  </cells/33/36>; maze:east maze:Wall .  }
 </cells/32/39> {   </cells/32/39> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/32/40> .  }
-</cells/32/40> {   </cells/32/40> a maze:Cell ; maze:north </cells/31/40>; maze:west </cells/32/39>; maze:south  </cells/33/40>; maze:east maze:Wall .  }
+</cells/32/40> {   </cells/32/40> a maze:Cell ; maze:north </cells/31/40>; maze:west </cells/32/39>; maze:south  </cells/33/40>; maze:east maze:Wall; maze:orange </cells/31/40> .  } # orange signifiers for re-direct of broken cell.
 </cells/32/43> {   </cells/32/43> a maze:Cell ; maze:north </cells/31/43>; maze:west maze:Wall; maze:south  </cells/33/43>; maze:east maze:Wall .  }
 </cells/33/19> { </cells/33/19> a maze:Cell ; maze:north </cells/32/19>; maze:west maze:Wall; maze:south  </cells/34/19>; maze:east maze:Wall; maze:green </cells/34/19> . }
 </cells/33/21> {   </cells/33/21> a maze:Cell ; maze:north </cells/32/21>; maze:west maze:Wall; maze:south  </cells/34/21>; maze:east maze:Wall .  }
@@ -610,7 +610,7 @@
 </cells/35/36> {   </cells/35/36> a maze:Cell ; maze:north </cells/34/36>; maze:west </cells/35/35>; maze:south  </cells/36/36>; maze:east maze:Wall .  }
 </cells/35/39> {   </cells/35/39> a maze:Cell ; maze:north </cells/34/39>; maze:west maze:Wall; maze:south  </cells/36/39>; maze:east maze:Wall .  }
 </cells/35/42> {   </cells/35/42> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/35/43> .  }
-</cells/35/43> {   </cells/35/43> a maze:Cell ; maze:north </cells/34/43>; maze:west </cells/35/42>; maze:south  </cells/36/43>; maze:east maze:Wall .  }
+</cells/35/43> {   </cells/35/43> a maze:Cell ; maze:north </cells/34/43>; maze:west </cells/35/42>; maze:south  </cells/36/43>; maze:east maze:Wall; maze:orange </cells/36/43> .  } # orange signifiers for re-direct of broken cell.
 </cells/36/18> {   </cells/36/18> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/36/19> .  }
 </cells/36/19> {   </cells/36/19> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/18>; maze:south  maze:Wall; maze:east </cells/36/20> .  }
 </cells/36/20> {   </cells/36/20> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/19>; maze:south  maze:Wall; maze:east </cells/36/21> .  }
@@ -631,8 +631,9 @@
 }
 </cells/36/37> { </cells/36/37> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/36>; maze:south  maze:Wall; maze:east </cells/36/38>; maze:green </cells/36/38> . }
 </cells/36/38> { </cells/36/38> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/37>; maze:south  maze:Wall; maze:east </cells/36/39>; maze:green </cells/36/39> . }
-</cells/36/39> { </cells/36/39> a maze:Cell ; maze:north </cells/35/39>; maze:west </cells/36/38>; maze:south  maze:Wall; maze:east </cells/36/40>; maze:green </cells/36/40> . }
-</cells/36/40> { </cells/36/40> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/39>; maze:south  </cells/37/40>; maze:east maze:Wall; maze:green </cells/37/40> . }
+</cells/36/39> { </cells/36/39> a maze:Cell ; maze:north </cells/35/39>; maze:west </cells/36/38>; maze:south  maze:Wall; maze:east </cells/36/40>; maze:green </cells/36/40>; maze:orange </cells/35/39> . } # orange signifiers for re-direct of broken cell.
+# Representing a broken cell -> returns 404: "Move failed with unexpected status=404 from=http://127.0.1.1:8080/cells/36/39 to=http://127.0.1.1:8080/cells/36/40"
+# </cells/36/40> { </cells/36/40> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/39>; maze:south  </cells/37/40>; maze:east maze:Wall; maze:green </cells/37/40> . }
 </cells/36/43> {   </cells/36/43> a maze:Cell ; maze:north </cells/35/43>; maze:west maze:Wall; maze:south  </cells/37/43>; maze:east maze:Wall .  }
 </cells/37/21> {   </cells/37/21> a maze:Cell ; maze:north </cells/36/21>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/37/23> { </cells/37/23> a maze:Cell ; maze:north </cells/36/23>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/37/24>; maze:green </cells/37/24> . }

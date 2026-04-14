@@ -48,20 +48,32 @@ public class CcrsAgent {
     private static final String HTTP_REQUEST_URI = "http://www.w3.org/2011/http#requestURI";
     private static final String CELLS_SEGMENT = "/cells/";
 
-    // Reusable example route: when a configured agent reaches 37/31, it will try 36/31 then 35/31.
-    private static final List<String> EXAMPLE_GUIDED_COORDINATES = List.of("37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27", "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
+    // When a configured agent reaches 37/31, it will try 36/31 then 35/31.
+    private static final List<String> MIXED_ZONE_EMERGENCY_COORDINATES = List.of("37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27", "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
+    private static final List<String> CONSTRUCTION_SITE_ZONE_COORDINATES = List.of("36/39", "35/39", "34/39", "34/40", "33/40", "32/40", "31/40");
 
     // Configure each spawned agent and its exploration direction preference here.
+
+    // DFS Agent
     private static final List<AgentConfig> AGENT_CONFIGS = List.of(
-            new AgentConfig("ccrs-agent-1", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), EXAMPLE_GUIDED_COORDINATES),
-            new AgentConfig("ccrs-agent-2", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), EXAMPLE_GUIDED_COORDINATES),
+            new AgentConfig("ccrs-agent-1", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), CONSTRUCTION_SITE_ZONE_COORDINATES)
+        );
+
+    // Evaluation Config
+    /*
+    private static final List<AgentConfig> AGENT_CONFIGS = List.of(
+            new AgentConfig("ccrs-agent-1", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), MIXED_ZONE_EMERGENCY_COORDINATES),
+            new AgentConfig("ccrs-agent-2", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), MIXED_ZONE_EMERGENCY_COORDINATES),
             new AgentConfig("ccrs-agent-3", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of()),
             new AgentConfig("ccrs-agent-4", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of()),
             new AgentConfig("ccrs-agent-5", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of()),
+        
             new AgentConfig("ccrs-agent-6", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of()),
             new AgentConfig("ccrs-agent-7", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of()),
+            
             new AgentConfig("ccrs-agent-8", List.of(Direction.WEST, Direction.SOUTH, Direction.EAST, Direction.NORTH), List.of())
         );
+    */
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))

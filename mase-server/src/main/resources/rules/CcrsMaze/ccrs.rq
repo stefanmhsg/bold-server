@@ -543,7 +543,7 @@ WHERE {
 } ;
 
 # ----------
-# FINAL ZONE
+# CONSTRUCTION SITE ZONE
 # ----------
 
 # Set Cell Background Color
@@ -552,7 +552,7 @@ INSERT {
         ?cell ui:hasUiElement ?cellColor .
 
         ?cellColor ui:layer "cellBackground" ;
-                             ui:fill "#ffc2c8" .
+                             ui:fill "#d6e4f0" .
     }
 }
 WHERE {
