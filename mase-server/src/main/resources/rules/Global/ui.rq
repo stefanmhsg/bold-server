@@ -69,65 +69,79 @@ WHERE {
   }
 };
 
-# ---------------------
-# GREEN ARROW SIGNIFIER
-# ---------------------
+# ----------------
+# ARROW SIGNIFIERS
+# ----------------
 
-# Rule to add UI elements for green arrow signifiers
+# Rule to add UI elements for colored arrow signifiers (e.g., green, orange)
 INSERT {
     GRAPH ?signifierCell {
-        ?cell ui:hasUiElement ?greenArrowUiElement .
+        ?cell ui:hasUiElement ?arrowUiElement .
         
-        ?greenArrowUiElement ui:konvaType "Arrow" ;
-                             ui:layer "layer" ;
-                             ui:direction ?direction ; # N, E, S, W depending on door direction.
-                             ui:anchor "C" ; # center of the cell
-                             ui:offsetX 0 ;
-                             ui:offsetY 0 ;
-                             ui:fill "green" ;
-                             ui:stroke "green" ;
-                             ui:opacity 0.6 ;
-                             ui:strokeWidth 4 .
+        ?arrowUiElement ui:konvaType "Arrow" ;
+                       ui:layer "layer" ;
+                       ui:direction ?direction ; # N, E, S, W depending on door direction.
+                       ui:anchor "C" ; # center of the cell
+                       ui:offsetX 0 ;
+                       ui:offsetY 0 ;
+                       ui:fill ?color ;
+                       ui:stroke ?color ;
+                       ui:opacity 0.6 ;
+                       ui:strokeWidth 4 .
     }
 }
 WHERE {
     GRAPH ?signifierCell {
         ?cell a maze:Cell ;
-                maze:green ?targetCell ;
+                ?signifierPredicate ?targetCell ;
                 ?dir ?targetCell .
     }
+
+    VALUES (?color ?signifierPredicate) {
+        ("green"  maze:green)
+        ("orange" maze:orange)
+    }
+
     VALUES (?dir ?direction) {
         (maze:north "N")
         (maze:east  "E")
         (maze:south "S")
         (maze:west  "W")
-    }    
-    BIND(IRI(CONCAT(STR(?cell), "#ui-greenArrow", ?direction)) AS ?greenArrowUiElement)
+    }
+
+    BIND(IRI(CONCAT(STR(?cell), "#ui-", ?color, "Arrow", ?direction)) AS ?arrowUiElement)
 };
 
-# Rule to remove UI elements for green arrow signifiers when no longer needed
+# Rule to remove UI elements for colored arrow signifiers when no longer needed
 DELETE {
     GRAPH ?signifierCell {
-        ?cell ui:hasUiElement ?greenArrowUiElement .
-        ?greenArrowUiElement ui:konvaType "Arrow" ;
-                             ui:layer "layer" ;
-                             ui:direction ?direction ;
-                             ui:anchor "C" ; # center of the cell
-                             ui:offsetX 0 ;
-                             ui:offsetY 0 ;
-                             ui:fill "green" ;
-                             ui:stroke "green" ;
-                             ui:opacity 0.6 ;
-                             ui:strokeWidth 4 .
+        ?cell ui:hasUiElement ?arrowUiElement .
+        ?arrowUiElement ui:konvaType "Arrow" ;
+                       ui:layer "layer" ;
+                       ui:direction ?direction ;
+                       ui:anchor "C" ; # center of the cell
+                       ui:offsetX 0 ;
+                       ui:offsetY 0 ;
+                       ui:fill ?color ;
+                       ui:stroke ?color ;
+                       ui:opacity 0.6 ;
+                       ui:strokeWidth 4 .
     }
 }
 WHERE {
     GRAPH ?signifierCell {
         ?cell a maze:Cell ;
-              ui:hasUiElement ?greenArrowUiElement .
+              ui:hasUiElement ?arrowUiElement .
 
-        ?greenArrowUiElement ui:konvaType "Arrow" ;
-                             ui:direction ?direction .
+        ?arrowUiElement ui:konvaType "Arrow" ;
+                       ui:direction ?direction ;
+                       ui:fill ?color ;
+                       ui:stroke ?color .
+    }
+
+    VALUES (?color ?signifierPredicate) {
+        ("green"  maze:green)
+        ("orange" maze:orange)
     }
 
     VALUES (?dir ?direction) {
@@ -140,15 +154,10 @@ WHERE {
     # This arrow must no longer be justified by maze state
     FILTER NOT EXISTS {
         GRAPH ?signifierCell {
-            ?cell maze:green ?targetCell ;
+            ?cell ?signifierPredicate ?targetCell ;
                   ?dir ?targetCell .
         }
     }
-    # Only for green arrow UI elements
-    FILTER STRSTARTS(STR(?greenArrowUiElement), CONCAT(STR(?cell), "#ui-greenArrow"))
+    # Only for color-specific arrow UI elements created by this rule
+    FILTER STRSTARTS(STR(?arrowUiElement), CONCAT(STR(?cell), "#ui-", ?color, "Arrow"))
 }
-
-# -----------------
-# STIGMERGY MARKERS
-# -----------------
-
