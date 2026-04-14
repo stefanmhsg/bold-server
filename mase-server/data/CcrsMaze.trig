@@ -549,8 +549,9 @@
 </cells/31/33> {   </cells/31/33> a maze:Cell ; maze:north </cells/30/33>; maze:west </cells/31/32>; maze:south  </cells/32/33>; maze:east maze:Wall .  }
 </cells/31/35> {   </cells/31/35> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/31/36> .  }
 </cells/31/36> {   </cells/31/36> a maze:Cell ; maze:north </cells/30/36>; maze:west </cells/31/35>; maze:south  </cells/32/36>; maze:east maze:Wall .  }
-</cells/31/40> {   </cells/31/40> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/32/40>; maze:east maze:Wall .  }
-</cells/31/42> {   </cells/31/42> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/31/43> .  }
+</cells/31/40> {   </cells/31/40> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/32/40>; maze:east </cells/31/41> .  }
+</cells/31/41> {   </cells/31/41> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/40>; maze:south maze:Wall; maze:east </cells/31/42> .  }
+</cells/31/42> {   </cells/31/42> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/41>; maze:south  maze:Wall; maze:east </cells/31/43> .  }
 </cells/31/43> {   </cells/31/43> a maze:Cell ; maze:north </cells/30/43>; maze:west </cells/31/42>; maze:south  </cells/32/43>; maze:east maze:Wall .  }
 </cells/32/17> { </cells/32/17> a maze:Cell ; maze:north </cells/31/17>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/32/18>; maze:green </cells/32/18> . }
 </cells/32/18> { </cells/32/18> a maze:Cell ; maze:north maze:Wall; maze:west </cells/32/17>; maze:south  maze:Wall; maze:east </cells/32/19>; maze:green </cells/32/19> . }
