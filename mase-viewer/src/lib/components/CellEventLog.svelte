@@ -1,9 +1,23 @@
 <script lang="ts">
     import type { TransactionEvent, TransactionTriple } from '$lib/mazeState.svelte';
 
-    let { events } = $props<{ events: TransactionEvent[] }>();
+    let { events, filterText = '' } = $props<{ events: TransactionEvent[]; filterText?: string }>();
 
     let expandedRow = $state<number | null>(null);
+
+    const normalizedFilterText = $derived(filterText.trim().toLowerCase());
+
+    const filteredEvents = $derived.by(() => {
+        if (!normalizedFilterText) {
+            return events;
+        }
+
+        return events.filter((event: TransactionEvent) => {
+            const agent = (event.agent ?? '').toLowerCase();
+            const graph = (event.graph ?? '').toLowerCase();
+            return agent.includes(normalizedFilterText) || graph.includes(normalizedFilterText);
+        });
+    });
 
     function summarizeRules(event: TransactionEvent): string {
         let added = 0;
@@ -64,7 +78,7 @@
     }
 </script>
 
-<div class="border rounded-lg overflow-hidden resize-y h-[300px] min-h-[180px] max-h-[70vh]">
+<div class="w-full border rounded-lg overflow-hidden resize h-[300px] min-h-[180px] max-h-[70vh] min-w-[320px]">
     <div class="h-full overflow-y-auto overflow-x-hidden">
         <table class="w-full text-left">
             <thead class="bg-gray-100 border-b sticky top-0">
@@ -77,7 +91,7 @@
                 </tr>
             </thead>
             <tbody>
-            {#each events as event, index}
+            {#each filteredEvents as event, index}
                 <tr
                     class="border-b hover:bg-gray-50 cursor-pointer"
                     ondblclick={() => toggleExpanded(index)}
@@ -239,10 +253,10 @@
                     </tr>
                 {/if}
             {/each}
-            {#if events.length === 0}
+            {#if filteredEvents.length === 0}
                 <tr>
                     <td colspan="5" class="p-4 text-center text-gray-500">
-                        No transaction updates yet.
+                        {normalizedFilterText ? 'No matching transaction updates.' : 'No transaction updates yet.'}
                     </td>
                 </tr>
             {/if}

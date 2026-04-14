@@ -2,7 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import Konva from 'konva';
     import type { MazeLayout, Cell } from '$lib/types';
-    import { mazeState, type UiCommand } from '$lib/mazeState.svelte';
+    import { mazeState, type RuntimeCanvasEvent, type UiCommand } from '$lib/mazeState.svelte';
     import { getOptimalRouteOverlay } from '$lib/optimalRoutes';
     import { showOptimalRoute } from '$lib/routeOverlayStore';
 
@@ -15,9 +15,11 @@
 
     let container: HTMLDivElement;
     let stage: Konva.Stage;
-    let layer: Konva.Layer;
+    let mazeLayer: Konva.Layer;
+    let uiLayer: Konva.Layer;
 
     let agentLayer: Konva.Layer;
+    let unsubscribeRuntimeCanvasEvents: (() => void) | null = null;
     let cellRects: Map<string, Konva.Rect> = new Map();
     let cellBaseFillById: Map<string, string> = new Map();
     let cellUiFillById: Map<string, string> = new Map();
@@ -28,6 +30,8 @@
     let uiPathImageCache: Map<string, CachedPathRender> = new Map();
     let uiPathImagePromises: Map<string, Promise<CachedPathRender>> = new Map();
     let uiPathRenderKeysById: Map<string, string> = new Map();
+    let pendingLayerDraws: Set<Konva.Layer> = new Set();
+    let drawFrameHandle: number | null = null;
 
     type CachedPathRender = {
         image: HTMLImageElement;
@@ -49,7 +53,21 @@
         '#d946ef', // fuchsia
     ];
 
-    const newestEvent = $derived(mazeState.events[0]);
+    function handleRuntimeCanvasEvent(event: RuntimeCanvasEvent) {
+        if (event.type === "AGENT_MOVED") {
+            updateAgentPosition(event.agent, event.cell);
+            return;
+        }
+
+        if (event.type === "UI_UPSERT") {
+            applyUiUpsert(event);
+            return;
+        }
+
+        if (event.type === "UI_DELETE") {
+            removeUiNode(event.id);
+        }
+    }
 
     const CELL_SIZE = 60;
     const WALL_THICKNESS = 4;
@@ -73,6 +91,23 @@
 
     function isPathCommand(cmd: UiCommand): boolean {
         return cmd.konvaType === "Path" && typeof cmd.attrs?.data === "string";
+    }
+
+    function scheduleLayerDraw(targetLayer: Konva.Layer) {
+        pendingLayerDraws.add(targetLayer);
+        if (drawFrameHandle !== null) {
+            return;
+        }
+
+        drawFrameHandle = requestAnimationFrame(() => {
+            drawFrameHandle = null;
+
+            for (const layerToDraw of pendingLayerDraws) {
+                layerToDraw.batchDraw();
+            }
+
+            pendingLayerDraws.clear();
+        });
     }
 
     function pathRenderCacheKey(attrs: Record<string, any>): string {
@@ -198,7 +233,7 @@
             imageAttrs.offsetY = cached.pad + cached.bounds.height / 2;
 
             node.setAttrs(imageAttrs);
-            targetLayer.batchDraw();
+            scheduleLayerDraw(targetLayer);
         } catch (error) {
             console.warn("Path rasterization failed, falling back to Konva.Path", error);
 
@@ -213,7 +248,7 @@
             } else {
                 node.setAttrs(resolvedAttrs);
             }
-            targetLayer.batchDraw();
+            scheduleLayerDraw(targetLayer);
         }
     }
 
@@ -230,8 +265,11 @@
             draggable: true
         });
 
-        layer = new Konva.Layer();
-        stage.add(layer);
+        mazeLayer = new Konva.Layer();
+        stage.add(mazeLayer);
+
+        uiLayer = new Konva.Layer();
+        stage.add(uiLayer);
 
         agentLayer = new Konva.Layer();
         stage.add(agentLayer);
@@ -242,6 +280,8 @@
         uiSnapshot.forEach((cmd: UiCommand) => {
             applyUiUpsert(cmd);
         });
+
+        unsubscribeRuntimeCanvasEvents = mazeState.subscribeRuntimeCanvasEvents(handleRuntimeCanvasEvent);
 
         fitToView(width, height);
 
@@ -307,6 +347,15 @@
     }
 
     onDestroy(() => {
+        if (unsubscribeRuntimeCanvasEvents) {
+            unsubscribeRuntimeCanvasEvents();
+            unsubscribeRuntimeCanvasEvents = null;
+        }
+        if (drawFrameHandle !== null) {
+            cancelAnimationFrame(drawFrameHandle);
+            drawFrameHandle = null;
+        }
+        pendingLayerDraws.clear();
         if (stage) stage.destroy();
     });
 
@@ -342,16 +391,16 @@
                 rect.on('mouseenter', () => {
                     stage.container().style.cursor = 'pointer';
                     rect.fill('#f0f9ff'); // Light blue highlight
-                    layer.draw();
+                    mazeLayer.draw();
                 });
                 rect.on('mouseleave', () => {
                     stage.container().style.cursor = 'default';
                     rect.fill(cellBaseFillById.get(cell.id) ?? '#ffffff');
-                    layer.draw();
+                    mazeLayer.draw();
                 });
             }
 
-            layer.add(rect);
+            mazeLayer.add(rect);
 
             // Draw Walls
             drawWalls(cell, x, y);
@@ -380,7 +429,7 @@
         */
         });
 
-        layer.draw();
+        mazeLayer.draw();
     }
 
     function drawWalls(cell: Cell, x: number, y: number) {
@@ -422,7 +471,7 @@
             }));
         }
 
-        walls.forEach(w => layer.add(w));
+        walls.forEach(w => mazeLayer.add(w));
     }
 
     function isOptimalRouteCell(cell: Cell): boolean {
@@ -457,7 +506,7 @@
             rect.fill(fill);
         });
 
-        layer.batchDraw();
+        mazeLayer.batchDraw();
     }
 
     function isWall(connection: string): boolean {
@@ -476,34 +525,14 @@
             align: 'center',
             fontStyle: 'bold'
         });
-        layer.add(label);
+        mazeLayer.add(label);
     }
-
-    $effect(() => {
-        if (!newestEvent) return;
-
-        if (newestEvent.type === "AGENT_MOVED") {
-            updateAgentPosition(newestEvent.agent, newestEvent.cell);
-            return;
-        }
-
-        if (newestEvent.type === "UI_UPSERT") {
-            applyUiUpsert(newestEvent);
-            return;
-        }
-
-        if (newestEvent.type === "UI_DELETE") {
-            removeUiNode(newestEvent.id);
-            return;
-        }
-
-    });
 
     $effect(() => {
         $showOptimalRoute;
         optimalRouteOverlay;
 
-        if (!layer) return;
+        if (!mazeLayer) return;
         refreshAllCellFills();
     });
     
@@ -610,10 +639,10 @@
 
     function applyUiUpsert(cmd: UiCommand) {
         const { id, konvaType, layer: layerName, attrs } = cmd;
-        const effectiveLayer = typeof attrs?.layer === "string" ? attrs.layer : layerName;
+        const effectiveLayer = normalizeLayerHint(typeof attrs?.layer === "string" ? attrs.layer : layerName);
 
         // Semantic hook: ui:layer "cellBackground" + ui:fill "..." updates the base cell fill.
-        if (effectiveLayer === "cellBackground") {
+        if (effectiveLayer.toLowerCase() === "cellbackground") {
             const cellId = getCellIdFromUiId(id);
             const fill = attrs?.fill;
 
@@ -623,7 +652,7 @@
             return;
         }
 
-        const targetLayer = effectiveLayer === "agent" ? agentLayer : layer;
+        const targetLayer = resolveTargetLayer(effectiveLayer);
 
         if (isPathCommand(cmd)) {
             void upsertPathAsImage(cmd, targetLayer);
@@ -650,10 +679,13 @@
             uiNodes.set(id, createdNode);
         } else {
             const resolvedAttrs = resolveUiAttrs(cmd);
+            if (node.getLayer() !== targetLayer) {
+                node.moveTo(targetLayer);
+            }
             node.setAttrs(resolvedAttrs);
         }
 
-        targetLayer.batchDraw();
+        scheduleLayerDraw(targetLayer);
     }
 
     function setCellBackground(cellId: string, fill: string) {
@@ -667,18 +699,43 @@
 
         cellBaseFillById.set(cellId, effectiveFill);
         rect.fill(effectiveFill);
-        layer.batchDraw();
+        scheduleLayerDraw(mazeLayer);
     }
 
     function removeUiNode(id: string) {
         const node = uiNodes.get(id);
         if (!node) return;
 
+        const nodeLayer = node.getLayer();
         node.destroy();
         uiNodes.delete(id);
 
-        layer.batchDraw();
-        agentLayer.batchDraw();
+        if (nodeLayer) {
+            scheduleLayerDraw(nodeLayer);
+        }
+    }
+
+    function normalizeLayerHint(layerHint?: string): string {
+        if (!layerHint) {
+            return 'overlay';
+        }
+
+        return String(layerHint).trim().replace(/^"|"$/g, '');
+    }
+
+    function resolveTargetLayer(layerHint?: string): Konva.Layer {
+        const normalized = (layerHint ?? 'overlay').toLowerCase();
+
+        if (normalized === 'agent') {
+            return agentLayer;
+        }
+
+        if (normalized === 'maze' || normalized === 'base') {
+            return mazeLayer;
+        }
+
+        // Treat overlay/layer/ui and unknown values as UI overlay layer.
+        return uiLayer;
     }
 
     function resolveUiAttrs(cmd: UiCommand) {
@@ -724,7 +781,38 @@
             }
         }
 
+        coerceNumericAttrs(resolved);
+
         return resolved;
+    }
+
+    function coerceNumericAttrs(attrs: Record<string, any>) {
+        const numericKeys = [
+            'x',
+            'y',
+            'width',
+            'height',
+            'radius',
+            'offsetX',
+            'offsetY',
+            'rotation',
+            'opacity',
+            'strokeWidth',
+            'pointerLength',
+            'pointerWidth',
+            'scaleX',
+            'scaleY'
+        ];
+
+        for (const key of numericKeys) {
+            const value = attrs[key];
+            if (typeof value === 'string') {
+                const parsed = Number(value);
+                if (!Number.isNaN(parsed)) {
+                    attrs[key] = parsed;
+                }
+            }
+        }
     }
 
     /**

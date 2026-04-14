@@ -19,6 +19,7 @@
     let turtleInput = $state<string>('');
     let isPosting = $state(false);
     let postMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
+    let eventFilterText = $state('');
 
     onMount(() => {
         mazeState.connect();
@@ -161,7 +162,7 @@
 
 <div class="p-4 flex flex-col lg:flex-row gap-6">
     <!-- Left Column: Maze Visualization -->
-    <div class="flex-1 flex flex-col gap-6">
+    <div class="min-w-0 flex-1 flex flex-col gap-6">
         <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <h1 class="text-2xl font-bold">Maze Viewer</h1>
@@ -192,7 +193,7 @@
 
         <!-- Cell Data Inspector -->
         {#if selectedCellId}
-            <div class="border rounded-lg shadow-sm p-4 bg-white overflow-auto">
+            <div class="min-w-0 border rounded-lg shadow-sm p-4 bg-white overflow-auto">
                 <h2 class="text-lg font-bold mb-2 flex items-center gap-2 justify-between">
                     <div class="flex items-center gap-2">
                         <span>Cell Inspector</span>
@@ -220,7 +221,7 @@
                 {#if isLoadingCell}
                     <div class="text-gray-500 italic p-4">Loading RDF data...</div>
                 {:else if selectedCellData}
-                    <pre class="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed">{selectedCellData}</pre>
+                    <pre class="max-w-full bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed">{selectedCellData}</pre>
                 {:else}
                     <div class="text-gray-400 italic">No data available</div>
                 {/if}
@@ -239,19 +240,35 @@
             </span>
         </div>
 
+        <div class="flex flex-col sm:flex-row gap-2">
+            <input
+                bind:value={eventFilterText}
+                type="text"
+                placeholder="Filter events by Agent / Graph / Location"
+                class="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+                type="button"
+                class="px-3 py-2 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50"
+                onclick={() => mazeState.clearLogs()}
+            >
+                Clear Logs
+            </button>
+        </div>
+
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Agent Movements</h3>
-            <AgentEventLog events={mazeState.agentEvents} onAgentSelect={handleAgentSelect} />
+            <AgentEventLog events={mazeState.agentEvents} filterText={eventFilterText} onAgentSelect={handleAgentSelect} />
         </div>
 
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Cell Updates</h3>
-            <CellEventLog events={mazeState.transactionEvents} />
+            <CellEventLog events={mazeState.transactionEvents} filterText={eventFilterText} />
         </div>
 
         <!-- Agent Inspector -->
         {#if selectedAgentId}
-            <div class="border rounded-lg shadow-sm p-4 bg-white overflow-auto">
+            <div class="min-w-0 border rounded-lg shadow-sm p-4 bg-white overflow-auto">
                 <h2 class="text-lg font-bold mb-2 flex items-center gap-2 justify-between">
                     <div class="flex items-center gap-2">
                         <span>Agent Inspector</span>
@@ -279,7 +296,7 @@
                 {#if isLoadingAgent}
                     <div class="text-gray-500 italic p-4">Loading agent RDF data...</div>
                 {:else if selectedAgentData}
-                    <pre class="bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed mb-4">{selectedAgentData}</pre>
+                    <pre class="max-w-full bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed mb-4">{selectedAgentData}</pre>
                 {:else}
                     <div class="text-gray-400 italic mb-4">No data available</div>
                 {/if}

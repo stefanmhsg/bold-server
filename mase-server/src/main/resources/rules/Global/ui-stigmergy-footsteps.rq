@@ -70,8 +70,8 @@ WHERE {
 
     # Anchor at center and shift toward door direction.
     # The footprint is vertically elongated, so Y shift is slightly smaller than X.
-    BIND(IF(?direction = "E", 30, IF(?direction = "W", -30, 0)) AS ?offsetX)
-    BIND(IF(?direction = "S", 30, IF(?direction = "N", -30, 0)) AS ?offsetY)
+    BIND(IF(?direction = "E", 15, IF(?direction = "W", -15, 0)) AS ?offsetX)
+    BIND(IF(?direction = "S", 15, IF(?direction = "N", -15, 0)) AS ?offsetY)
 
     OPTIONAL {
         SELECT ?g ?cell ?marker ?entry (COUNT(DISTINCT ?qHigherDec) AS ?higherDistinctCount)
