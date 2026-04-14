@@ -160,9 +160,9 @@
     }
 </script>
 
-<div class="p-4 flex flex-col lg:flex-row gap-6">
+<div class="p-4 flex flex-col lg:flex-row lg:flex-wrap gap-6">
     <!-- Left Column: Maze Visualization -->
-    <div class="min-w-0 flex-1 flex flex-col gap-6">
+    <div class="min-w-0 flex-[1_1_48rem] lg:min-w-[40rem] flex flex-col gap-6">
         <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <h1 class="text-2xl font-bold">Maze Viewer</h1>
@@ -182,7 +182,7 @@
         </div>
         
         {#if data.maze}
-            <div class="resize overflow-hidden border-2 border-gray-300 rounded bg-white" style="height: 600px;">
+            <div class="w-full max-w-full resize overflow-hidden border-2 border-gray-300 rounded bg-white" style="height: 600px;">
                 <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} scenarioName={data.scenarioName} onCellSelect={handleCellSelect} />
             </div>
         {:else}
@@ -195,9 +195,9 @@
         {#if selectedCellId}
             <div class="min-w-0 border rounded-lg shadow-sm p-4 bg-white overflow-auto">
                 <h2 class="text-lg font-bold mb-2 flex items-center gap-2 justify-between">
-                    <div class="flex items-center gap-2">
+                    <div class="flex min-w-0 flex-1 items-center gap-2">
                         <span>Cell Inspector</span>
-                        <span class="text-sm font-normal text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
+                        <span class="max-w-full truncate text-sm font-normal text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
                             {selectedCellId}
                         </span>
                     </div>
@@ -221,7 +221,7 @@
                 {#if isLoadingCell}
                     <div class="text-gray-500 italic p-4">Loading RDF data...</div>
                 {:else if selectedCellData}
-                    <pre class="max-w-full bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed">{selectedCellData}</pre>
+                    <pre class="w-full max-w-full bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed">{selectedCellData}</pre>
                 {:else}
                     <div class="text-gray-400 italic">No data available</div>
                 {/if}
@@ -230,7 +230,7 @@
     </div>
 
     <!-- Right Column: Event Logs -->
-    <div class="w-full lg:w-[500px] flex flex-col gap-4 flex-1">
+    <div class="w-full min-w-0 flex flex-col gap-4 lg:flex-[1_1_28rem] lg:min-w-[28rem]">
         <div class="flex justify-between items-center">
             <h2 class="text-xl font-bold">Live Events</h2>
             <span class:text-green-600={mazeState.status === 'connected'} 
@@ -270,9 +270,9 @@
         {#if selectedAgentId}
             <div class="min-w-0 border rounded-lg shadow-sm p-4 bg-white overflow-auto">
                 <h2 class="text-lg font-bold mb-2 flex items-center gap-2 justify-between">
-                    <div class="flex items-center gap-2">
+                    <div class="flex min-w-0 flex-1 items-center gap-2">
                         <span>Agent Inspector</span>
-                        <span class="text-sm font-normal text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
+                        <span class="max-w-full truncate text-sm font-normal text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
                             {selectedAgentId}
                         </span>
                     </div>
@@ -296,7 +296,7 @@
                 {#if isLoadingAgent}
                     <div class="text-gray-500 italic p-4">Loading agent RDF data...</div>
                 {:else if selectedAgentData}
-                    <pre class="max-w-full bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed mb-4">{selectedAgentData}</pre>
+                    <pre class="w-full max-w-full bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-sm font-mono leading-relaxed mb-4">{selectedAgentData}</pre>
                 {:else}
                     <div class="text-gray-400 italic mb-4">No data available</div>
                 {/if}
