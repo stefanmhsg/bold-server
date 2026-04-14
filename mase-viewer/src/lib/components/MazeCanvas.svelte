@@ -412,21 +412,6 @@
                 addLabel(x, y, "EXIT", "red");
             }
 
-        /*    // Draw Items
-            if (cell.items.length > 0) {
-                drawItems(cell, x, y);
-            }
-
-            // Draw Lock
-            if (cell.lock) {
-                drawLock(cell, x, y);
-            }
-
-            // Draw Green Arrow
-            if (cell.connections.green) {
-                drawGreenArrow(cell, x, y);
-            }
-        */
         });
 
         mazeLayer.draw();

@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -31,9 +35,9 @@ import org.maze.domain.vocab.MazeVocab;
 public class CcrsAgent {
 
     private static final String BASE_URI = "http://127.0.1.1:8080";
-    private static final String AGENT_NAME = "ccrs-agent-1";
     private static final String MAZE_URI = BASE_URI + "/maze";
     private static final int MAX_STEPS = 2_000;
+    private static final long AGENT_DISPATCH_INTERVAL_MS = 3_000;
 
     private static final String RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
     private static final String KEY_VALUE = MazeVocab.DYNMAZE_NS + "keyValue";
@@ -42,20 +46,73 @@ public class CcrsAgent {
     private static final String STATE = MazeVocab.DYNMAZE_NS + "state";
     private static final String LOCKED = MazeVocab.DYNMAZE_NS + "locked";
     private static final String HTTP_REQUEST_URI = "http://www.w3.org/2011/http#requestURI";
-        private static final List<Direction> DIRECTION_ORDER = List.of(
-            Direction.SOUTH,
-            Direction.EAST,
-            Direction.NORTH,
-            Direction.WEST);
+    private static final String CELLS_SEGMENT = "/cells/";
+
+    // Reusable example route: when a configured agent reaches 37/31, it will try 36/31 then 35/31.
+    private static final List<String> EXAMPLE_GUIDED_COORDINATES = List.of("37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27", "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
+
+    // Configure each spawned agent and its exploration direction preference here.
+    private static final List<AgentConfig> AGENT_CONFIGS = List.of(
+            new AgentConfig("ccrs-agent-1", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), EXAMPLE_GUIDED_COORDINATES),
+            new AgentConfig("ccrs-agent-2", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), EXAMPLE_GUIDED_COORDINATES),
+            new AgentConfig("ccrs-agent-3", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of()),
+            new AgentConfig("ccrs-agent-4", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of()),
+            new AgentConfig("ccrs-agent-5", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of()),
+            new AgentConfig("ccrs-agent-6", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of()),
+            new AgentConfig("ccrs-agent-7", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of()),
+            new AgentConfig("ccrs-agent-8", List.of(Direction.WEST, Direction.SOUTH, Direction.EAST, Direction.NORTH), List.of())
+        );
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
     private final Map<String, String> keyringByType = new HashMap<>();
+    private final String agentName;
+    private final List<Direction> directionOrder;
+    private final List<String> guidedCoordinates;
+
+    private CcrsAgent(AgentConfig config) {
+        this.agentName = config.name();
+        this.directionOrder = List.copyOf(config.directionOrder());
+        this.guidedCoordinates = List.copyOf(config.guidedCoordinates());
+    }
 
     public static void main(String[] args) throws Exception {
-        new CcrsAgent().run();
+        runConfiguredAgents();
+    }
+
+    private static void runConfiguredAgents() throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(AGENT_CONFIGS.size());
+        try {
+            List<Future<String>> results = new ArrayList<>();
+            for (AgentConfig config : AGENT_CONFIGS) {
+                Future<String> future = executor.submit(() -> {
+                        CcrsAgent agent = new CcrsAgent(config);
+                        agent.run();
+                        return config.name();
+                });
+                results.add(future);
+                Thread.sleep(AGENT_DISPATCH_INTERVAL_MS);
+            }
+
+            List<String> failures = new ArrayList<>();
+            for (Future<String> result : results) {
+                try {
+                    String completedAgent = result.get();
+                    System.out.println("Agent finished: " + completedAgent);
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    failures.add(cause.getMessage() != null ? cause.getMessage() : cause.toString());
+                }
+            }
+
+            if (!failures.isEmpty()) {
+                throw new IllegalStateException("One or more agents failed: " + failures);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     public void run() throws Exception {
@@ -80,7 +137,7 @@ public class CcrsAgent {
             updateKeyring(parsed);
 
             int depth = path.size() - 1;
-            logStep(step, depth, "VISIT", currentCell + " | neighbors=" + parsed.neighborSummary());
+            logStep(step, depth, "VISIT", currentCell + " | neighbors=" + parsed.neighborSummary(directionOrder));
 
             if (parsed.locked()) {
                 logStep(step, depth, "LOCKED", "attempt unlock at " + currentCell);
@@ -109,7 +166,28 @@ public class CcrsAgent {
             }
 
             boolean advanced = false;
-            for (Direction direction : DIRECTION_ORDER) {
+
+            Optional<String> guidedNextCell = guidedNextCell(currentCell);
+            if (guidedNextCell.isPresent()) {
+                String nextCell = guidedNextCell.get();
+                int moveStatus = postMove(currentCell, nextCell);
+                if (moveStatus >= 200 && moveStatus < 300) {
+                    String fromCell = currentCell;
+                    currentCell = nextCell;
+                    path.push(currentCell);
+                    visited.add(currentCell);
+                    logStep(step, depth, "GUIDED", fromCell + " -> " + currentCell);
+                    advanced = true;
+                } else {
+                    throw new IllegalStateException("Guided move failed. status=" + moveStatus + " from=" + currentCell + " to=" + nextCell);
+                }
+            }
+
+            if (advanced) {
+                continue;
+            }
+
+            for (Direction direction : directionOrder) {
                 String nextCell = parsed.targetFor(direction).orElse(null);
                 if (nextCell == null) {
                     continue;
@@ -164,7 +242,7 @@ public class CcrsAgent {
         HttpRequest request = HttpRequest.newBuilder(URI.create(cellUri))
                 .timeout(Duration.ofSeconds(10))
                 .GET()
-                .header("Authorization", AGENT_NAME)
+            .header("Authorization", agentName)
                 .header("Accept", "text/turtle")
                 .build();
 
@@ -181,7 +259,7 @@ public class CcrsAgent {
         HttpRequest request = HttpRequest.newBuilder(URI.create(MAZE_URI))
                 .timeout(Duration.ofSeconds(10))
                 .GET()
-                .header("Authorization", AGENT_NAME)
+            .header("Authorization", agentName)
                 .header("Accept", "text/turtle")
                 .build();
 
@@ -205,7 +283,7 @@ public class CcrsAgent {
         String turtle = "<" + agentIri + "> <" + MazeVocab.ENTERS_FROM + "> <" + fromCell + "> .\n";
         HttpRequest request = HttpRequest.newBuilder(URI.create(toCell))
                 .timeout(Duration.ofSeconds(10))
-            .header("Authorization", AGENT_NAME)
+                .header("Authorization", agentName)
                 .header("Content-Type", "text/turtle")
                 .POST(HttpRequest.BodyPublishers.ofString(turtle))
                 .build();
@@ -231,7 +309,7 @@ public class CcrsAgent {
         String turtle = "<" + parsedCell.lockTargetCell() + "> <" + KEY_VALUE + "> \"" + keyValue + "\" .\n";
         HttpRequest request = HttpRequest.newBuilder(URI.create(parsedCell.lockTargetCell()))
                 .timeout(Duration.ofSeconds(10))
-            .header("Authorization", AGENT_NAME)
+                .header("Authorization", agentName)
                 .header("Content-Type", "text/turtle")
                 .POST(HttpRequest.BodyPublishers.ofString(turtle))
                 .build();
@@ -266,21 +344,70 @@ public class CcrsAgent {
         return SimpleValueFactory.getInstance().createIRI(value);
     }
 
-    private static String buildAgentIri(String cellOrMazeUri) {
+    private String buildAgentIri(String cellOrMazeUri) {
         int cellsIndex = cellOrMazeUri.lastIndexOf("/cells");
         if (cellsIndex > 0) {
-            return cellOrMazeUri.substring(0, cellsIndex) + "/agents/" + AGENT_NAME;
+            return cellOrMazeUri.substring(0, cellsIndex) + "/agents/" + agentName;
         }
         int mazeIndex = cellOrMazeUri.lastIndexOf("/maze");
         if (mazeIndex > 0) {
-            return cellOrMazeUri.substring(0, mazeIndex) + "/agents/" + AGENT_NAME;
+            return cellOrMazeUri.substring(0, mazeIndex) + "/agents/" + agentName;
         }
-        return BASE_URI + "/agents/" + AGENT_NAME;
+        return BASE_URI + "/agents/" + agentName;
+    }
+
+    private Optional<String> guidedNextCell(String currentCellUri) {
+        if (guidedCoordinates.size() < 2) {
+            return Optional.empty();
+        }
+
+        String currentCoordinate = coordinateOf(currentCellUri);
+        if (currentCoordinate == null) {
+            return Optional.empty();
+        }
+
+        for (int i = 0; i < guidedCoordinates.size() - 1; i++) {
+            if (guidedCoordinates.get(i).equals(currentCoordinate)) {
+                String nextCoordinate = guidedCoordinates.get(i + 1);
+                return Optional.of(toCellUri(currentCellUri, nextCoordinate));
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    private static String coordinateOf(String cellUri) {
+        int cellsIndex = cellUri.indexOf(CELLS_SEGMENT);
+        if (cellsIndex < 0) {
+            return null;
+        }
+
+        String suffix = cellUri.substring(cellsIndex + CELLS_SEGMENT.length());
+        int queryIndex = suffix.indexOf('?');
+        if (queryIndex >= 0) {
+            suffix = suffix.substring(0, queryIndex);
+        }
+        int fragmentIndex = suffix.indexOf('#');
+        if (fragmentIndex >= 0) {
+            suffix = suffix.substring(0, fragmentIndex);
+        }
+
+        return suffix;
+    }
+
+    private static String toCellUri(String currentCellUri, String coordinate) {
+        int cellsIndex = currentCellUri.indexOf(CELLS_SEGMENT);
+        if (cellsIndex < 0) {
+            throw new IllegalStateException("Cannot build guided URI without /cells segment: " + currentCellUri);
+        }
+        String base = currentCellUri.substring(0, cellsIndex + CELLS_SEGMENT.length());
+        String normalizedCoordinate = coordinate.startsWith("/") ? coordinate.substring(1) : coordinate;
+        return base + normalizedCoordinate;
     }
 
     private void logStep(int step, int depth, String action, String details) {
         String indent = "  ".repeat(Math.max(depth, 0));
-        System.out.println(String.format("[step=%04d depth=%02d] %s%-9s %s", step, depth, indent, action, details));
+        System.out.println(String.format("[%s step=%04d depth=%02d] %s%-9s %s", agentName, step, depth, indent, action, details));
     }
 
     private enum Direction {
@@ -295,6 +422,9 @@ public class CcrsAgent {
             this.predicate = predicate;
         }
 
+    }
+
+    private record AgentConfig(String name, List<Direction> directionOrder, List<String> guidedCoordinates) {
     }
 
     private record ParsedCell(
@@ -365,9 +495,9 @@ public class CcrsAgent {
             return Optional.ofNullable(directions.get(direction));
         }
 
-        String neighborSummary() {
+        String neighborSummary(List<Direction> directionOrder) {
             List<String> summary = new ArrayList<>();
-            for (Direction direction : DIRECTION_ORDER) {
+            for (Direction direction : directionOrder) {
                 summary.add(direction.name().toLowerCase() + "=" + targetFor(direction).orElse("wall"));
             }
             return summary.stream().collect(Collectors.joining(", "));
