@@ -60,7 +60,7 @@ public class KeyHolderAgent {
 
     private static final String BASE_URI = "http://127.0.1.1:8080";
     private static final String MAZE_URI = BASE_URI + "/maze";
-    private static final String AGENT_NAME = "key-holder-agent-2";
+    private static final String AGENT_NAME = "key-holder-agent-1";
     private static final String TARGET_COORDINATE = "33/35";
     private static final int DEFAULT_A2A_PORT = 8095;
     private static final int MAX_STEPS = 2_000;
@@ -441,6 +441,9 @@ public class KeyHolderAgent {
     }
 
     private void idleForever() throws Exception {
+        // Update Agent Graph in MASE
+        publishA2AMetadataToAgentGraph();
+
         while (true) {
             Thread.sleep(1_000);
         }
@@ -623,6 +626,33 @@ public class KeyHolderAgent {
     private void logStep(int step, int depth, String action, String details) {
         String indent = "  ".repeat(Math.max(depth, 0));
         System.out.println(String.format("[%s step=%04d depth=%02d] %s%-9s %s", agentName, step, depth, indent, action, details));
+    }
+
+    private void publishA2AMetadataToAgentGraph() throws Exception {
+        String agentUri = BASE_URI + "/agents/" + agentName;
+
+        String turtle = """
+            @prefix a2a: <https://example.org/a2a#> .
+            @prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
+
+            <%s>
+              a2a:agentCard <http://127.0.0.1:%d/.well-known/agent-card.json> ;
+              a2a:providesType dyn:RedKey ;
+              a2a:providesProperty dyn:keyValue .
+            """.formatted(agentUri, DEFAULT_A2A_PORT);
+
+        HttpRequest request = HttpRequest.newBuilder(URI.create(agentUri))
+                .timeout(Duration.ofSeconds(10))
+                .header("Authorization", agentName)
+                .header("Content-Type", "text/turtle")
+                .POST(HttpRequest.BodyPublishers.ofString(turtle))
+                .build();
+
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Failed to enrich agent graph. status=" + response.statusCode() + " body=" + response.body());
+        }
     }
 
     private enum Direction {

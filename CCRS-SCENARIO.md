@@ -13,6 +13,13 @@ cd .\mase-server\
 gradle runMase --args="sim-CcrsMaze"
 ```
 
+Variants: in [sim-CcrsMaze.properties](mase-server/sim-CcrsMaze.properties) select the dataset version
+
+- sim-CcrsMazeV1: redkey removed, use with key-holder-agent
+
+- sim-CcrsMazeV2: redkey is placed in Cell
+
+
 2. Start the Frontend:
 
 ```shell
