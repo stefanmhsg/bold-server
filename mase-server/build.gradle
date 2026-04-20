@@ -49,6 +49,8 @@ dependencies {
     implementation 'org.slf4j:slf4j-api:2.0.16'
     // Agent-to-Agent A2A (For example agents)
     implementation "io.github.a2asdk:a2a-java-sdk-reference-rest:0.3.3.Final"
+    implementation 'io.github.a2asdk:a2a-java-sdk-client:0.3.3.Final'
+    implementation 'io.github.a2asdk:a2a-java-sdk-client-transport-rest:0.3.3.Final'
 }
 
 application {
@@ -98,6 +100,14 @@ tasks.register('runKeyHolderAgent', JavaExec) {
     description = 'Run key holder agent with A2A endpoint and maze holding behavior.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set('org.maze.examples.KeyHolderAgent')
+    dependsOn 'classes'
+}
+
+tasks.register('runA2AKeySeekerAgent', JavaExec) {
+    group = 'application'
+    description = 'Run A2A key seeker agent that requests key from key holder and stops at cell 36/36.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('org.maze.examples.A2AKeySeekerAgent')
     dependsOn 'classes'
 }
 

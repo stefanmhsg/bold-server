@@ -87,3 +87,23 @@ Should return:
   }
 }
 ```
+
+5. Sample A2A Client to retrieve the key value via A2A SDK
+
+```shell
+cd .\mase-server\
+gradle runA2AKeySeekerAgent
+```
+
+Should output:
+```shell
+[a2a-key-seeker-min A2A] Starting minimal A2A flow
+[a2a-key-seeker-min A2A] Resolving AgentCard from http://127.0.0.1:8095/.well-known/agent-card.json
+[a2a-key-seeker-min A2A] AgentCard resolved
+[a2a-key-seeker-min A2A] Using SDK URL: http://127.0.0.1:8095/message/send
+[a2a-key-seeker-min A2A] Sending message: provide_red_key
+[a2a-key-seeker-min A2A] Received SDK event: TaskEvent
+[a2a-key-seeker-min A2A] Extracted key value: redkey
+[a2a-key-seeker-min A2A] A2A sendMessage completed
+[a2a-key-seeker-min A2A] SUCCESS: key value received via SDK: redkey
+```

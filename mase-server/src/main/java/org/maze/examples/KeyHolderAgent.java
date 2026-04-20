@@ -63,7 +63,6 @@ public class KeyHolderAgent {
     private static final String AGENT_NAME = "key-holder-agent-2";
     private static final String TARGET_COORDINATE = "33/35";
     private static final int DEFAULT_A2A_PORT = 8095;
-    private static final int PORT_BIND_ATTEMPTS = 20;
     private static final int MAX_STEPS = 2_000;
     private static final String CELLS_SEGMENT = "/cells/";
     private static final String RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -106,13 +105,21 @@ public class KeyHolderAgent {
     }
 
     public void start() throws Exception {
-        int port = findAvailablePort(resolvePreferredPort());
+        int port = requirePreferredPort(resolvePreferredPort());
         RestHandler restHandler = createRestHandler(port);
         HttpServer server = createA2AHttpServer(port, restHandler);
         server.start();
-        System.out.println("A2A KeyHolder running on port " + port + " as " + agentName);
+        logA2A("Server started on http://127.0.0.1:" + port + " as " + agentName);
+        logA2A("AgentCard endpoint: /.well-known/agent-card.json");
+        logA2A("Message endpoints: /message/send and /message:send");
 
-        runMazeBehaviour();
+        try {
+            runMazeBehaviour();
+        } catch (Exception ex) {
+            logA2A("Maze behavior failed, but A2A server stays online: " + ex.getMessage());
+            // Keep process alive so A2A requests still work.
+            keepAlive();
+        }
     }
 
         private RestHandler createRestHandler(int port) {
@@ -150,16 +157,22 @@ public class KeyHolderAgent {
             .security(List.of())
             .build();
 
+        String a2aBaseUrl = "http://127.0.0.1:" + port;
+        String sendUrl = a2aBaseUrl + "/message/send";
+
         return new AgentCard.Builder()
             .name("Key Holder Agent (" + agentName + ")")
             .description("Provides red key via A2A")
-            .url("http://127.0.0.1:" + port)
+            .url(sendUrl)
             .version("1.0.0")
             .capabilities(capabilities)
             .defaultInputModes(List.of("text"))
             .defaultOutputModes(List.of("text"))
             .skills(List.of(skill))
-            .additionalInterfaces(List.of(new AgentInterface(TransportProtocol.HTTP_JSON.asString(), "http://127.0.0.1:" + port)))
+            .additionalInterfaces(List.of(
+                new AgentInterface(TransportProtocol.HTTP_JSON.asString(), sendUrl)
+            ))
+            .preferredTransport(TransportProtocol.HTTP_JSON.asString())
             .build();
         }
 
@@ -173,20 +186,19 @@ public class KeyHolderAgent {
                 return;
             }
 
+            logA2A("GET /.well-known/agent-card.json from " + exchange.getRemoteAddress());
             RestHandler.HTTPRestResponse response = restHandler.getAgentCard();
+            logA2A("AgentCard response status=" + response.getStatusCode());
             respond(exchange, response.getStatusCode(), response.getContentType(), response.getBody());
         });
 
         server.createContext("/message/send", exchange -> {
-            String method = exchange.getRequestMethod();
-            if (!"POST".equalsIgnoreCase(method)) {
-                respond(exchange, 405, "text/plain", "Method Not Allowed");
-                return;
-            }
+            handleMessageSend(exchange, restHandler, "/message/send");
+        });
 
-            String requestBody = readBody(exchange);
-            RestHandler.HTTPRestResponse response = restHandler.sendMessage(requestBody, buildCallContext());
-            respond(exchange, response.getStatusCode(), response.getContentType(), response.getBody());
+        // Some A2A clients use the colon variant from JSON-RPC routing conventions.
+        server.createContext("/message:send", exchange -> {
+            handleMessageSend(exchange, restHandler, "/message:send");
         });
 
         // Convenience endpoint for legacy direct retrieval.
@@ -202,6 +214,45 @@ public class KeyHolderAgent {
         return server;
     }
 
+    private void handleMessageSend(HttpExchange exchange, RestHandler restHandler, String endpoint) throws IOException {
+        String method = exchange.getRequestMethod();
+        if (!"POST".equalsIgnoreCase(method)) {
+            respond(exchange, 405, "text/plain", "Method Not Allowed");
+            return;
+        }
+
+        logA2A("POST " + endpoint + " from " + exchange.getRemoteAddress());
+        try {
+            String requestBody = readBody(exchange);
+            logA2A("Request body preview: " + summarizePayload(requestBody));
+            RestHandler.HTTPRestResponse response = restHandler.sendMessage(requestBody, buildCallContext());
+            logA2A("Response status=" + response.getStatusCode() + " contentType=" + response.getContentType());
+            respond(exchange, response.getStatusCode(), response.getContentType(), response.getBody());
+        } catch (Exception ex) {
+            logA2A("Message handling failed: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
+            String body = "{\"error\":\"internal_error\",\"message\":\"" + escapeJson(ex.getMessage()) + "\"}";
+            respond(exchange, 500, "application/json", body);
+        }
+    }
+
+    private static String escapeJson(String value) {
+        if (value == null) {
+            return "unknown";
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private String summarizePayload(String payload) {
+        if (payload == null) {
+            return "<null>";
+        }
+        String normalized = payload.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= 220) {
+            return normalized;
+        }
+        return normalized.substring(0, 220) + "...";
+    }
+
     private int resolvePreferredPort() {
         String envValue = System.getenv("MASE_KEYHOLDER_PORT");
         if (envValue == null || envValue.isBlank()) {
@@ -214,18 +265,14 @@ public class KeyHolderAgent {
         }
     }
 
-    private int findAvailablePort(int preferredPort) throws IOException {
-        for (int i = 0; i < PORT_BIND_ATTEMPTS; i++) {
-            int candidate = preferredPort + i;
-            try (java.net.ServerSocket socket = new java.net.ServerSocket()) {
-                socket.setReuseAddress(false);
-                socket.bind(new InetSocketAddress("127.0.0.1", candidate));
-                return candidate;
-            } catch (IOException ignored) {
-                // Try next port candidate.
-            }
+    private int requirePreferredPort(int preferredPort) throws IOException {
+        try (java.net.ServerSocket socket = new java.net.ServerSocket()) {
+            socket.setReuseAddress(false);
+            socket.bind(new InetSocketAddress("127.0.0.1", preferredPort));
+            return preferredPort;
+        } catch (IOException ex) {
+            throw new IOException("Preferred A2A port already in use: " + preferredPort, ex);
         }
-        throw new IOException("No free A2A port found in range " + preferredPort + "-" + (preferredPort + PORT_BIND_ATTEMPTS - 1));
     }
 
     private static ServerCallContext buildCallContext() {
@@ -249,6 +296,8 @@ public class KeyHolderAgent {
 
         @Override
         public void execute(RequestContext context, EventQueue queue) {
+            String taskId = context.getTask() == null ? "<new-task>" : context.getTask().getId();
+            System.out.println("[" + AGENT_NAME + " A2A] Executor.execute task=" + taskId + " -> returning red key artifact");
             TaskUpdater updater = new TaskUpdater(context, queue);
             if (context.getTask() == null) {
                 updater.submit();
@@ -257,13 +306,20 @@ public class KeyHolderAgent {
             List<Part<?>> parts = List.of(new TextPart(RED_KEY_TURTLE));
             updater.addArtifact(parts, "red-key", "text/turtle", Map.of("contentType", "text/turtle"));
             updater.complete();
+            System.out.println("[" + AGENT_NAME + " A2A] Executor.complete task=" + taskId);
         }
 
         @Override
         public void cancel(RequestContext context, EventQueue queue) {
+            String taskId = context.getTask() == null ? "<unknown-task>" : context.getTask().getId();
+            System.out.println("[" + AGENT_NAME + " A2A] Executor.cancel task=" + taskId);
             TaskUpdater updater = new TaskUpdater(context, queue);
             updater.cancel();
         }
+    }
+
+    private void logA2A(String message) {
+        System.out.println("[" + agentName + " A2A] " + message);
     }
 
     private void runMazeBehaviour() throws Exception {
@@ -385,6 +441,12 @@ public class KeyHolderAgent {
     }
 
     private void idleForever() throws Exception {
+        while (true) {
+            Thread.sleep(1_000);
+        }
+    }
+
+    private void keepAlive() throws Exception {
         while (true) {
             Thread.sleep(1_000);
         }
