@@ -1,6 +1,43 @@
 package org.maze.examples;
 
+import io.a2a.server.ServerCallContext;
+import io.a2a.server.agentexecution.AgentExecutor;
+import io.a2a.server.agentexecution.RequestContext;
+import io.a2a.server.auth.UnauthenticatedUser;
+import io.a2a.server.events.EventQueue;
+import io.a2a.server.events.InMemoryQueueManager;
+import io.a2a.server.events.QueueManager;
+import io.a2a.server.requesthandlers.DefaultRequestHandler;
+import io.a2a.server.requesthandlers.RequestHandler;
+import io.a2a.server.tasks.BasePushNotificationSender;
+import io.a2a.server.tasks.InMemoryPushNotificationConfigStore;
+import io.a2a.server.tasks.InMemoryTaskStore;
+import io.a2a.server.tasks.PushNotificationConfigStore;
+import io.a2a.server.tasks.PushNotificationSender;
+import io.a2a.server.tasks.TaskStateProvider;
+import io.a2a.server.tasks.TaskStore;
+import io.a2a.server.tasks.TaskUpdater;
+import io.a2a.spec.AgentCapabilities;
+import io.a2a.spec.AgentCard;
+import io.a2a.spec.AgentInterface;
+import io.a2a.spec.AgentSkill;
+import io.a2a.spec.Part;
+import io.a2a.spec.TextPart;
+import io.a2a.spec.TransportProtocol;
+import io.a2a.transport.rest.handler.RestHandler;
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.rio.RDFFormat;
+import org.eclipse.rdf4j.rio.Rio;
+import org.maze.domain.vocab.MazeVocab;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.StringReader;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -10,35 +47,25 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Model;
-import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.Rio;
-import org.maze.domain.vocab.MazeVocab;
-
-public class CcrsAgent {
+public class KeyHolderAgent {
 
     private static final String BASE_URI = "http://127.0.1.1:8080";
     private static final String MAZE_URI = BASE_URI + "/maze";
+    private static final String AGENT_NAME = "key-holder-agent-2";
+    private static final String TARGET_COORDINATE = "33/35";
+    private static final int DEFAULT_A2A_PORT = 8095;
+    private static final int PORT_BIND_ATTEMPTS = 20;
     private static final int MAX_STEPS = 2_000;
-    private static final long AGENT_DISPATCH_INTERVAL_MS = 3_000;
-
+    private static final String CELLS_SEGMENT = "/cells/";
     private static final String RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
     private static final String KEY_VALUE = MazeVocab.DYNMAZE_NS + "keyValue";
     private static final String NEEDS_ACTION = MazeVocab.DYNMAZE_NS + "needsAction";
@@ -46,99 +73,208 @@ public class CcrsAgent {
     private static final String STATE = MazeVocab.DYNMAZE_NS + "state";
     private static final String LOCKED = MazeVocab.DYNMAZE_NS + "locked";
     private static final String HTTP_REQUEST_URI = "http://www.w3.org/2011/http#requestURI";
-    private static final String CELLS_SEGMENT = "/cells/";
+        private static final String RED_KEY_TURTLE = """
+                        @prefix dyn: <http://example.org/dynamic-maze#> .
 
-    // When a configured agent reaches 37/31, it will try 36/31 then 35/31.
-    private static final List<String> MIXED_ZONE_EMERGENCY_COORDINATES = List.of("37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27", "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
-    private static final List<String> CONSTRUCTION_SITE_ZONE_COORDINATES = List.of("36/39", "35/39", "34/39", "34/40", "33/40", "32/40", "31/40");
+                        <http://127.0.1.1:8080/cells/37/36#key> a dyn:RedKey;
+                            dyn:fitsInLock <http://127.0.1.1:8080/cells/36/36>;
+                            dyn:keyValue "redkey" .
+                        """;
 
-    // Configure each spawned agent and its exploration direction preference here.
+    private static final List<Direction> DIRECTION_ORDER = List.of(
+            Direction.SOUTH,
+            Direction.EAST,
+            Direction.NORTH,
+            Direction.WEST);
 
-    // DFS Agent
-    /*
-    private static final List<AgentConfig> AGENT_CONFIGS = List.of(
-            new AgentConfig("ccrs-agent-1", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), CONSTRUCTION_SITE_ZONE_COORDINATES)
-        );
-    */
-    // Evaluation Config
-    
-    private static final List<AgentConfig> AGENT_CONFIGS = List.of(
-            new AgentConfig("ccrs-agent-11", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-2", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-3", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-4", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-5", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES)),
-        
-            new AgentConfig("ccrs-agent-6", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-7", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            
-            new AgentConfig("ccrs-agent-8", List.of(Direction.WEST, Direction.SOUTH, Direction.EAST, Direction.NORTH), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES))
-        );
-    
+    private static final List<String> MIXED_ZONE_EMERGENCY_COORDINATES = List.of(
+            "37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27",
+            "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
+
+    private static final List<List<String>> GUIDED_COORDINATE_LISTS = List.of(MIXED_ZONE_EMERGENCY_COORDINATES);
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
+    private final Map<String, String> keyringByType = new java.util.HashMap<>();
+    private final String agentName = AGENT_NAME;
 
-    private final Map<String, String> keyringByType = new HashMap<>();
-    private final String agentName;
-    private final List<Direction> directionOrder;
-    private final List<List<String>> guidedCoordinateLists;
-
-    private CcrsAgent(AgentConfig config) {
-        this.agentName = config.name();
-        this.directionOrder = List.copyOf(config.directionOrder());
-        this.guidedCoordinateLists = config.guidedCoordinateLists().stream()
-            .map(List::copyOf)
-            .toList();
-    }
+    private final ExecutorService a2aExecutor = Executors.newFixedThreadPool(4);
 
     public static void main(String[] args) throws Exception {
-        runConfiguredAgents();
+        new KeyHolderAgent().start();
     }
 
-    private static void runConfiguredAgents() throws Exception {
-        ExecutorService executor = Executors.newFixedThreadPool(AGENT_CONFIGS.size());
+    public void start() throws Exception {
+        int port = findAvailablePort(resolvePreferredPort());
+        RestHandler restHandler = createRestHandler(port);
+        HttpServer server = createA2AHttpServer(port, restHandler);
+        server.start();
+        System.out.println("A2A KeyHolder running on port " + port + " as " + agentName);
+
+        runMazeBehaviour();
+    }
+
+        private RestHandler createRestHandler(int port) {
+        AgentExecutor agentExecutor = new RedKeyAgentExecutor();
+        TaskStore taskStore = new InMemoryTaskStore();
+        QueueManager queueManager = new InMemoryQueueManager((TaskStateProvider) taskStore);
+        PushNotificationConfigStore pushConfigStore = new InMemoryPushNotificationConfigStore();
+        PushNotificationSender pushNotificationSender = new BasePushNotificationSender(pushConfigStore);
+
+        RequestHandler requestHandler = DefaultRequestHandler.create(
+            agentExecutor,
+            taskStore,
+            queueManager,
+            pushConfigStore,
+            pushNotificationSender,
+            a2aExecutor);
+
+        return new RestHandler(createAgentCard(port), requestHandler, a2aExecutor);
+        }
+
+        private AgentCard createAgentCard(int port) {
+        AgentCapabilities capabilities = new AgentCapabilities.Builder()
+            .streaming(false)
+            .pushNotifications(false)
+            .build();
+
+        AgentSkill skill = new AgentSkill.Builder()
+            .id("provide_red_key")
+            .name("Provide Red Key")
+            .description("Returns RDF triple of red key")
+            .tags(List.of("key", "red-key", "a2a"))
+            .examples(List.of("provide_red_key"))
+            .inputModes(List.of("text"))
+            .outputModes(List.of("text"))
+            .security(List.of())
+            .build();
+
+        return new AgentCard.Builder()
+            .name("Key Holder Agent (" + agentName + ")")
+            .description("Provides red key via A2A")
+            .url("http://127.0.0.1:" + port)
+            .version("1.0.0")
+            .capabilities(capabilities)
+            .defaultInputModes(List.of("text"))
+            .defaultOutputModes(List.of("text"))
+            .skills(List.of(skill))
+            .additionalInterfaces(List.of(new AgentInterface(TransportProtocol.HTTP_JSON.asString(), "http://127.0.0.1:" + port)))
+            .build();
+        }
+
+    private HttpServer createA2AHttpServer(int port, RestHandler restHandler) throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        server.setExecutor(Executors.newCachedThreadPool());
+
+        server.createContext("/.well-known/agent-card.json", exchange -> {
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                respond(exchange, 405, "text/plain", "Method Not Allowed");
+                return;
+            }
+
+            RestHandler.HTTPRestResponse response = restHandler.getAgentCard();
+            respond(exchange, response.getStatusCode(), response.getContentType(), response.getBody());
+        });
+
+        server.createContext("/message/send", exchange -> {
+            String method = exchange.getRequestMethod();
+            if (!"POST".equalsIgnoreCase(method)) {
+                respond(exchange, 405, "text/plain", "Method Not Allowed");
+                return;
+            }
+
+            String requestBody = readBody(exchange);
+            RestHandler.HTTPRestResponse response = restHandler.sendMessage(requestBody, buildCallContext());
+            respond(exchange, response.getStatusCode(), response.getContentType(), response.getBody());
+        });
+
+        // Convenience endpoint for legacy direct retrieval.
+        server.createContext("/provide_red_key", exchange -> {
+            String method = exchange.getRequestMethod();
+            if (!"GET".equalsIgnoreCase(method) && !"POST".equalsIgnoreCase(method)) {
+                respond(exchange, 405, "text/plain", "Method Not Allowed");
+                return;
+            }
+            respond(exchange, 200, "text/turtle", RED_KEY_TURTLE);
+        });
+
+        return server;
+    }
+
+    private int resolvePreferredPort() {
+        String envValue = System.getenv("MASE_KEYHOLDER_PORT");
+        if (envValue == null || envValue.isBlank()) {
+            return DEFAULT_A2A_PORT;
+        }
         try {
-            List<Future<String>> results = new ArrayList<>();
-            for (AgentConfig config : AGENT_CONFIGS) {
-                Future<String> future = executor.submit(() -> {
-                        CcrsAgent agent = new CcrsAgent(config);
-                        agent.run();
-                        return config.name();
-                });
-                results.add(future);
-                Thread.sleep(AGENT_DISPATCH_INTERVAL_MS);
-            }
-
-            List<String> failures = new ArrayList<>();
-            for (Future<String> result : results) {
-                try {
-                    String completedAgent = result.get();
-                    System.out.println("Agent finished: " + completedAgent);
-                } catch (ExecutionException e) {
-                    Throwable cause = e.getCause() != null ? e.getCause() : e;
-                    failures.add(cause.getMessage() != null ? cause.getMessage() : cause.toString());
-                }
-            }
-
-            if (!failures.isEmpty()) {
-                throw new IllegalStateException("One or more agents failed: " + failures);
-            }
-        } finally {
-            executor.shutdownNow();
+            return Integer.parseInt(envValue.trim());
+        } catch (NumberFormatException ex) {
+            return DEFAULT_A2A_PORT;
         }
     }
 
-    public void run() throws Exception {
+    private int findAvailablePort(int preferredPort) throws IOException {
+        for (int i = 0; i < PORT_BIND_ATTEMPTS; i++) {
+            int candidate = preferredPort + i;
+            try (java.net.ServerSocket socket = new java.net.ServerSocket()) {
+                socket.setReuseAddress(false);
+                socket.bind(new InetSocketAddress("127.0.0.1", candidate));
+                return candidate;
+            } catch (IOException ignored) {
+                // Try next port candidate.
+            }
+        }
+        throw new IOException("No free A2A port found in range " + preferredPort + "-" + (preferredPort + PORT_BIND_ATTEMPTS - 1));
+    }
+
+    private static ServerCallContext buildCallContext() {
+        return new ServerCallContext(UnauthenticatedUser.INSTANCE, Map.of(), Set.of());
+    }
+
+    private static String readBody(HttpExchange exchange) throws IOException {
+        return new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static void respond(HttpExchange exchange, int status, String contentType, String body) throws IOException {
+        byte[] payload = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", contentType + "; charset=utf-8");
+        exchange.sendResponseHeaders(status, payload.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(payload);
+        }
+    }
+
+    private static final class RedKeyAgentExecutor implements AgentExecutor {
+
+        @Override
+        public void execute(RequestContext context, EventQueue queue) {
+            TaskUpdater updater = new TaskUpdater(context, queue);
+            if (context.getTask() == null) {
+                updater.submit();
+            }
+            updater.startWork();
+            List<Part<?>> parts = List.of(new TextPart(RED_KEY_TURTLE));
+            updater.addArtifact(parts, "red-key", "text/turtle", Map.of("contentType", "text/turtle"));
+            updater.complete();
+        }
+
+        @Override
+        public void cancel(RequestContext context, EventQueue queue) {
+            TaskUpdater updater = new TaskUpdater(context, queue);
+            updater.cancel();
+        }
+    }
+
+    private void runMazeBehaviour() throws Exception {
         String currentCell = fetchStartCellFromMaze();
-        System.out.println("Start cell discovered: " + currentCell);
+        logStep(0, 0, "START", "start cell discovered: " + currentCell);
 
         int startMoveStatus = postMove(MAZE_URI, currentCell);
         if (startMoveStatus < 200 || startMoveStatus >= 300) {
             throw new IllegalStateException("Failed to enter maze at start cell. status=" + startMoveStatus + " start=" + currentCell);
         }
-        System.out.println("Entered maze at: " + currentCell);
+        logStep(0, 0, "ENTER", "entered maze at: " + currentCell);
 
         Deque<String> path = new ArrayDeque<>();
         Set<String> visited = new HashSet<>();
@@ -148,11 +284,18 @@ public class CcrsAgent {
         int step = 0;
         while (step < MAX_STEPS) {
             step++;
+
             ParsedCell parsed = getCell(currentCell);
             updateKeyring(parsed);
 
+            if (TARGET_COORDINATE.equals(coordinateOf(currentCell))) {
+                logStep(step, Math.max(path.size() - 1, 0), "HOLD", "target reached at " + currentCell + "; agent stays idle and online");
+                idleForever();
+                return;
+            }
+
             int depth = path.size() - 1;
-            logStep(step, depth, "VISIT", currentCell + " | neighbors=" + parsed.neighborSummary(directionOrder));
+            logStep(step, depth, "VISIT", currentCell + " | neighbors=" + parsed.neighborSummary(DIRECTION_ORDER));
 
             if (parsed.locked()) {
                 logStep(step, depth, "LOCKED", "attempt unlock at " + currentCell);
@@ -163,21 +306,6 @@ public class CcrsAgent {
                 parsed = getCell(currentCell);
                 updateKeyring(parsed);
                 logStep(step, depth, "UNLOCKED", currentCell);
-            }
-
-            if (parsed.exit() != null) {
-                String exitCell = parsed.exit();
-                int status = postMove(currentCell, exitCell);
-                if (status < 200 || status >= 300) {
-                    throw new IllegalStateException("Move to exit failed. status=" + status + " from=" + currentCell + " to=" + exitCell);
-                }
-                currentCell = exitCell;
-                logStep(step, depth, "EXIT", "moved to " + currentCell);
-                if (currentCell.endsWith("/cells/999")) {
-                    System.out.println("SUCCESS: ccrs-agent reached maze exit cell /cells/999 in " + step + " steps.");
-                    return;
-                }
-                continue;
             }
 
             boolean advanced = false;
@@ -194,7 +322,7 @@ public class CcrsAgent {
                     logStep(step, depth, "GUIDED", fromCell + " -> " + currentCell);
                     advanced = true;
                 } else {
-                    throw new IllegalStateException("Guided move failed. status=" + moveStatus + " from=" + currentCell + " to=" + nextCell);
+                    logStep(step, depth, "GUIDEFAIL", "status=" + moveStatus + " from=" + currentCell + " to=" + nextCell);
                 }
             }
 
@@ -202,7 +330,7 @@ public class CcrsAgent {
                 continue;
             }
 
-            for (Direction direction : directionOrder) {
+            for (Direction direction : DIRECTION_ORDER) {
                 String nextCell = parsed.targetFor(direction).orElse(null);
                 if (nextCell == null) {
                     continue;
@@ -237,7 +365,9 @@ public class CcrsAgent {
             }
 
             if (path.size() <= 1) {
-                throw new IllegalStateException("DFS exhausted: no unvisited neighbors and no parent to backtrack to from " + currentCell);
+                logStep(step, Math.max(path.size() - 1, 0), "HOLD", "target " + TARGET_COORDINATE + " not reachable; staying idle at " + currentCell);
+                idleForever();
+                return;
             }
 
             String deadEnd = path.pop();
@@ -250,14 +380,21 @@ public class CcrsAgent {
             logStep(step, depth, "BACKTRACK", deadEnd + " -> " + parent);
         }
 
-        throw new IllegalStateException("Max steps reached without finding exit: " + MAX_STEPS);
+        logStep(step, Math.max(path.size() - 1, 0), "HOLD", "max steps reached; staying idle at " + currentCell);
+        idleForever();
+    }
+
+    private void idleForever() throws Exception {
+        while (true) {
+            Thread.sleep(1_000);
+        }
     }
 
     private ParsedCell getCell(String cellUri) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(cellUri))
                 .timeout(Duration.ofSeconds(10))
                 .GET()
-            .header("Authorization", agentName)
+                .header("Authorization", agentName)
                 .header("Accept", "text/turtle")
                 .build();
 
@@ -274,7 +411,7 @@ public class CcrsAgent {
         HttpRequest request = HttpRequest.newBuilder(URI.create(MAZE_URI))
                 .timeout(Duration.ofSeconds(10))
                 .GET()
-            .header("Authorization", agentName)
+                .header("Authorization", agentName)
                 .header("Accept", "text/turtle")
                 .build();
 
@@ -355,29 +492,13 @@ public class CcrsAgent {
         return iri.substring(idx + 1);
     }
 
-    private static IRI iri(String value) {
-        return SimpleValueFactory.getInstance().createIRI(value);
-    }
-
-    private String buildAgentIri(String cellOrMazeUri) {
-        int cellsIndex = cellOrMazeUri.lastIndexOf("/cells");
-        if (cellsIndex > 0) {
-            return cellOrMazeUri.substring(0, cellsIndex) + "/agents/" + agentName;
-        }
-        int mazeIndex = cellOrMazeUri.lastIndexOf("/maze");
-        if (mazeIndex > 0) {
-            return cellOrMazeUri.substring(0, mazeIndex) + "/agents/" + agentName;
-        }
-        return BASE_URI + "/agents/" + agentName;
-    }
-
     private Optional<String> guidedNextCell(String currentCellUri) {
         String currentCoordinate = coordinateOf(currentCellUri);
         if (currentCoordinate == null) {
             return Optional.empty();
         }
 
-        for (List<String> guidedCoordinates : guidedCoordinateLists) {
+        for (List<String> guidedCoordinates : GUIDED_COORDINATE_LISTS) {
             if (guidedCoordinates.size() < 2) {
                 continue;
             }
@@ -421,6 +542,22 @@ public class CcrsAgent {
         return base + normalizedCoordinate;
     }
 
+    private static IRI iri(String value) {
+        return SimpleValueFactory.getInstance().createIRI(value);
+    }
+
+    private String buildAgentIri(String cellOrMazeUri) {
+        int cellsIndex = cellOrMazeUri.lastIndexOf("/cells");
+        if (cellsIndex > 0) {
+            return cellOrMazeUri.substring(0, cellsIndex) + "/agents/" + agentName;
+        }
+        int mazeIndex = cellOrMazeUri.lastIndexOf("/maze");
+        if (mazeIndex > 0) {
+            return cellOrMazeUri.substring(0, mazeIndex) + "/agents/" + agentName;
+        }
+        return BASE_URI + "/agents/" + agentName;
+    }
+
     private void logStep(int step, int depth, String action, String details) {
         String indent = "  ".repeat(Math.max(depth, 0));
         System.out.println(String.format("[%s step=%04d depth=%02d] %s%-9s %s", agentName, step, depth, indent, action, details));
@@ -437,10 +574,6 @@ public class CcrsAgent {
         Direction(String predicate) {
             this.predicate = predicate;
         }
-
-    }
-
-    private record AgentConfig(String name, List<Direction> directionOrder, List<List<String>> guidedCoordinateLists) {
     }
 
     private record ParsedCell(
@@ -474,18 +607,18 @@ public class CcrsAgent {
 
             boolean locked = model.contains(subject, iri(STATE), iri(LOCKED));
 
-                String lockTarget = cellUri;
-                Optional<Value> actionNode = model.filter(subject, iri(NEEDS_ACTION), null)
+            String lockTarget = cellUri;
+            Optional<org.eclipse.rdf4j.model.Value> actionNode = model.filter(subject, iri(NEEDS_ACTION), null)
                     .stream()
                     .findFirst()
-                    .map(Statement::getObject);
-                if (actionNode.isPresent() && actionNode.get() instanceof Resource actionResource) {
+                    .map(org.eclipse.rdf4j.model.Statement::getObject);
+            if (actionNode.isPresent() && actionNode.get() instanceof org.eclipse.rdf4j.model.Resource actionResource) {
                 lockTarget = model.filter(actionResource, iri(HTTP_REQUEST_URI), null)
-                    .stream()
-                    .findFirst()
-                    .map(requestStmt -> requestStmt.getObject().stringValue())
-                    .orElse(cellUri);
-                }
+                        .stream()
+                        .findFirst()
+                        .map(requestStmt -> requestStmt.getObject().stringValue())
+                        .orElse(cellUri);
+            }
 
             String requiredKeyType = model.filter(null, iri(FOUND_AT), null)
                     .stream()
@@ -493,11 +626,11 @@ public class CcrsAgent {
                     .map(statement -> statement.getObject().stringValue())
                     .orElse(null);
 
-            Map<String, String> keyTypeToValue = new HashMap<>();
-            for (Statement statement : model.filter(null, iri(KEY_VALUE), null)) {
-                Value keyNode = statement.getSubject();
+            Map<String, String> keyTypeToValue = new java.util.HashMap<>();
+            for (org.eclipse.rdf4j.model.Statement statement : model.filter(null, iri(KEY_VALUE), null)) {
+                org.eclipse.rdf4j.model.Value keyNode = statement.getSubject();
                 String keyValue = statement.getObject().stringValue();
-                if (keyNode instanceof Resource keyResource) {
+                if (keyNode instanceof org.eclipse.rdf4j.model.Resource keyResource) {
                     model.filter(keyResource, iri(RDF_TYPE), null).forEach(typeStmt -> {
                         keyTypeToValue.put(typeStmt.getObject().stringValue(), keyValue);
                     });
@@ -515,6 +648,9 @@ public class CcrsAgent {
             List<String> summary = new ArrayList<>();
             for (Direction direction : directionOrder) {
                 summary.add(direction.name().toLowerCase() + "=" + targetFor(direction).orElse("wall"));
+            }
+            if (exit != null) {
+                summary.add("exit=" + exit);
             }
             return summary.stream().collect(Collectors.joining(", "));
         }

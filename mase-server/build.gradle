@@ -47,7 +47,8 @@ dependencies {
     
     // SLF4J - Upgrade to 2.x (API only, Jetty provides implementation)
     implementation 'org.slf4j:slf4j-api:2.0.16'
-
+    // Agent-to-Agent A2A (For example agents)
+    implementation "io.github.a2asdk:a2a-java-sdk-reference-rest:0.3.3.Final"
 }
 
 application {
@@ -89,6 +90,14 @@ tasks.register('runCcrsAgent', JavaExec) {
     description = 'Run sample ccrs agent against a running server.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set('org.maze.examples.CcrsAgent')
+    dependsOn 'classes'
+}
+
+tasks.register('runKeyHolderAgent', JavaExec) {
+    group = 'application'
+    description = 'Run key holder agent with A2A endpoint and maze holding behavior.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('org.maze.examples.KeyHolderAgent')
     dependsOn 'classes'
 }
 
