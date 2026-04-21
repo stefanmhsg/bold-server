@@ -73,9 +73,9 @@ public class KeyHolderAgent {
     private static final String LOCKED = MazeVocab.DYNMAZE_NS + "locked";
     private static final String HTTP_REQUEST_URI = "http://www.w3.org/2011/http#requestURI";
         private static final String RED_KEY_TURTLE = """
-                        @prefix dyn: <http://example.org/dynamic-maze#> .
+                        @prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
 
-                        <http://127.0.1.1:8080/cells/37/36#key> a dyn:RedKey;
+                        <http://127.0.1.1:8080/cells/36/36#key> a dyn:RedKey;
                             dyn:fitsInLock <http://127.0.1.1:8080/cells/36/36>;
                             dyn:keyValue "redkey" .
                         """;
