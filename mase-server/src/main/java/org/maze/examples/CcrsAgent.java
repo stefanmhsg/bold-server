@@ -51,6 +51,10 @@ public class CcrsAgent {
     // When a configured agent reaches 37/31, it will try 36/31 then 35/31.
     private static final List<String> MIXED_ZONE_EMERGENCY_COORDINATES = List.of("37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27", "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
     private static final List<String> CONSTRUCTION_SITE_ZONE_COORDINATES = List.of("36/39", "35/39", "34/39", "34/40", "33/40", "32/40", "31/40");
+    private static final List<String> PASS_RED_LOCK_DIRECTLY = List.of("36/36", "36/37");
+    private static final List<String> GOTO_EXIT_DIRECTLY = List.of("48/49", "48/50");
+
+
 
     // Configure each spawned agent and its exploration direction preference here.
 
@@ -63,16 +67,20 @@ public class CcrsAgent {
     // Evaluation Config
     
     private static final List<AgentConfig> AGENT_CONFIGS = List.of(
-            new AgentConfig("ccrs-agent-11", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-2", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-3", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-4", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-5", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES)),
+            new AgentConfig("ccrs-agent-1.1", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.2", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.3", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.4", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.5", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.6", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.7", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.8", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.9", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
         
-            new AgentConfig("ccrs-agent-6", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES)),
-            new AgentConfig("ccrs-agent-7", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES)),
+            new AgentConfig("ccrs-agent-2.1", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-2.2", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY)),
             
-            new AgentConfig("ccrs-agent-8", List.of(Direction.WEST, Direction.SOUTH, Direction.EAST, Direction.NORTH), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES))
+            new AgentConfig("ccrs-agent-3", List.of(Direction.WEST, Direction.SOUTH, Direction.EAST, Direction.NORTH), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY))
         );
     
 
@@ -318,7 +326,8 @@ public class CcrsAgent {
             keyValue = keyringByType.get(localName);
         }
         if (keyValue == null) {
-            return false;
+            // Fallback for CCRS scenarios: try one direct red key guess when no key is known.
+            keyValue = "redkey";
         }
 
         String turtle = "<" + parsedCell.lockTargetCell() + "> <" + KEY_VALUE + "> \"" + keyValue + "\" .\n";
