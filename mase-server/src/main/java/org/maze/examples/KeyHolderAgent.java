@@ -86,11 +86,14 @@ public class KeyHolderAgent {
             Direction.NORTH,
             Direction.WEST);
 
+    private static final List<String> GREEN_KEY_LOCATION_COORDINATES = List.of(
+            "7/2", "7/3", "7/4", "8/4", "8/5", "8/6", "9/6", "10/6", "11/6", "11/5");
+
     private static final List<String> MIXED_ZONE_EMERGENCY_COORDINATES = List.of(
             "37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27",
             "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
 
-    private static final List<List<String>> GUIDED_COORDINATE_LISTS = List.of(MIXED_ZONE_EMERGENCY_COORDINATES);
+    private static final List<List<String>> GUIDED_COORDINATE_LISTS = List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES);
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))

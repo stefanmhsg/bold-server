@@ -89,7 +89,141 @@ WHERE {
 # SIGNIFIER ZONE
 # --------------
 
-# Signifier Exposure based on key requirement
+# Route signifiers while the green lock is closed:
+# remove the direct route to the lock.
+
+DELETE {
+    GRAPH ?g {
+        ?cell maze:green ?target .
+    }
+}
+WHERE {
+    VALUES ?coords {
+        "7/2" "8/2" "9/2" "10/2" "10/3" "11/3" "12/3" "12/4"
+    }
+
+    GRAPH ?g {
+        ?cell a maze:Cell .
+        ?cell maze:green ?target .
+    }
+    BIND(STRAFTER(STR(?cell), "/cells/") AS ?cellCoords)
+    FILTER(?cellCoords = ?coords)
+
+    GRAPH ?lockGraph {
+        ?lockCell dyn:state dyn:locked .
+    }
+    BIND(STRAFTER(STR(?lockCell), "/cells/") AS ?lockCoords)
+    FILTER(?lockCoords = "12/5") # greenAction location
+} ;
+
+# Route signifiers while the green lock is closed:
+# guide the green path via the key.
+
+INSERT {
+    GRAPH ?g {
+        ?cell maze:green ?target .
+    }
+}
+WHERE {
+    VALUES (?coords ?targetCoords) {
+        ("7/2"  "7/3")
+        ("7/3"  "7/4")
+        ("7/4"  "8/4")
+        ("8/4"  "8/5")
+        ("8/5"  "8/6")
+        ("8/6"  "9/6")
+        ("9/6"  "10/6")
+        ("10/6" "11/6")
+        ("11/6" "11/5")
+        ("11/5" "12/5")
+    }
+
+    GRAPH ?g {
+        ?cell a maze:Cell .
+    }
+    BIND(STRAFTER(STR(?cell), "/cells/") AS ?cellCoords)
+    FILTER(?cellCoords = ?coords)
+
+    GRAPH ?targetGraph {
+        ?target a maze:Cell .
+    }
+    BIND(STRAFTER(STR(?target), "/cells/") AS ?actualTargetCoords)
+    FILTER(?actualTargetCoords = ?targetCoords)
+
+    GRAPH ?lockGraph {
+        ?lockCell dyn:state dyn:locked .
+    }
+    BIND(STRAFTER(STR(?lockCell), "/cells/") AS ?lockCoords)
+    FILTER(?lockCoords = "12/5")
+} ;
+
+# Route signifiers after the green lock is open:
+# remove the key detour.
+
+DELETE {
+    GRAPH ?g {
+        ?cell maze:green ?target .
+    }
+}
+WHERE {
+    VALUES ?coords {
+        "7/2" "7/3" "7/4" "8/4" "8/5" "8/6" "9/6" "10/6" "11/6" "11/5"
+    }
+
+    GRAPH ?g {
+        ?cell a maze:Cell .
+        ?cell maze:green ?target .
+    }
+    BIND(STRAFTER(STR(?cell), "/cells/") AS ?cellCoords)
+    FILTER(?cellCoords = ?coords)
+
+    GRAPH ?lockGraph {
+        ?lockCell dyn:state dyn:unlocked .
+    }
+    BIND(STRAFTER(STR(?lockCell), "/cells/") AS ?lockCoords)
+    FILTER(?lockCoords = "12/5")
+} ;
+
+# Route signifiers after the green lock is open:
+# restore the direct green path to the lock.
+
+INSERT {
+    GRAPH ?g {
+        ?cell maze:green ?target .
+    }
+}
+WHERE {
+    VALUES (?coords ?targetCoords) {
+        ("7/2"  "8/2")
+        ("8/2"  "9/2")
+        ("9/2"  "10/2")
+        ("10/2" "10/3")
+        ("10/3" "11/3")
+        ("11/3" "12/3")
+        ("12/3" "12/4")
+        ("12/4" "12/5")
+    }
+
+    GRAPH ?g {
+        ?cell a maze:Cell .
+    }
+    BIND(STRAFTER(STR(?cell), "/cells/") AS ?cellCoords)
+    FILTER(?cellCoords = ?coords)
+
+    GRAPH ?targetGraph {
+        ?target a maze:Cell .
+    }
+    BIND(STRAFTER(STR(?target), "/cells/") AS ?actualTargetCoords)
+    FILTER(?actualTargetCoords = ?targetCoords)
+
+    GRAPH ?lockGraph {
+        ?lockCell dyn:state dyn:unlocked .
+    }
+    BIND(STRAFTER(STR(?lockCell), "/cells/") AS ?lockCoords)
+    FILTER(?lockCoords = "12/5")
+} ;
+
+
 
 # Remove Signifiers outside of the signifier-zone
 DELETE {
@@ -112,6 +246,8 @@ WHERE {
     FILTER(
         # delete beyond reference cell /cells/12/5
         (?x > 12 || ?y > 5)
+        &&
+        (?coords NOT IN ("8/6", "9/6", "10/6", "11/6"))
         &&
         # except the mixed zone
         !(
