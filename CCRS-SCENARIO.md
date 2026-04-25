@@ -19,6 +19,20 @@ Variants: in [sim-CcrsMaze.properties](mase-server/sim-CcrsMaze.properties) sele
 
 - sim-CcrsMazeV2: redkey is placed in Cell
 
+### Maze RDF Type and Canvas Layout
+
+Since the CCRS Maze consists of multiple zones which are NOT connected with each other by default (because of the locked-cells at their connection points which have the connecting triple removed in locked state) the maze-layout rendering requires an adjusted algorithm.
+
+`MazeLayoutService` currently switches to the CCRS-specific layout algorithm only when the maze has type `maze:CcrsMaze`.
+That CCRS layout is needed for this scenario because it also considers incoming cell references and disconnected components when calculating the coordinates sent to the viewer.
+
+If `maze:CcrsMaze` is renamed to another type, for example `maze:AdvancedMaze`, the server falls back to the generic layout algorithm.
+The Svelte canvas then only renders the first zone.
+
+```trig
+</maze> a ldp:BasicContainer , maze:AdvancedMaze , maze:CcrsMaze ;
+```
+
 
 2. Start the Frontend:
 
