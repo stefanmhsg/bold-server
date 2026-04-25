@@ -49,6 +49,7 @@ public class CcrsAgent {
     private static final String CELLS_SEGMENT = "/cells/";
 
     // When a configured agent reaches 37/31, it will try 36/31 then 35/31.
+    private static final List<String> GREEN_KEY_LOCATION_COORDINATES = List.of("7/2", "7/3", "7/4", "8/4", "8/5", "8/6", "9/6", "10/6", "11/6", "11/5");
     private static final List<String> MIXED_ZONE_EMERGENCY_COORDINATES = List.of("37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27", "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
     private static final List<String> CONSTRUCTION_SITE_ZONE_COORDINATES = List.of("36/39", "35/39", "34/39", "34/40", "33/40", "32/40", "31/40");
     private static final List<String> PASS_RED_LOCK_DIRECTLY = List.of("36/36", "36/37");
@@ -67,20 +68,20 @@ public class CcrsAgent {
     // Evaluation Config
     
     private static final List<AgentConfig> AGENT_CONFIGS = List.of(
-            new AgentConfig("ccrs-agent-1.1", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-1.2", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-1.3", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-1.4", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-1.5", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-1.6", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-1.7", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-1.8", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-1.9", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.1", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.2", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.3", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.4", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.5", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.6", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.7", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.8", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-1.9", List.of(Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST), List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, PASS_RED_LOCK_DIRECTLY, GOTO_EXIT_DIRECTLY)),
         
-            new AgentConfig("ccrs-agent-2.1", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY)),
-            new AgentConfig("ccrs-agent-2.2", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-2.1", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(GREEN_KEY_LOCATION_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY)),
+            new AgentConfig("ccrs-agent-2.2", List.of(Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST), List.of(GREEN_KEY_LOCATION_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY)),
             
-            new AgentConfig("ccrs-agent-3", List.of(Direction.WEST, Direction.SOUTH, Direction.EAST, Direction.NORTH), List.of(CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY))
+            new AgentConfig("ccrs-agent-3", List.of(Direction.WEST, Direction.SOUTH, Direction.EAST, Direction.NORTH), List.of(GREEN_KEY_LOCATION_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, GOTO_EXIT_DIRECTLY))
         );
     
 
