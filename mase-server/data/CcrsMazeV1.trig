@@ -9,7 +9,7 @@
 @prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
 @prefix ui: <https://example.org/ui#> .
 @prefix stig: <https://example.org/stigmark#> .
-
+@prefix ccrs: <https://example.org/ccrs#> .
 
 #define the root of our scenario, where the maze exists
 # sequence lenghth 13520562
@@ -631,7 +631,15 @@
 }
 </cells/36/37> { </cells/36/37> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/36>; maze:south  maze:Wall; maze:east </cells/36/38>; maze:green </cells/36/38> . }
 </cells/36/38> { </cells/36/38> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/37>; maze:south  maze:Wall; maze:east </cells/36/39>; maze:green </cells/36/39> . }
-</cells/36/39> { </cells/36/39> a maze:Cell ; maze:north </cells/35/39>; maze:west </cells/36/38>; maze:south  maze:Wall; maze:east </cells/36/40>; maze:green </cells/36/40>; maze:orange </cells/35/39> . } # orange signifiers for re-direct of broken cell.
+</cells/36/39> { </cells/36/39> a maze:Cell ; maze:north </cells/35/39>; maze:west </cells/36/38>; maze:south  maze:Wall; maze:east </cells/36/40>; maze:green </cells/36/40>; maze:orange </cells/35/39> .  # orange signifiers for re-direct of broken cell.
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab#orange> 
+    a ccrs:SimplePattern ;
+    ccrs:patternType "signifier" ;
+    ccrs:matchesPosition "predicate" ;
+    ccrs:priority 0.8 ; 
+    rdfs:label "Orange Signifier" ; 
+    rdfs:comment "Visual signifier indicating redirect due to broken link ahead" .
+}
 # Representing a broken cell -> returns 404: "Move failed with unexpected status=404 from=http://127.0.1.1:8080/cells/36/39 to=http://127.0.1.1:8080/cells/36/40"
 # </cells/36/40> { </cells/36/40> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/39>; maze:south  </cells/37/40>; maze:east maze:Wall; maze:green </cells/37/40> . }
 </cells/36/43> {   </cells/36/43> a maze:Cell ; maze:north </cells/35/43>; maze:west maze:Wall; maze:south  </cells/37/43>; maze:east maze:Wall .  }
