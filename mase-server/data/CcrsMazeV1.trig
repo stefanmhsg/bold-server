@@ -45,11 +45,7 @@
 </cells/1/14> {   </cells/1/14> a maze:Cell ; maze:north maze:Wall; maze:west </cells/1/13>; maze:south  </cells/2/14>; maze:east maze:Wall .  }
 </cells/1/16> {   </cells/1/16> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/2/16>; maze:east maze:Wall .  }
 </cells/2/1> {   </cells/2/1> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/2/2> .  }
-</cells/2/2> { </cells/2/2> a maze:Cell ; maze:north </cells/1/2>; maze:west </cells/2/1>; maze:south  </cells/3/2>; maze:east </cells/2/3>; maze:green </cells/3/2> . 
-    </cells/2/2#key> a dyn:GreenKey;
-        dyn:fitsInLock </cells/12/5> ;
-        dyn:keyValue "greenkey" .
-}
+</cells/2/2> { </cells/2/2> a maze:Cell ; maze:north </cells/1/2>; maze:west </cells/2/1>; maze:south  </cells/3/2>; maze:east </cells/2/3>; maze:green </cells/3/2> . }
 </cells/2/3> {   </cells/2/3> a maze:Cell ; maze:north maze:Wall; maze:west </cells/2/2>; maze:south  maze:Wall; maze:east </cells/2/4> .  }
 </cells/2/4> {   </cells/2/4> a maze:Cell ; maze:north </cells/1/4>; maze:west </cells/2/3>; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/2/6> {   </cells/2/6> a maze:Cell ; maze:north </cells/1/6>; maze:west maze:Wall; maze:south  </cells/3/6>; maze:east maze:Wall .  }
@@ -127,7 +123,11 @@
 </cells/7/31> {   </cells/7/31> a maze:Cell ; maze:north maze:Wall; maze:west </cells/7/30>; maze:south  maze:Wall; maze:east </cells/7/32> .  }
 </cells/7/32> {   </cells/7/32> a maze:Cell ; maze:north maze:Wall; maze:west </cells/7/31>; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/8/2> { </cells/8/2> a maze:Cell ; maze:north </cells/7/2>; maze:west maze:Wall; maze:south  </cells/9/2>; maze:east maze:Wall; maze:green </cells/9/2> . }
-</cells/8/4> {   </cells/8/4> a maze:Cell ; maze:north </cells/7/4>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/8/5> .  }
+</cells/8/4> {   </cells/8/4> a maze:Cell ; maze:north </cells/7/4>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/8/5> .  
+    </cells/8/4#key> a dyn:GreenKey;
+        dyn:fitsInLock </cells/12/5> ;
+        dyn:keyValue "greenkey" .
+}
 </cells/8/5> {   </cells/8/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/8/4>; maze:south  maze:Wall; maze:east </cells/8/6> .  }
 </cells/8/6> {   </cells/8/6> a maze:Cell ; maze:north </cells/7/6>; maze:west </cells/8/5>; maze:south  </cells/9/6>; maze:east </cells/8/7> .  }
 </cells/8/7> {   </cells/8/7> a maze:Cell ; maze:north maze:Wall; maze:west </cells/8/6>; maze:south  maze:Wall; maze:east </cells/8/8> .  }

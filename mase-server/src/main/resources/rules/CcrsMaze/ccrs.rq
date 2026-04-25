@@ -89,6 +89,8 @@ WHERE {
 # SIGNIFIER ZONE
 # --------------
 
+# Signifier Exposure based on key requirement
+
 # Remove Signifiers outside of the signifier-zone
 DELETE {
     GRAPH ?g {
