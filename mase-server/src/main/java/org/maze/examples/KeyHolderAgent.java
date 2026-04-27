@@ -295,7 +295,7 @@ public class KeyHolderAgent {
         }
     }
 
-    private static final class RedKeyAgentExecutor implements AgentExecutor {
+        private static final class RedKeyAgentExecutor implements AgentExecutor {
 
         @Override
         public void execute(RequestContext context, EventQueue queue) {
@@ -307,7 +307,9 @@ public class KeyHolderAgent {
             }
             updater.startWork();
             List<Part<?>> parts = List.of(new TextPart(RED_KEY_TURTLE));
-            updater.addArtifact(parts, "red-key", "text/turtle", Map.of("contentType", "text/turtle"));
+            updater.addArtifact(parts, "red-key", "text/turtle", Map.of(
+                    "contentType", "text/turtle",
+                    "confidence", "0.99"));
             updater.complete();
             System.out.println("[" + AGENT_NAME + " A2A] Executor.complete task=" + taskId);
         }

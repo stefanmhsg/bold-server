@@ -74,7 +74,8 @@ Should return:
         "text": "@prefix dyn: \u003chttp://example.org/dynamic-maze#\u003e .\n\n\u003chttp://127.0.1.1:8080/cells/37/36#key\u003e a dyn:RedKey;\n    dyn:fitsInLock \u003chttp://127.0.1.1:8080/cells/36/36\u003e;\n    dyn:keyValue \"redkey\" .\n"
       }],
       "metadata": {
-        "contentType": "text/turtle"
+        "contentType": "text/turtle",
+        "confidence": "0.99"
       }
     }],
     "history": [{
@@ -93,6 +94,7 @@ Should return:
   }
 }
 ```
+Note: `KeyHolderAgent` now adds an artifact metadata field `confidence` with value `0.99` for the returned red key artifact.
 
 5. Sample A2A Client to retrieve the key value via A2A SDK
 
