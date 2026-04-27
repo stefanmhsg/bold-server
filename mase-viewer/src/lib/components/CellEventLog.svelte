@@ -78,7 +78,7 @@
     }
 </script>
 
-<div class="w-full border rounded-lg overflow-hidden resize h-[300px] min-h-[180px] max-h-[70vh] min-w-[320px]">
+<div class="h-[300px] min-h-[180px] max-h-[70vh] w-full min-w-0 resize-y overflow-hidden rounded-lg border">
     <div class="h-full overflow-y-auto overflow-x-hidden">
         <table class="w-full text-left">
             <thead class="bg-gray-100 border-b sticky top-0">
@@ -97,15 +97,15 @@
                     ondblclick={() => toggleExpanded(index)}
                     title="Double-click for full transaction details"
                 >
-                    <td class="p-2 text-gray-500 text-sm whitespace-nowrap">
+                    <td class="p-2 text-base whitespace-nowrap text-gray-500">
                         {new Date(event.timestamp).toLocaleTimeString()}
                     </td>
-                    <td class="p-2 text-sm font-medium">{event.trigger}</td>
-                    <td class="p-2 text-sm">{event.agent?.split('/').pop() ?? '-'}</td>
-                    <td class="p-2 text-xs font-mono truncate max-w-[180px]" title={event.graph ?? ''}>
+                    <td class="p-2 text-base font-medium">{event.trigger}</td>
+                    <td class="p-2 text-base">{event.agent?.split('/').pop() ?? '-'}</td>
+                    <td class="max-w-[180px] truncate p-2 font-mono text-sm" title={event.graph ?? ''}>
                         {shortGraph(event.graph)}
                     </td>
-                    <td class="p-2 text-xs" title={`status: ${event.status}${event.error ? `, error: ${event.error}` : ''}`}>
+                    <td class="p-2 text-sm" title={`status: ${event.status}${event.error ? `, error: ${event.error}` : ''}`}>
                         {summarizeRules(event)}
                     </td>
                 </tr>
@@ -114,7 +114,7 @@
                     <tr class="border-b bg-gray-50">
                         <td colspan="5" class="p-3">
                             <div class="space-y-3">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                                <div class="grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
                                     <div class="bg-white rounded border p-2">
                                         <div class="text-gray-500">Status</div>
                                         <div class="font-semibold">{event.status}</div>
@@ -130,32 +130,32 @@
                                 </div>
 
                                 {#if event.error}
-                                    <div class="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+                                    <div class="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">
                                         <span class="font-semibold">Error:</span> {event.error}
                                     </div>
                                 {/if}
 
                                 {#if event.requestBody}
                                     <div>
-                                        <h4 class="text-xs font-semibold text-gray-700 mb-1">Request Body</h4>
-                                        <pre class="text-xs bg-white border rounded p-2 overflow-auto max-h-40">{event.requestBody}</pre>
+                                        <h4 class="mb-1 text-sm font-semibold text-gray-700">Request Body</h4>
+                                        <pre class="max-h-40 overflow-auto rounded border bg-white p-2 text-sm">{event.requestBody}</pre>
                                     </div>
                                 {/if}
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div>
-                                        <h4 class="text-xs font-semibold text-gray-700 mb-1">Merge Added ({event.mergeAdded.length})</h4>
+                                        <h4 class="mb-1 text-sm font-semibold text-gray-700">Merge Added ({event.mergeAdded.length})</h4>
                                         <div class="bg-white border rounded p-2 max-h-40 overflow-auto">
                                             {#if event.mergeAdded.length === 0}
-                                                <div class="text-xs text-gray-400">No added triples.</div>
+                                                <div class="text-sm text-gray-400">No added triples.</div>
                                             {:else}
                                                 <div class="space-y-2">
                                                     {#each triplesByContext(event.mergeAdded) as group}
                                                         <div>
-                                                            <div class="text-[11px] text-gray-500 font-mono break-all">&lt;context = {group.context}&gt; :</div>
+                                                            <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
                                                             <ul class="space-y-1 mt-1">
                                                                 {#each group.lines as line}
-                                                                    <li class="text-xs font-mono break-all">{line}</li>
+                                                                    <li class="break-all font-mono text-sm">{line}</li>
                                                                 {/each}
                                                             </ul>
                                                         </div>
@@ -166,18 +166,18 @@
                                     </div>
 
                                     <div>
-                                        <h4 class="text-xs font-semibold text-gray-700 mb-1">Merge Removed ({event.mergeRemoved.length})</h4>
+                                        <h4 class="mb-1 text-sm font-semibold text-gray-700">Merge Removed ({event.mergeRemoved.length})</h4>
                                         <div class="bg-white border rounded p-2 max-h-40 overflow-auto">
                                             {#if event.mergeRemoved.length === 0}
-                                                <div class="text-xs text-gray-400">No removed triples.</div>
+                                                <div class="text-sm text-gray-400">No removed triples.</div>
                                             {:else}
                                                 <div class="space-y-2">
                                                     {#each triplesByContext(event.mergeRemoved) as group}
                                                         <div>
-                                                            <div class="text-[11px] text-gray-500 font-mono break-all">&lt;context = {group.context}&gt; :</div>
+                                                            <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
                                                             <ul class="space-y-1 mt-1">
                                                                 {#each group.lines as line}
-                                                                    <li class="text-xs font-mono break-all">{line}</li>
+                                                                    <li class="break-all font-mono text-sm">{line}</li>
                                                                 {/each}
                                                             </ul>
                                                         </div>
@@ -189,33 +189,33 @@
                                 </div>
 
                                 <div>
-                                    <h4 class="text-xs font-semibold text-gray-700 mb-1">Per Rule Changes</h4>
+                                    <h4 class="mb-1 text-sm font-semibold text-gray-700">Per Rule Changes</h4>
                                     <div class="space-y-2 max-h-64 overflow-auto pr-1">
                                         {#if event.rules.length === 0}
-                                            <div class="text-xs text-gray-400 bg-white border rounded p-2">No rule-level changes.</div>
+                                            <div class="rounded border bg-white p-2 text-sm text-gray-400">No rule-level changes.</div>
                                         {:else}
                                             {#each event.rules as rule}
                                                 <div class="bg-white border rounded p-2">
                                                     <div class="flex justify-between items-center mb-1">
-                                                        <div class="text-xs font-semibold">{rule.ruleName}</div>
-                                                        <div class="text-xs text-gray-500">+{rule.added.length} / -{rule.removed.length}</div>
+                                                        <div class="text-sm font-semibold">{rule.ruleName}</div>
+                                                        <div class="text-sm text-gray-500">+{rule.added.length} / -{rule.removed.length}</div>
                                                     </div>
                                                     {#if rule.error}
-                                                        <div class="text-xs text-red-700 mb-1">Error: {rule.error}</div>
+                                                        <div class="mb-1 text-sm text-red-700">Error: {rule.error}</div>
                                                     {/if}
                                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                         <div>
-                                                            <div class="text-[11px] text-gray-500 mb-1">Added</div>
+                                                            <div class="mb-1 text-xs text-gray-500">Added</div>
                                                             {#if rule.added.length === 0}
-                                                                <div class="text-xs text-gray-400">None</div>
+                                                                <div class="text-sm text-gray-400">None</div>
                                                             {:else}
                                                                 <div class="space-y-2">
                                                                     {#each triplesByContext(rule.added) as group}
                                                                         <div>
-                                                                            <div class="text-[11px] text-gray-500 font-mono break-all">&lt;context = {group.context}&gt; :</div>
+                                                                            <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
                                                                             <ul class="space-y-1 mt-1">
                                                                                 {#each group.lines as line}
-                                                                                    <li class="text-xs font-mono break-all">{line}</li>
+                                                                                    <li class="break-all font-mono text-sm">{line}</li>
                                                                                 {/each}
                                                                             </ul>
                                                                         </div>
@@ -224,17 +224,17 @@
                                                             {/if}
                                                         </div>
                                                         <div>
-                                                            <div class="text-[11px] text-gray-500 mb-1">Removed</div>
+                                                            <div class="mb-1 text-xs text-gray-500">Removed</div>
                                                             {#if rule.removed.length === 0}
-                                                                <div class="text-xs text-gray-400">None</div>
+                                                                <div class="text-sm text-gray-400">None</div>
                                                             {:else}
                                                                 <div class="space-y-2">
                                                                     {#each triplesByContext(rule.removed) as group}
                                                                         <div>
-                                                                            <div class="text-[11px] text-gray-500 font-mono break-all">&lt;context = {group.context}&gt; :</div>
+                                                                            <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
                                                                             <ul class="space-y-1 mt-1">
                                                                                 {#each group.lines as line}
-                                                                                    <li class="text-xs font-mono break-all">{line}</li>
+                                                                                    <li class="break-all font-mono text-sm">{line}</li>
                                                                                 {/each}
                                                                             </ul>
                                                                         </div>

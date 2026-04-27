@@ -43,7 +43,7 @@
     }
 </script>
 
-<div class="w-full border rounded-lg overflow-hidden resize h-[300px] min-h-[180px] max-h-[70vh] min-w-[320px]">
+<div class="h-[300px] min-h-[180px] max-h-[70vh] w-full min-w-0 resize-y overflow-hidden rounded-lg border">
     <div class="h-full overflow-y-auto overflow-x-hidden">
         <table class="w-full text-left">
             <thead class="bg-gray-100 border-b sticky top-0">
@@ -56,7 +56,7 @@
             <tbody>
                 {#each filteredEvents as event}
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="p-2 text-gray-500 text-sm whitespace-nowrap">
+                        <td class="p-2 text-base whitespace-nowrap text-gray-500">
                             {new Date(event.timestamp).toLocaleTimeString()}
                         </td>
                         <td 
@@ -65,7 +65,7 @@
                             title="Double-click to inspect agent graph">
                             {event.agent.split('/').pop()}
                         </td>
-                        <td class="p-2 font-mono text-xs truncate max-w-[200px]" title={event.cell}>
+                        <td class="max-w-[200px] truncate p-2 font-mono text-sm" title={event.cell}>
                             {formatCellLocation(event.cell)}
                         </td>
                     </tr>

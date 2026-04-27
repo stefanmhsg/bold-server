@@ -160,9 +160,9 @@
     }
 </script>
 
-<div class="p-4 flex flex-col lg:flex-row lg:flex-wrap gap-6">
+<div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,32rem),1fr))] items-start gap-6 p-4">
     <!-- Left Column: Maze Visualization -->
-    <div class="min-w-0 flex-[1_1_48rem] lg:min-w-[40rem] flex flex-col gap-6">
+    <div class="flex min-w-0 flex-col gap-6">
         <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <h1 class="text-2xl font-bold">Maze Viewer</h1>
@@ -182,7 +182,7 @@
         </div>
         
         {#if data.maze}
-            <div class="w-full max-w-full resize overflow-hidden border-2 border-gray-300 rounded bg-white" style="height: 600px;">
+            <div class="h-[600px] min-w-0 max-w-full resize overflow-hidden rounded border-2 border-gray-300 bg-white">
                 <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} scenarioName={data.scenarioName} onCellSelect={handleCellSelect} />
             </div>
         {:else}
@@ -230,7 +230,7 @@
     </div>
 
     <!-- Right Column: Event Logs -->
-    <div class="w-full min-w-0 flex flex-col gap-4 lg:flex-[1_1_28rem] lg:min-w-[28rem]">
+    <div class="flex min-w-0 flex-col gap-4">
         <div class="flex justify-between items-center">
             <h2 class="text-xl font-bold">Live Events</h2>
             <span class:text-green-600={mazeState.status === 'connected'} 
