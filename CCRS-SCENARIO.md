@@ -71,7 +71,7 @@ Should return:
       "artifactId": "red-key",
       "name": "text/turtle",
       "parts": [{
-        "text": "@prefix dyn: \u003chttp://example.org/dynamic-maze#\u003e .\n\n\u003chttp://127.0.1.1:8080/cells/37/36#key\u003e a dyn:RedKey;\n    dyn:fitsInLock \u003chttp://127.0.1.1:8080/cells/36/36\u003e;\n    dyn:keyValue \"redkey\" .\n"
+        "text": "@prefix dyn: \u003chttp://example.org/dynamic-maze#\u003e .\n\n\u003chttp://127.0.1.1:8080/cells/37/36#key\u003e a dyn:RedKey;\n    dyn:fitsInLock \u003chttp://127.0.1.1:8080/cells/36/36\u003e;\n    dyn:keyValue \"redkey-1670\" .\n"
       }],
       "metadata": {
         "contentType": "text/turtle",
