@@ -128,7 +128,7 @@
 </cells/8/4> {   </cells/8/4> a maze:Cell ; maze:north </cells/7/4>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/8/5> .  
     </cells/8/4#key> a dyn:GreenKey;
         dyn:fitsInLock </cells/12/5> ;
-        dyn:keyValue "greenkey" .
+        dyn:keyValue "greenkey-4852" .
 }
 </cells/8/5> {   </cells/8/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/8/4>; maze:south  maze:Wall; maze:east </cells/8/6> .  }
 </cells/8/6> {   </cells/8/6> a maze:Cell ; maze:north </cells/7/6>; maze:west </cells/8/5>; maze:south  </cells/9/6>; maze:east </cells/8/7> .  }
@@ -507,7 +507,7 @@
 </cells/28/12> { </cells/28/12> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/11>; maze:south  maze:Wall; maze:east </cells/28/13>; maze:green </cells/28/13> . 
     </cells/28/12#key> a dyn:BlueKey;
         dyn:fitsInLock </cells/28/13> ;
-        dyn:keyValue "bluekey" .
+        dyn:keyValue "bluekey-9347" .
 }
 # </cells/28/13> { </cells/28/13> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/28/13#blueAction>; maze:north maze:Wall; maze:west </cells/28/12>; maze:south  maze:Wall . #maze:east </cells/28/14>; maze:green </cells/28/14> 
 #     <http://127.0.1.1:8080/cells/28/13#blueAction> dyn:hasStatus dyn:open ;

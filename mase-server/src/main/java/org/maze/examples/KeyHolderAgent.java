@@ -77,7 +77,7 @@ public class KeyHolderAgent {
 
                         <http://127.0.1.1:8080/cells/36/36#key> a dyn:RedKey;
                             dyn:fitsInLock <http://127.0.1.1:8080/cells/36/36>;
-                            dyn:keyValue "redkey" .
+                            dyn:keyValue "redkey-1670" .
                         """;
 
     private static final List<Direction> DIRECTION_ORDER = List.of(

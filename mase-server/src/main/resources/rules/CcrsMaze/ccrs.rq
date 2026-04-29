@@ -28,9 +28,9 @@ INSERT {
 }
 WHERE {
     VALUES (?key ?suffix ?fill) {
-        ("greenkey" "#ui-greenkey" "green")
-        ("bluekey"  "#ui-bluekey"  "blue")
-        ("redkey"   "#ui-redkey"   "red")
+        ("greenkey-4852" "#ui-greenkey" "green")
+        ("bluekey-9347"  "#ui-bluekey"  "blue")
+        ("redkey-1670"   "#ui-redkey"   "red")
     }
 
     GRAPH ?g {
@@ -57,9 +57,9 @@ DELETE {
 }
 WHERE {
     VALUES (?key ?suffix) {
-        ("greenkey" "#ui-greenkey")
-        ("bluekey"  "#ui-bluekey")
-        ("redkey"   "#ui-redkey")
+        ("greenkey-4852" "#ui-greenkey")
+        ("bluekey-9347"  "#ui-bluekey")
+        ("redkey-1670"   "#ui-redkey")
     }
 
     GRAPH ?g {

@@ -328,7 +328,7 @@ public class CcrsAgent {
         }
         if (keyValue == null) {
             // Fallback for CCRS scenarios: try one direct red key guess when no key is known.
-            keyValue = "redkey";
+            keyValue = "redkey-1670";
         }
 
         String turtle = "<" + parsedCell.lockTargetCell() + "> <" + KEY_VALUE + "> \"" + keyValue + "\" .\n";

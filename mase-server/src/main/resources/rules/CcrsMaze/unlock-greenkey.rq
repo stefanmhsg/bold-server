@@ -94,7 +94,7 @@ INSERT {
 WHERE {
   GRAPH ?g {
     ?cell a maze:Cell , dyn:Lock ;
-          dyn:keyValue "greenkey" ;
+          dyn:keyValue "greenkey-4852" ;
           hydra:operation ?greenAction .
 
     ?greenAction dyn:hasStatus dyn:open .
