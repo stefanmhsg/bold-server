@@ -41,11 +41,11 @@ public class CcrsAgent {
 
     private static final String RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
     private static final String KEY_VALUE = MazeVocab.DYNMAZE_NS + "keyValue";
-    private static final String NEEDS_ACTION = MazeVocab.DYNMAZE_NS + "needsAction";
-    private static final String FOUND_AT = MazeVocab.DYNMAZE_NS + "foundAt";
+    private static final String HYDRA_OPERATION = "http://www.w3.org/ns/hydra/core#operation";
+    private static final String DYN_ACCEPTS_KEY_TYPE = MazeVocab.DYNMAZE_NS + "acceptsKeyType";
+    private static final String HYDRA_TARGET = "http://www.w3.org/ns/hydra/core#target";
     private static final String STATE = MazeVocab.DYNMAZE_NS + "state";
     private static final String LOCKED = MazeVocab.DYNMAZE_NS + "locked";
-    private static final String HTTP_REQUEST_URI = "http://www.w3.org/2011/http#requestURI";
     private static final String CELLS_SEGMENT = "/cells/";
 
     // When a configured agent reaches 37/31, it will try 36/31 then 35/31.
@@ -484,24 +484,25 @@ public class CcrsAgent {
 
             boolean locked = model.contains(subject, iri(STATE), iri(LOCKED));
 
-                String lockTarget = cellUri;
-                Optional<Value> actionNode = model.filter(subject, iri(NEEDS_ACTION), null)
+            String lockTarget = cellUri;
+            String requiredKeyType = null;
+            Optional<Value> actionNode = model.filter(subject, iri(HYDRA_OPERATION), null)
                     .stream()
                     .findFirst()
                     .map(Statement::getObject);
                 if (actionNode.isPresent() && actionNode.get() instanceof Resource actionResource) {
-                lockTarget = model.filter(actionResource, iri(HTTP_REQUEST_URI), null)
-                    .stream()
-                    .findFirst()
-                    .map(requestStmt -> requestStmt.getObject().stringValue())
-                    .orElse(cellUri);
-                }
+                    lockTarget = model.filter(actionResource, iri(HYDRA_TARGET), null)
+                        .stream()
+                        .findFirst()
+                        .map(requestStmt -> requestStmt.getObject().stringValue())
+                        .orElse(cellUri);
 
-            String requiredKeyType = model.filter(null, iri(FOUND_AT), null)
-                    .stream()
-                    .findFirst()
-                    .map(statement -> statement.getObject().stringValue())
-                    .orElse(null);
+                    requiredKeyType = model.filter(actionResource, iri(DYN_ACCEPTS_KEY_TYPE), null)
+                        .stream()
+                        .findFirst()
+                        .map(typeStmt -> typeStmt.getObject().stringValue())
+                        .orElse(null);
+                }
 
             Map<String, String> keyTypeToValue = new HashMap<>();
             for (Statement statement : model.filter(null, iri(KEY_VALUE), null)) {

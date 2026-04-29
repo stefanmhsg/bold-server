@@ -1,7 +1,8 @@
 PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
 PREFIX dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
-PREFIX http: <http://www.w3.org/2011/http#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX hydra: <http://www.w3.org/ns/hydra/core#>
+PREFIX sh: <http://www.w3.org/ns/shacl#>
 
 # --------------------
 # RESET AFTER ONE MOVE
@@ -15,8 +16,8 @@ DELETE {
     ?cell dyn:state ?oldState .
 
     # remove any old status & timestamp on this action
-    ?blueAction dyn:hasStatus ?oldStatus ;
-                xsd:dateTime ?oldTimestamp .
+    ?blueAction dyn:hasStatus ?oldStatus .
+    ?blueAction xsd:dateTime ?oldTimestamp .
 
     # remove the door to the south
     ?cell maze:east <http://127.0.1.1:8080/cells/28/14> ;
@@ -38,13 +39,10 @@ INSERT {
 WHERE {
   GRAPH ?g {
     ?cell a maze:Cell , dyn:Lock ;
-          dyn:needsAction ?blueAction ;
+          hydra:operation ?blueAction ;
           maze:east <http://127.0.1.1:8080/cells/28/14> .
 
-    ?blueAction http:body ?body ;
-                xsd:dateTime ?unlockTimestamp .
-
-    ?body dyn:foundAt dyn:BlueKey .
+    ?blueAction xsd:dateTime ?unlockTimestamp .
 
     OPTIONAL { ?cell dyn:state ?oldState . }
     OPTIONAL { ?cell dyn:keyValue ?anyKeyValue . }
@@ -74,8 +72,8 @@ DELETE {
     ?cell dyn:state ?oldState .
 
     # remove any old status & timestamp on this action
-    ?blueAction dyn:hasStatus ?oldStatus ;
-                xsd:dateTime ?oldTimestamp .
+    ?blueAction dyn:hasStatus ?oldStatus .
+    ?blueAction xsd:dateTime ?oldTimestamp .
   }
 }
 INSERT {
@@ -96,12 +94,9 @@ WHERE {
   GRAPH ?g {
     ?cell a maze:Cell , dyn:Lock ;
           dyn:keyValue "bluekey" ;
-          dyn:needsAction ?blueAction .
+          hydra:operation ?blueAction .
 
-    ?blueAction dyn:hasStatus dyn:open ;
-               http:body ?body .
-
-    ?body dyn:foundAt dyn:BlueKey .
+    ?blueAction dyn:hasStatus dyn:open .
 
     OPTIONAL { ?cell dyn:state ?oldState . }
     OPTIONAL { ?blueAction dyn:hasStatus ?oldStatus . }

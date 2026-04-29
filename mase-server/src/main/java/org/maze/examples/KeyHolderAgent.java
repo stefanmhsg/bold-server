@@ -67,11 +67,11 @@ public class KeyHolderAgent {
     private static final String CELLS_SEGMENT = "/cells/";
     private static final String RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
     private static final String KEY_VALUE = MazeVocab.DYNMAZE_NS + "keyValue";
-    private static final String NEEDS_ACTION = MazeVocab.DYNMAZE_NS + "needsAction";
-    private static final String FOUND_AT = MazeVocab.DYNMAZE_NS + "foundAt";
+    private static final String HYDRA_OPERATION = "http://www.w3.org/ns/hydra/core#operation";
+    private static final String DYN_ACCEPTS_KEY_TYPE = MazeVocab.DYNMAZE_NS + "acceptsKeyType";
+    private static final String HYDRA_TARGET = "http://www.w3.org/ns/hydra/core#target";
     private static final String STATE = MazeVocab.DYNMAZE_NS + "state";
     private static final String LOCKED = MazeVocab.DYNMAZE_NS + "locked";
-    private static final String HTTP_REQUEST_URI = "http://www.w3.org/2011/http#requestURI";
         private static final String RED_KEY_TURTLE = """
                         @prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
 
@@ -705,23 +705,23 @@ public class KeyHolderAgent {
             boolean locked = model.contains(subject, iri(STATE), iri(LOCKED));
 
             String lockTarget = cellUri;
-            Optional<org.eclipse.rdf4j.model.Value> actionNode = model.filter(subject, iri(NEEDS_ACTION), null)
+            String requiredKeyType = null;
+            Optional<org.eclipse.rdf4j.model.Value> actionNode = model.filter(subject, iri(HYDRA_OPERATION), null)
                     .stream()
                     .findFirst()
                     .map(org.eclipse.rdf4j.model.Statement::getObject);
             if (actionNode.isPresent() && actionNode.get() instanceof org.eclipse.rdf4j.model.Resource actionResource) {
-                lockTarget = model.filter(actionResource, iri(HTTP_REQUEST_URI), null)
-                        .stream()
-                        .findFirst()
-                        .map(requestStmt -> requestStmt.getObject().stringValue())
-                        .orElse(cellUri);
-            }
-
-            String requiredKeyType = model.filter(null, iri(FOUND_AT), null)
+                lockTarget = model.filter(actionResource, iri(HYDRA_TARGET), null)
+                    .stream()
+                    .findFirst()
+                    .map(requestStmt -> requestStmt.getObject().stringValue())
+                    .orElse(cellUri);
+                requiredKeyType = model.filter(actionResource, iri(DYN_ACCEPTS_KEY_TYPE), null)
                     .stream()
                     .findFirst()
                     .map(statement -> statement.getObject().stringValue())
                     .orElse(null);
+            }
 
             Map<String, String> keyTypeToValue = new java.util.HashMap<>();
             for (org.eclipse.rdf4j.model.Statement statement : model.filter(null, iri(KEY_VALUE), null)) {

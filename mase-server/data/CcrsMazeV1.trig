@@ -10,6 +10,8 @@
 @prefix ui: <https://example.org/ui#> .
 @prefix stig: <https://example.org/stigmark#> .
 @prefix ccrs: <https://example.org/ccrs#> .
+@prefix hydra: <http://www.w3.org/ns/hydra/core#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
 
 #define the root of our scenario, where the maze exists
 # sequence lenghth 13520562
@@ -195,25 +197,42 @@
 </cells/12/2> {   </cells/12/2> a maze:Cell ; maze:north maze:Wall; maze:west </cells/12/1>; maze:south  maze:Wall; maze:east </cells/12/3> .  }
 </cells/12/3> { </cells/12/3> a maze:Cell ; maze:north </cells/11/3>; maze:west </cells/12/2>; maze:south  maze:Wall; maze:east </cells/12/4>; maze:green </cells/12/4> . }
 </cells/12/4> { </cells/12/4> a maze:Cell ; maze:north maze:Wall; maze:west </cells/12/3>; maze:south  maze:Wall; maze:east </cells/12/5>; maze:green </cells/12/5> . }
-</cells/12/5> { </cells/12/5> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/12/5#greenAction>; maze:north </cells/11/5>; maze:west </cells/12/4>; maze:east maze:Wall . # maze:south  </cells/13/5>; maze:green </cells/13/5> 
- <http://127.0.1.1:8080/cells/12/5#greenAction> dyn:hasStatus dyn:open ;
-        http:requestURI <http://127.0.1.1:8080/cells/12/5>;
-        http:mthd httpm:POST;
-        http:body [ 
-            dyn:foundAt dyn:GreenKey ; 
-            dyn:needsProperty dyn:keyValue 
+
+# </cells/12/5> { </cells/12/5> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/12/5#greenAction>; maze:north </cells/11/5>; maze:west </cells/12/4>; maze:east maze:Wall . # maze:south  </cells/13/5>; maze:green </cells/13/5> 
+#  <http://127.0.1.1:8080/cells/12/5#greenAction> dyn:hasStatus dyn:open ;
+#         http:requestURI <http://127.0.1.1:8080/cells/12/5>;
+#         http:mthd httpm:POST;
+#         http:body [ 
+#             dyn:foundAt dyn:GreenKey ; 
+#             dyn:needsProperty dyn:keyValue 
+#         ] .
+# }
+
+</cells/12/5> { </cells/12/5> a maze:Cell, dyn:Lock ; hydra:operation <http://127.0.1.1:8080/cells/12/5#greenAction> ; maze:north </cells/11/5>; maze:west </cells/12/4>; maze:east maze:Wall . # maze:south  </cells/13/5>; maze:green </cells/13/5> 
+ <http://127.0.1.1:8080/cells/12/5#greenAction> a hydra:Operation ;
+        hydra:method "POST" ;
+        hydra:target <http://127.0.1.1:8080/cells/12/5> ;
+        hydra:expects dyn:GreenKeyBodyShape ;
+        hydra:returns dyn:UnlockedLock ;
+        dyn:acceptsKeyType dyn:GreenKey ;
+        dyn:hasStatus dyn:open .
+
+ dyn:GreenKeyBodyShape
+        a sh:NodeShape ;
+        sh:targetNode <http://127.0.1.1:8080/cells/12/5> ;
+        sh:property [
+            sh:path dyn:keyValue ;
+            sh:datatype xsd:string ;
+            sh:minCount 1 ;
         ] .
 }
-</cells/12/9> {   </cells/12/9> a maze:Cell ; maze:north </cells/11/9>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
 
+</cells/12/9> {   </cells/12/9> a maze:Cell ; maze:north </cells/11/9>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/12/11> {   </cells/12/11> a maze:Cell ; maze:north </cells/11/11>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/12/12> {   </cells/12/12> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/13/12>; maze:east maze:Wall .  }
-
 </cells/12/14> {   </cells/12/14> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/13/14>; maze:east maze:Wall .  }
-
 </cells/12/18> {   </cells/12/18> a maze:Cell ; maze:north </cells/11/18>; maze:west maze:Wall; maze:south  </cells/13/18>; maze:east maze:Wall .  }
 </cells/12/19> {   </cells/12/19> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/12/20> .  }
-
 </cells/12/20> {   </cells/12/20> a maze:Cell ; maze:north </cells/11/20>; maze:west </cells/12/19>; maze:south  </cells/13/20>; maze:east maze:Wall .  }
 </cells/12/22> {   </cells/12/22> a maze:Cell ; maze:north </cells/11/22>; maze:west maze:Wall; maze:south  </cells/13/22>; maze:east maze:Wall .  }
 </cells/12/24> {   </cells/12/24> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/13/24>; maze:east maze:Wall .  }
@@ -490,13 +509,32 @@
         dyn:fitsInLock </cells/28/13> ;
         dyn:keyValue "bluekey" .
 }
-</cells/28/13> { </cells/28/13> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/28/13#blueAction>; maze:north maze:Wall; maze:west </cells/28/12>; maze:south  maze:Wall . #maze:east </cells/28/14>; maze:green </cells/28/14> 
-<http://127.0.1.1:8080/cells/28/13#blueAction> dyn:hasStatus dyn:open ;
-        http:requestURI <http://127.0.1.1:8080/cells/28/13>;
-        http:mthd httpm:POST;
-        http:body [ 
-            dyn:foundAt dyn:BlueKey ; 
-            dyn:needsProperty dyn:keyValue 
+# </cells/28/13> { </cells/28/13> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/28/13#blueAction>; maze:north maze:Wall; maze:west </cells/28/12>; maze:south  maze:Wall . #maze:east </cells/28/14>; maze:green </cells/28/14> 
+#     <http://127.0.1.1:8080/cells/28/13#blueAction> dyn:hasStatus dyn:open ;
+#         http:requestURI <http://127.0.1.1:8080/cells/28/13>;
+#         http:mthd httpm:POST;
+#         http:body [ 
+#             dyn:foundAt dyn:BlueKey ; 
+#             dyn:needsProperty dyn:keyValue 
+#         ] .
+# }
+
+</cells/28/13> { </cells/28/13> a maze:Cell, dyn:Lock ; hydra:operation <http://127.0.1.1:8080/cells/28/13#blueAction> ; maze:north maze:Wall; maze:west </cells/28/12>; maze:south  maze:Wall . #maze:east </cells/28/14>; maze:green </cells/28/14> 
+    <http://127.0.1.1:8080/cells/28/13#blueAction> a hydra:Operation ;
+        hydra:method "POST" ;
+        hydra:target <http://127.0.1.1:8080/cells/28/13> ;
+        hydra:expects dyn:BlueKeyBodyShape ;
+        hydra:returns dyn:UnlockedLock ;
+        dyn:acceptsKeyType dyn:BlueKey ;
+        dyn:hasStatus dyn:open .
+
+ dyn:BlueKeyBodyShape
+        a sh:NodeShape ;
+        sh:targetNode <http://127.0.1.1:8080/cells/28/13> ;
+        sh:property [
+            sh:path dyn:keyValue ;
+            sh:datatype xsd:string ;
+            sh:minCount 1 ;
         ] .
 }
 </cells/28/14> { </cells/28/14> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/13>; maze:south  maze:Wall; maze:east </cells/28/15>; maze:green </cells/28/15> . }
@@ -619,15 +657,33 @@
 </cells/36/23> { </cells/36/23> a maze:Cell ; maze:north </cells/35/23>; maze:west </cells/36/22>; maze:south  </cells/37/23>; maze:east maze:Wall; maze:green </cells/37/23> . }
 </cells/36/31> {   </cells/36/31> a maze:Cell ; maze:north </cells/35/31>; maze:west maze:Wall; maze:south  </cells/37/31>; maze:east </cells/36/32> .  }
 </cells/36/32> {   </cells/36/32> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/31>; maze:south  maze:Wall; maze:east maze:Wall .  }
-</cells/36/36> { </cells/36/36> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/36/36#redAction> ; maze:north </cells/35/36>; maze:west maze:Wall; maze:south  </cells/37/36> . #maze:east </cells/36/37>; maze:green </cells/36/37>
- <http://127.0.1.1:8080/cells/36/36#redAction> dyn:hasStatus dyn:open ;
-        http:requestURI <http://127.0.1.1:8080/cells/36/36>;
-        http:mthd httpm:POST;
-        http:body [ 
-            dyn:foundAt dyn:RedKey ; 
-            dyn:needsProperty dyn:keyValue 
-        ] .
+# </cells/36/36> { </cells/36/36> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/36/36#redAction> ; maze:north </cells/35/36>; maze:west maze:Wall; maze:south  </cells/37/36> . #maze:east </cells/36/37>; maze:green </cells/36/37>
+#  <http://127.0.1.1:8080/cells/36/36#redAction> dyn:hasStatus dyn:open ;
+#         http:requestURI <http://127.0.1.1:8080/cells/36/36>;
+#         http:mthd httpm:POST;
+#         http:body [ 
+#             dyn:foundAt dyn:RedKey ; 
+#             dyn:needsProperty dyn:keyValue 
+#         ] .
+# }
 
+</cells/36/36> { </cells/36/36> a maze:Cell, dyn:Lock ; hydra:operation <http://127.0.1.1:8080/cells/36/36#redAction> ; maze:north </cells/35/36>; maze:west maze:Wall; maze:south  </cells/37/36> . #maze:east </cells/36/37>; maze:green </cells/36/37>
+ <http://127.0.1.1:8080/cells/36/36#redAction> a hydra:Operation ;
+        hydra:method "POST" ;
+        hydra:target <http://127.0.1.1:8080/cells/36/36> ;
+        hydra:expects dyn:RedKeyBodyShape ;
+        hydra:returns dyn:UnlockedLock ;
+        dyn:acceptsKeyType dyn:RedKey ;
+        dyn:hasStatus dyn:open .
+
+ dyn:RedKeyBodyShape
+        a sh:NodeShape ;
+        sh:targetNode <http://127.0.1.1:8080/cells/36/36> ;
+        sh:property [
+            sh:path dyn:keyValue ;
+            sh:datatype xsd:string ;
+            sh:minCount 1 ;
+        ] .
 }
 </cells/36/37> { </cells/36/37> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/36>; maze:south  maze:Wall; maze:east </cells/36/38>; maze:green </cells/36/38> . }
 </cells/36/38> { </cells/36/38> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/37>; maze:south  maze:Wall; maze:east </cells/36/39>; maze:green </cells/36/39> . }

@@ -11,8 +11,7 @@ INSERT {
 WHERE {
     # normalze all locks to have locked state if no state is present
     GRAPH ?g {
-        ?cell a maze:Cell , dyn:Lock ;
-              dyn:needsAction ?Action .
+        ?cell a maze:Cell , dyn:Lock .
 
         OPTIONAL { ?cell dyn:state ?oldState . }
     }
