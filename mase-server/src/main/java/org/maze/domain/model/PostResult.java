@@ -14,6 +14,14 @@ public record PostResult(boolean success, String graphUri, int triplesAdded,
     public static PostResult denied(String errorMessage) {
         return new PostResult(false, null, 0, errorMessage, 403);
     }
+
+    public static PostResult conflict(String errorMessage) {
+        return new PostResult(false, null, 0, errorMessage, 409);
+    }
+
+    public static PostResult invalid(String errorMessage) {
+        return new PostResult(false, null, 0, errorMessage, 422);
+    }
     
     public static PostResult notFound(String errorMessage) {
         return new PostResult(false, null, 0, errorMessage, 404);

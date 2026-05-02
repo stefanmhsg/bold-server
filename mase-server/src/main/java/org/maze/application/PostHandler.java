@@ -6,25 +6,41 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.maze.api.websocket.MazeBroadcaster;
+import org.maze.application.AccessValidator.PostAccessDecision;
+import org.maze.application.AccessValidator.PostRequestType;
 import org.maze.application.tx.TransactionTraceContext;
+import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.PostResult;
+import org.maze.domain.vocab.MazeVocab;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+
 public class PostHandler {
 
     private static final Logger log = LoggerFactory.getLogger(PostHandler.class);
     private static final ObjectMapper mapper = new ObjectMapper();
+    private static final ConcurrentHashMap<String, ReentrantLock> REQUEST_LOCKS = new ConcurrentHashMap<>();
 
     private final SailRepository repository;
     private final MazeRuleService ruleService;
+    private final AccessValidator accessValidator;
 
     public PostHandler(SailRepository repository,
-                       MazeRuleService ruleService) {
+                       MazeRuleService ruleService,
+                       AccessValidator accessValidator) {
         this.repository = repository;
         this.ruleService = ruleService;
+        this.accessValidator = accessValidator;
     }
 
     public PostResult performPost(String agentName, String graphIRI, Model rdfModel) {
@@ -34,7 +50,8 @@ public class PostHandler {
     public PostResult performPost(String agentName, String graphIRI, Model rdfModel, String requestBody) {
         TransactionTraceContext trace = TransactionTraceContext.forPost(agentName, graphIRI, requestBody);
 
-        try (SailRepositoryConnection conn = repository.getConnection()) {
+        try (RequestLocks ignored = acquireRequestLocks(agentName, graphIRI, rdfModel);
+             SailRepositoryConnection conn = repository.getConnection()) {
 
             conn.begin();
 
@@ -52,6 +69,18 @@ public class PostHandler {
                 return PostResult.notFound(msg);
             }
 
+            // Core MASE semantics: movement may target an adjacent cell; all other
+            // cell actions are local interactions with the agent's current cell.
+            PostAccessDecision accessDecision = accessValidator.validatePost(agentName, graphIRI, rdfModel, conn);
+            AccessResult accessResult = accessDecision.access();
+            if (!accessResult.isAllowed()) {
+                conn.rollback();
+                trace.markRolledBack(accessResult.message());
+                broadcastTransaction(trace);
+                log.warn("POST denied for agent {} on {}: {}", agentName, graphIRI, accessResult.message());
+                return accessFailure(accessResult.message());
+            }
+
             int triplesAdded = rdfModel.size();
 
             // Add incoming triples
@@ -62,6 +91,15 @@ public class PostHandler {
 
             // Execute rules inside the same transaction
             ruleService.executeRules(conn, trace);
+
+            if (!validateCorePostconditions(conn, accessDecision)) {
+                conn.rollback();
+                String msg = "Movement request did not materialize. The request may be stale or no movement rule matched.";
+                trace.markRolledBack(msg);
+                broadcastTransaction(trace);
+                log.warn("POST rolled back for agent {} on {}: {}", agentName, graphIRI, msg);
+                return PostResult.conflict(msg);
+            }
 
             conn.commit();
             trace.markCommitted();
@@ -77,6 +115,96 @@ public class PostHandler {
             log.error("Error during POST to {}", graphIRI, e);
             return PostResult.failed(e.getMessage());
         }
+    }
+
+    private RequestLocks acquireRequestLocks(String agentName, String graphIRI, Model rdfModel) {
+        List<String> keys = requestLockKeys(agentName, graphIRI, rdfModel);
+        List<ReentrantLock> acquired = new ArrayList<>(keys.size());
+
+        for (String key : keys) {
+            ReentrantLock lock = REQUEST_LOCKS.computeIfAbsent(key, ignored -> new ReentrantLock());
+            lock.lock();
+            acquired.add(lock);
+        }
+
+        return new RequestLocks(acquired);
+    }
+
+    private List<String> requestLockKeys(String agentName, String graphIRI, Model rdfModel) {
+        Set<String> keys = new HashSet<>();
+        keys.add("graph:" + graphIRI);
+
+        if (agentName != null && !agentName.trim().isEmpty()) {
+            keys.add("agent:" + buildAgentUri(graphIRI, agentName));
+        }
+
+        ValueFactory vf = repository.getValueFactory();
+        IRI entersFrom = vf.createIRI(MazeVocab.ENTERS_FROM);
+        rdfModel.filter(null, entersFrom, null).forEach(statement ->
+                keys.add("graph:" + statement.getObject().stringValue()));
+
+        // Deterministic acquisition order prevents deadlocks between overlapping moves.
+        List<String> sorted = new ArrayList<>(keys);
+        Collections.sort(sorted);
+        return sorted;
+    }
+
+    private String buildAgentUri(String resourceUri, String agentName) {
+        String baseUri = extractBaseUri(resourceUri);
+        String agentPrefix = baseUri + "/agents/";
+        if (agentName.startsWith(agentPrefix)) {
+            return agentName;
+        }
+        return agentPrefix + agentName;
+    }
+
+    private String extractBaseUri(String resourceUri) {
+        int cellsIndex = resourceUri.lastIndexOf("/cells");
+        if (cellsIndex == -1) {
+            int lastSlash = resourceUri.lastIndexOf("/");
+            return resourceUri.substring(0, lastSlash);
+        }
+        return resourceUri.substring(0, cellsIndex);
+    }
+
+    private record RequestLocks(List<ReentrantLock> locks) implements AutoCloseable {
+        @Override
+        public void close() {
+            for (int i = locks.size() - 1; i >= 0; i--) {
+                locks.get(i).unlock();
+            }
+        }
+    }
+
+    private PostResult accessFailure(String message) {
+        if (message != null && message.startsWith("Invalid movement request:")) {
+            return PostResult.invalid(message);
+        }
+        if (message != null && message.contains("You claim to enter from")) {
+            return PostResult.conflict(message);
+        }
+        return PostResult.denied(message);
+    }
+
+    private boolean validateCorePostconditions(SailRepositoryConnection conn, PostAccessDecision decision) {
+        if (decision.type() != PostRequestType.MOVEMENT || decision.agentUri() == null) {
+            return true;
+        }
+
+        ValueFactory vf = conn.getValueFactory();
+        IRI agent = vf.createIRI(decision.agentUri());
+        IRI sourceGraph = vf.createIRI(decision.sourceCell());
+        IRI targetGraph = vf.createIRI(decision.targetCell());
+        IRI contains = vf.createIRI(MazeVocab.MAZE_NS + "contains");
+        IRI entersFrom = vf.createIRI(MazeVocab.ENTERS_FROM);
+
+        boolean agentInTarget = conn.hasStatement(targetGraph, contains, agent, false, targetGraph);
+        boolean requestConsumed = !conn.hasStatement(agent, entersFrom, sourceGraph, false, targetGraph);
+        boolean sourceStillContainsAgent = conn.hasStatement(sourceGraph, contains, agent, false, sourceGraph);
+
+        // The movement rule is core behavior: after a successful movement request,
+        // the agent's embodiment must be represented by containment in the target cell.
+        return agentInTarget && requestConsumed && !sourceStillContainsAgent;
     }
 
     private void broadcastTransaction(TransactionTraceContext trace) {

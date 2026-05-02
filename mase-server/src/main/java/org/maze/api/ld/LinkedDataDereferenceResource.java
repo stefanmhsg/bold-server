@@ -27,7 +27,6 @@ import org.maze.application.PostHandler;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.PostResult;
 import org.maze.domain.utils.AgentAuthUtil;
-import org.maze.domain.vocab.MazeVocab;
 import org.maze.infrastructure.web.WebServerFactory;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -63,6 +62,12 @@ import org.slf4j.LoggerFactory;
  *       to the agent's current cell</li>
  *   <li><strong>Locked doors:</strong> Connections not in the graph (not yet unlocked) deny movement access</li>
  * </ul>
+ *
+ * <p>POST handling deliberately keeps only core MASE/Web embodiment semantics in Java.
+ * This resource parses RDF and delegates the transaction to {@link PostHandler}; inside that
+ * transaction, requests are classified as either adjacent movement requests or local cell
+ * interactions. Scenario-specific effects such as unlocking, switches, CCRS behavior, and UI
+ * updates remain encoded in SPARQL rules.</p>
  */
 @Path("/{id: .*}")
 public class LinkedDataDereferenceResource {
@@ -140,7 +145,7 @@ public class LinkedDataDereferenceResource {
         log.info("LD POST to graph: {} by agent: {}", graphIRI, 
                  agentName != null ? agentName : "<anonymous>");
 
-        // Parse RDF body first to check for movement vs interaction
+        // Parse RDF body before handing the request to transactional POST handling.
         MediaType contentType = headers.getMediaType();
         Model model = parseRdfBody(body, graphIRI, contentType);
         if (model == null) {
@@ -148,29 +153,7 @@ public class LinkedDataDereferenceResource {
                     .entity("Bad RDF payload")
                     .build();
         }
-        
-        // Detect movement POST by checking for entersFrom predicate in parsed model
-        AccessValidator accessValidator = getAccessValidator();
-        ValueFactory vf = getRepository().getValueFactory();
-        IRI entersFromPredicate = vf.createIRI(MazeVocab.ENTERS_FROM);
-        boolean isMovement = !model.filter(null, entersFromPredicate, null).isEmpty();
-        
-        // Validate access based on operation type
-        AccessResult accessResult;
-        if (isMovement) {
-            // Movement POST: validate with entersFrom logic
-            accessResult = accessValidator.validateMove(agentName, graphIRI, model);
-        } else {
-            // Interaction POST: validate agent is at target cell
-            accessResult = accessValidator.validateAccess(agentName, graphIRI, "POST");
-        }
 
-        if (!accessResult.isAllowed()) {
-            return Response.status(Response.Status.FORBIDDEN)
-                    .entity(accessResult.message())
-                    .build();
-        }
-        
         // Execute POST operation
         PostHandler postHandler = getPostHandler();
         PostResult postResult = postHandler.performPost(agentName, graphIRI, model, body);

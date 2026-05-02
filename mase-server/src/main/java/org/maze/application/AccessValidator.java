@@ -6,6 +6,7 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.vocab.MazeVocab;
 import org.slf4j.Logger;
@@ -46,6 +47,16 @@ public class AccessValidator {
      */
     public AccessResult validateAccess(String agentName, String requestedCellUri, 
                                        String operation) {
+        try (SailRepositoryConnection connection = repository.getConnection()) {
+            return validateAccess(agentName, requestedCellUri, operation, connection);
+        }
+    }
+
+    /**
+     * Validates cell access against the caller's transaction snapshot.
+     */
+    public AccessResult validateAccess(String agentName, String requestedCellUri,
+                                       String operation, SailRepositoryConnection connection) {
         // Non-cell resources are always accessible
         if (!isCellResource(requestedCellUri)) {
             return AccessResult.allow();
@@ -59,7 +70,7 @@ public class AccessValidator {
         String agentUri = buildAgentUri(requestedCellUri, agentName);
         
         // Find current location from RDF - null on first entrance
-        String currentLocation = findAgentLocation(agentUri);
+        String currentLocation = findAgentLocation(agentUri, connection);
         
         // First time access - deny GET/POST if agent has no location
         if (currentLocation == null) {
@@ -87,24 +98,58 @@ public class AccessValidator {
      * @return AccessResult containing whether access is allowed and a message
      */
     public AccessResult validateMove(String agentName, String requestedCellUri, Model rdfModel) {
+        try (SailRepositoryConnection connection = repository.getConnection()) {
+            return validateMove(agentName, requestedCellUri, rdfModel, connection).access();
+        }
+    }
+
+    /**
+     * Validates an agent POST inside the same transaction that will apply it.
+     * In the MASE/Web analogy, Java only enforces embodiment and locality:
+     * movement may target an adjacent cell, all other cell interactions must be local.
+     */
+    public PostAccessDecision validatePost(String agentName, String requestedCellUri, Model rdfModel,
+                                           SailRepositoryConnection connection) {
+        if (isMovementRequest(rdfModel)) {
+            return validateMove(agentName, requestedCellUri, rdfModel, connection);
+        }
+
+        AccessResult access = validateAccess(agentName, requestedCellUri, "POST", connection);
+        return new PostAccessDecision(PostRequestType.LOCAL_INTERACTION, access, null, null, null);
+    }
+
+    /**
+     * Validates movement POST with an existing transaction/connection.
+     */
+    public PostAccessDecision validateMove(String agentName, String requestedCellUri, Model rdfModel,
+                                           SailRepositoryConnection connection) {
         // Non-cell resources are always accessible
         if (!isCellResource(requestedCellUri)) {
-            return AccessResult.allow();
+            return new PostAccessDecision(PostRequestType.LOCAL_INTERACTION, AccessResult.allow(), null, null, null);
         }
         
         // If no agent name provided, allow access (no tracking)
         if (agentName == null || agentName.trim().isEmpty()) {
-            return AccessResult.allow();
+            return new PostAccessDecision(PostRequestType.MOVEMENT, AccessResult.allow(), null, null, null);
         }
         
         // Extract entersFrom cell - must have exactly one
-        String entersFromCell = extractEntersFromCell(rdfModel);
-        if (entersFromCell == null) {
-            return AccessResult.deny("Invalid movement request: must contain exactly one " + MazeVocab.ENTERS_FROM + " triple");
+        MovementIntent movementIntent = extractMovementIntent(rdfModel);
+        if (!movementIntent.valid()) {
+            return new PostAccessDecision(PostRequestType.MOVEMENT,
+                    AccessResult.deny(movementIntent.errorMessage()), null, null, null);
         }
         
         String agentUri = buildAgentUri(requestedCellUri, agentName);
-        String currentLocation = findAgentLocation(agentUri);
+        String entersFromCell = movementIntent.sourceCell();
+        if (!movementIntent.agentUri().equals(agentUri)) {
+            return new PostAccessDecision(PostRequestType.MOVEMENT,
+                    AccessResult.deny("Invalid movement request: " + MazeVocab.ENTERS_FROM
+                            + " subject must be the authenticated agent " + agentUri),
+                    agentUri, entersFromCell, requestedCellUri);
+        }
+
+        String currentLocation = findAgentLocation(agentUri, connection);
         
         // First-time entrance: entering from /maze to entrance cell
         if (currentLocation == null) {
@@ -113,44 +158,50 @@ public class AccessValidator {
             if (!entersFromCell.equals(mazeGraphUri)) {
                 log.warn("Agent {} has no location, attempting to enter from {} instead of /maze", 
                          agentName, entersFromCell);
-                return AccessResult.deny(String.format("Access denied. First entry must be from /maze graph. Found: %s", entersFromCell));
+                return new PostAccessDecision(PostRequestType.MOVEMENT,
+                        AccessResult.deny(String.format("Access denied. First entry must be from /maze graph. Found: %s", entersFromCell)),
+                        agentUri, entersFromCell, requestedCellUri);
             }
             
             // Verify target is entrance cell
-            if (!isEntranceCell(requestedCellUri)) {
+            if (!isEntranceCell(requestedCellUri, connection)) {
                 log.warn("Agent {} attempting first entry to {} which is not the entrance", 
                          agentName, requestedCellUri);
-                return AccessResult.deny(String.format("Access denied. First entry must be to entrance cell (check %s in /maze).", MazeVocab.START));
+                return new PostAccessDecision(PostRequestType.MOVEMENT,
+                        AccessResult.deny(String.format("Access denied. First entry must be to entrance cell (check %s in /maze).", MazeVocab.START)),
+                        agentUri, entersFromCell, requestedCellUri);
             }
             
             log.info("Agent {} starting at entrance: {}", agentName, requestedCellUri);
 
             // Create Graph for Agent IRI when entering the maze
-            createAgentGraph(agentUri);
+            createAgentGraph(agentUri, connection);
 
-            return AccessResult.allow();
+            return new PostAccessDecision(PostRequestType.MOVEMENT, AccessResult.allow(), agentUri, entersFromCell, requestedCellUri);
         }
         
         // Agent has location - validate movement from current cell
         if (!currentLocation.equals(entersFromCell)) {
             log.warn("Agent {} at {} attempting to move from {} - denied (not at source)",
                      agentName, currentLocation, entersFromCell);
-            return AccessResult.deny(
-                String.format("Access denied. You claim to enter from %s but you are at %s",
-                             entersFromCell, currentLocation));
+            return new PostAccessDecision(PostRequestType.MOVEMENT,
+                    AccessResult.deny(String.format("Access denied. You claim to enter from %s but you are at %s",
+                            entersFromCell, currentLocation)),
+                    agentUri, entersFromCell, requestedCellUri);
         }
         
         // Validate adjacency from source to target
-        if (!isAdjacent(entersFromCell, requestedCellUri)) {
+        if (!isAdjacent(entersFromCell, requestedCellUri, connection)) {
             log.warn("Agent {} attempting to move from {} to {} - denied (not adjacent)",
                      agentName, entersFromCell, requestedCellUri);
-            return AccessResult.deny(
-                String.format("Access denied. Cell %s is not accessible from %s (no connection in graph)",
-                             requestedCellUri, entersFromCell));
+            return new PostAccessDecision(PostRequestType.MOVEMENT,
+                    AccessResult.deny(String.format("Access denied. Cell %s is not accessible from %s (no connection in graph)",
+                            requestedCellUri, entersFromCell)),
+                    agentUri, entersFromCell, requestedCellUri);
         }
         
         log.info("Agent {} moving from {} to {}", agentName, entersFromCell, requestedCellUri);
-        return AccessResult.allow();
+        return new PostAccessDecision(PostRequestType.MOVEMENT, AccessResult.allow(), agentUri, entersFromCell, requestedCellUri);
     }
     
     /**
@@ -180,33 +231,45 @@ public class AccessValidator {
      * @param model the RDF model from POST body
      * @return the source cell URI, or null if not found or multiple values
      */
-    private String extractEntersFromCell(Model model) {
+    private boolean isMovementRequest(Model model) {
+        ValueFactory vf = repository.getValueFactory();
+        IRI entersFromPredicate = vf.createIRI(MazeVocab.ENTERS_FROM);
+        return !model.filter(null, entersFromPredicate, null).isEmpty();
+    }
+
+    private MovementIntent extractMovementIntent(Model model) {
         try {
             ValueFactory vf = repository.getValueFactory();
             IRI entersFromPredicate = vf.createIRI(MazeVocab.ENTERS_FROM);
             
-            Set<Value> objects = model.filter(null, entersFromPredicate, null)
+            Set<String> subjects = model.filter(null, entersFromPredicate, null)
                 .stream()
-                .map(statement -> statement.getObject())
+                .map(statement -> statement.getSubject().stringValue())
                 .collect(Collectors.toSet());
+
+            Set<Value> objects = model.filter(null, entersFromPredicate, null)
+                    .stream()
+                    .map(statement -> statement.getObject())
+                    .collect(Collectors.toSet());
             
             if (objects.isEmpty()) {
                 log.debug("No entersFrom statement found in model");
-                return null;
+                return MovementIntent.invalid("Invalid movement request: must contain exactly one " + MazeVocab.ENTERS_FROM + " triple");
             }
             
-            if (objects.size() > 1) {
-                log.warn("Multiple entersFrom statements found in model: {}", objects);
-                return null;
+            if (subjects.size() != 1 || objects.size() != 1) {
+                log.warn("Invalid entersFrom statements found in model: subjects={}, objects={}", subjects, objects);
+                return MovementIntent.invalid("Invalid movement request: must contain exactly one " + MazeVocab.ENTERS_FROM + " triple");
             }
             
+            String agentUri = subjects.iterator().next();
             String sourceCell = objects.iterator().next().stringValue();
             log.debug("Extracted entersFrom cell: {}", sourceCell);
-            return sourceCell;
+            return MovementIntent.valid(agentUri, sourceCell);
             
         } catch (Exception e) {
             log.error("Error extracting entersFrom from model", e);
-            return null;
+            return MovementIntent.invalid("Invalid movement request: could not read " + MazeVocab.ENTERS_FROM + " triple");
         }
     }
     
@@ -219,31 +282,34 @@ public class AccessValidator {
      */
     private String findAgentLocation(String agentUri) {
         try (SailRepositoryConnection connection = repository.getConnection()) {
-            String sparql = 
-                "PREFIX maze: <" + MazeVocab.MAZE_NS + "> \n" +
-                "SELECT ?cell WHERE { \n" +
-                "  GRAPH ?cell { \n" +
-                "    ?cell maze:contains <" + agentUri + "> . \n" +
-                "  } \n" +
-                "} LIMIT 1";
-            
-            log.debug("Finding agent location with SPARQL: {}", sparql);
-            
-            var tupleQuery = connection.prepareTupleQuery(sparql);
-            try (var result = tupleQuery.evaluate()) {
-                if (result.hasNext()) {
-                    String cellUri = result.next().getValue("cell").stringValue();
-                    log.info("Agent {} found in cell {}", agentUri, cellUri);
-                    return cellUri;
-                } else {
-                    log.info("Agent {} not found in any cell", agentUri);
-                    return null;
-                }
-            }
-            
+            return findAgentLocation(agentUri, connection);
         } catch (Exception e) {
             log.error("Error finding location for agent {}", agentUri, e);
             return null;
+        }
+    }
+
+    private String findAgentLocation(String agentUri, SailRepositoryConnection connection) {
+        String sparql =
+            "PREFIX maze: <" + MazeVocab.MAZE_NS + "> \n" +
+            "SELECT ?cell WHERE { \n" +
+            "  GRAPH ?cell { \n" +
+            "    ?cell maze:contains <" + agentUri + "> . \n" +
+            "  } \n" +
+            "} LIMIT 1";
+
+        log.debug("Finding agent location with SPARQL: {}", sparql);
+
+        var tupleQuery = connection.prepareTupleQuery(sparql);
+        try (var result = tupleQuery.evaluate()) {
+            if (result.hasNext()) {
+                String cellUri = result.next().getValue("cell").stringValue();
+                log.info("Agent {} found in cell {}", agentUri, cellUri);
+                return cellUri;
+            } else {
+                log.info("Agent {} not found in any cell", agentUri);
+                return null;
+            }
         }
     }
     
@@ -257,31 +323,34 @@ public class AccessValidator {
      */
     private boolean isAdjacent(String sourceCellUri, String targetCellUri) {
         try (SailRepositoryConnection connection = repository.getConnection()) {
-            String sparql = 
-                "PREFIX maze: <" + MazeVocab.MAZE_NS + "> \n" +
-                "ASK { \n" +
-                "  GRAPH <" + sourceCellUri + "> { \n" +
-                "    <" + sourceCellUri + "> ?direction <" + targetCellUri + "> . \n" +
-                "    FILTER(?direction IN (maze:north, maze:south, maze:east, maze:west, maze:exit)) \n" +
-                "  } \n" +
-                "}";
-            
-            log.debug("Checking adjacency with SPARQL: {}", sparql);
-            
-            boolean adjacent = connection.prepareBooleanQuery(sparql).evaluate();
-            
-            if (adjacent) {
-                log.info("Cells are adjacent: {} -> {}", sourceCellUri, targetCellUri);
-            } else {
-                log.info("Cells are NOT adjacent: {} -> {}", sourceCellUri, targetCellUri);
-            }
-            
-            return adjacent;
-            
+            return isAdjacent(sourceCellUri, targetCellUri, connection);
         } catch (Exception e) {
             log.error("Error checking adjacency from {} to {}", sourceCellUri, targetCellUri, e);
             return false;
         }
+    }
+
+    private boolean isAdjacent(String sourceCellUri, String targetCellUri, SailRepositoryConnection connection) {
+        String sparql =
+            "PREFIX maze: <" + MazeVocab.MAZE_NS + "> \n" +
+            "ASK { \n" +
+            "  GRAPH <" + sourceCellUri + "> { \n" +
+            "    <" + sourceCellUri + "> ?direction <" + targetCellUri + "> . \n" +
+            "    FILTER(?direction IN (maze:north, maze:south, maze:east, maze:west, maze:exit)) \n" +
+            "  } \n" +
+            "}";
+
+        log.debug("Checking adjacency with SPARQL: {}", sparql);
+
+        boolean adjacent = connection.prepareBooleanQuery(sparql).evaluate();
+
+        if (adjacent) {
+            log.info("Cells are adjacent: {} -> {}", sourceCellUri, targetCellUri);
+        } else {
+            log.info("Cells are NOT adjacent: {} -> {}", sourceCellUri, targetCellUri);
+        }
+
+        return adjacent;
     }
     
     /**
@@ -293,40 +362,43 @@ public class AccessValidator {
      * @return true if this is the entrance cell, false otherwise
      */
     private boolean isEntranceCell(String cellUri) {
-        // Check cache first
-        if (cachedEntranceCell != null) {
-            return cachedEntranceCell.equals(cellUri);
-        }
-        
         try (SailRepositoryConnection connection = repository.getConnection()) {
-            String baseUri = extractBaseUri(cellUri);
-            String mazeGraphUri = baseUri + "/maze";
-            
-            String sparql = 
-                "PREFIX xhv: <" + MazeVocab.XHV_NS + "> \n" +
-                "ASK { \n" +
-                "  GRAPH <" + mazeGraphUri + "> { \n" +
-                "    ?maze xhv:start <" + cellUri + "> . \n" +
-                "  } \n" +
-                "}";
-            
-            log.debug("Checking entrance with SPARQL: {}", sparql);
-            
-            boolean isEntrance = connection.prepareBooleanQuery(sparql).evaluate();
-            
-            if (isEntrance) {
-                log.info("Cell {} is the entrance (caching)", cellUri);
-                cachedEntranceCell = cellUri;
-            } else {
-                log.info("Cell {} is NOT the entrance", cellUri);
-            }
-            
-            return isEntrance;
-            
+            return isEntranceCell(cellUri, connection);
         } catch (Exception e) {
             log.error("Error checking if {} is entrance", cellUri, e);
             return false;
         }
+    }
+
+    private boolean isEntranceCell(String cellUri, SailRepositoryConnection connection) {
+        // Check cache first
+        if (cachedEntranceCell != null) {
+            return cachedEntranceCell.equals(cellUri);
+        }
+
+        String baseUri = extractBaseUri(cellUri);
+        String mazeGraphUri = baseUri + "/maze";
+
+        String sparql =
+            "PREFIX xhv: <" + MazeVocab.XHV_NS + "> \n" +
+            "ASK { \n" +
+            "  GRAPH <" + mazeGraphUri + "> { \n" +
+            "    ?maze xhv:start <" + cellUri + "> . \n" +
+            "  } \n" +
+            "}";
+
+        log.debug("Checking entrance with SPARQL: {}", sparql);
+
+        boolean isEntrance = connection.prepareBooleanQuery(sparql).evaluate();
+
+        if (isEntrance) {
+            log.info("Cell {} is the entrance (caching)", cellUri);
+            cachedEntranceCell = cellUri;
+        } else {
+            log.info("Cell {} is NOT the entrance", cellUri);
+        }
+
+        return isEntrance;
     }
 
     /**
@@ -337,28 +409,25 @@ public class AccessValidator {
      */
     private void createAgentGraph(String agentUri) {
         try {
-            // SPARQL UPDATE to create agent graph with metadata triple
-            String sparqlUpdate = 
-                "PREFIX maze: <" + MazeVocab.MAZE_NS + "> \n" +
-                "INSERT DATA { \n" +
-                "  GRAPH <" + agentUri + "> { \n" +
-                "    <" + agentUri + "> a maze:Agent . \n" +
-                "  } \n" +
-                "}";
-            
-            log.debug("Creating agent graph with SPARQL: {}", sparqlUpdate);
-            
-            var result = sparqlService.executeQuery(sparqlUpdate, null);
-            
-            if (result.success()) {
-                log.info("Successfully created named graph for agent: {}", agentUri);
-            } else {
-                log.error("Failed to create agent graph for {}: {}", agentUri, result.errorMessage());
+            try (SailRepositoryConnection connection = repository.getConnection()) {
+                connection.begin();
+                createAgentGraph(agentUri, connection);
+                connection.commit();
             }
-            
         } catch (Exception e) {
             log.error("Exception while creating agent graph for {}", agentUri, e);
         }
+    }
+
+    private void createAgentGraph(String agentUri, SailRepositoryConnection connection) {
+        ValueFactory vf = connection.getValueFactory();
+        IRI agent = vf.createIRI(agentUri);
+        IRI agentGraph = vf.createIRI(agentUri);
+        IRI agentType = vf.createIRI(MazeVocab.MAZE_NS + "Agent");
+
+        // Agent graphs model the embodied web agent as a dereferenceable resource.
+        connection.add(agent, RDF.TYPE, agentType, agentGraph);
+        log.info("Ensured named graph for agent: {}", agentUri);
     }
     
     /**
@@ -391,5 +460,24 @@ public class AccessValidator {
             return cellUri.substring(0, lastSlash);
         }
         return cellUri.substring(0, cellsIndex);
+    }
+
+    public enum PostRequestType {
+        MOVEMENT,
+        LOCAL_INTERACTION
+    }
+
+    public record PostAccessDecision(PostRequestType type, AccessResult access,
+                                     String agentUri, String sourceCell, String targetCell) {
+    }
+
+    private record MovementIntent(boolean valid, String agentUri, String sourceCell, String errorMessage) {
+        private static MovementIntent valid(String agentUri, String sourceCell) {
+            return new MovementIntent(true, agentUri, sourceCell, null);
+        }
+
+        private static MovementIntent invalid(String errorMessage) {
+            return new MovementIntent(false, null, null, errorMessage);
+        }
     }
 }

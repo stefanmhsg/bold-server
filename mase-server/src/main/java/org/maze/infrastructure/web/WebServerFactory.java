@@ -89,7 +89,7 @@ public class WebServerFactory {
         // Initialize services - SparqlService must be created first
         SparqlService sparqlService = new SparqlService(repository);
         AccessValidator accessValidator = new AccessValidator(repository, sparqlService);
-        PostHandler postHandler = new PostHandler(repository, gameEngine);
+        PostHandler postHandler = new PostHandler(repository, gameEngine, accessValidator);
         
         // Share repository, game engine, and services via ServletContext
         context.setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);
