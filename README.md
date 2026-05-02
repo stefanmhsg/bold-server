@@ -27,7 +27,15 @@ For each scenario, a `.properties` file is available (e.g., [sim-SmallMaze.prope
 - Rules may be applicable to every maze or only to a specific maze scenario (e.g., `SmallMaze`).
 - Rules that apply to a specific maze scenario are always activated (e.g., the unlocking mechanism), while globally applicable rules are optional (e.g., `Stigmergy`).
 - To define which rules that are globally applicable should be activated, pass their names as a second value in `TASKNAME` (e.g., `sim-SmallMaze Stigmergy` to apply the `Stigmergy` ruleset to the `sim-SmallMaze` scenario).
-- Transaction trace broadcasting is configured in the selected scenario file with `mase.transaction.trace`. It defaults to `false` in the shipped scenarios because full transaction traces snapshot RDF state around rule execution and are expensive during multi-agent runs.
+- Transaction trace broadcasting is configured in the selected scenario file with `mase.transaction.trace`. Shipped scenarios use `summary`, which emits lightweight transaction headers without per-triple logging.
+
+### Transaction Trace Modes
+
+`mase.transaction.trace` supports three modes:
+
+- `off`: no `TRANSACTION` debug events are broadcast.
+- `summary`: broadcast committed/rolled-back transaction headers with time, trigger, agent, graph, status, error, and number of executed rules. This is the default middle ground for multi-agent runs.
+- `full`: additionally include request bodies, merge triples, and per-rule RDF diffs. Use this for debugging only because it snapshots repository state around rule execution.
 
 The maze dataset is an RDF file that defines the maze structure and the initial state of the environment.
 

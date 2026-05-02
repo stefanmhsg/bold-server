@@ -60,7 +60,7 @@ public class Configurator {
 
         // Run rules once at startup to ensure initial consistency
         SailRepositoryConnection conn = null;
-        TransactionTraceContext startupTrace = TransactionTraceContext.forStartupIfEnabled(config.isTransactionTraceEnabled());
+        TransactionTraceContext startupTrace = TransactionTraceContext.forStartup(config.getTransactionTraceMode());
         try {
             conn = repository.getConnection();
             conn.begin();

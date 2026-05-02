@@ -17,48 +17,63 @@ import org.maze.api.websocket.events.TransactionEvent;
 public class TransactionTraceContext {
 
     private final TransactionEvent event;
+    private final TransactionTraceMode mode;
 
     private Set<TripleKey> mergeBefore = Set.of();
     private Set<TripleKey> currentRuleBefore = Set.of();
     private TransactionEvent.RuleChange currentRuleChange;
+    private boolean currentRuleActive;
 
-    private TransactionTraceContext(String trigger) {
+    private TransactionTraceContext(String trigger, TransactionTraceMode mode) {
+        this.mode = mode;
         this.event = new TransactionEvent(trigger);
+        this.event.traceMode = mode.wireValue();
     }
 
-    public static TransactionTraceContext forPostIfEnabled(boolean enabled, String agent, String graph, String requestBody) {
-        return enabled ? forPost(agent, graph, requestBody) : null;
-    }
+    public static TransactionTraceContext forPost(TransactionTraceMode mode, String agent, String graph, String requestBody) {
+        if (!mode.emitsEvents()) {
+            return null;
+        }
 
-    public static TransactionTraceContext forStartupIfEnabled(boolean enabled) {
-        return enabled ? forStartup() : null;
-    }
-
-    public static TransactionTraceContext forPost(String agent, String graph, String requestBody) {
-        TransactionTraceContext context = new TransactionTraceContext("POST");
+        TransactionTraceContext context = new TransactionTraceContext("POST", mode);
         context.event.agent = agent;
         context.event.graph = graph;
-        context.event.requestBody = requestBody;
+        if (mode.capturesTriples()) {
+            context.event.requestBody = requestBody;
+        }
         return context;
     }
 
-    public static TransactionTraceContext forStartup() {
-        return new TransactionTraceContext("STARTUP");
+    public static TransactionTraceContext forStartup(TransactionTraceMode mode) {
+        return mode.emitsEvents() ? new TransactionTraceContext("STARTUP", mode) : null;
     }
 
     public void captureMergeBefore(SailRepositoryConnection connection, String graphIri) {
+        if (!mode.capturesTriples()) {
+            return;
+        }
         this.mergeBefore = snapshot(connection, graphIri);
     }
 
     public void captureMergeAfter(SailRepositoryConnection connection, String graphIri) {
+        if (!mode.capturesTriples()) {
+            return;
+        }
         Set<TripleKey> after = snapshot(connection, graphIri);
         event.mergeAdded = toTriples(diff(after, mergeBefore));
         event.mergeRemoved = toTriples(diff(mergeBefore, after));
     }
 
     public void beginRule(String ruleName, SailRepositoryConnection connection) {
+        currentRuleActive = true;
+        if (!mode.capturesTriples()) {
+            return;
+        }
+
         currentRuleChange = new TransactionEvent.RuleChange(ruleName);
-        currentRuleBefore = snapshot(connection, null);
+        if (mode.capturesTriples()) {
+            currentRuleBefore = snapshot(connection, null);
+        }
     }
 
     public void markCurrentRuleError(String error) {
@@ -68,17 +83,24 @@ public class TransactionTraceContext {
     }
 
     public void endRule(SailRepositoryConnection connection) {
-        if (currentRuleChange == null) {
+        if (!currentRuleActive) {
             return;
         }
 
-        Set<TripleKey> after = snapshot(connection, null);
-        currentRuleChange.added = toTriples(diff(after, currentRuleBefore));
-        currentRuleChange.removed = toTriples(diff(currentRuleBefore, after));
-        event.rules.add(currentRuleChange);
+        if (!mode.capturesTriples()) {
+            // Summary mode intentionally emits only transaction headers and rule count.
+            event.ruleCount++;
+        } else if (currentRuleChange != null) {
+            Set<TripleKey> after = snapshot(connection, null);
+            currentRuleChange.added = toTriples(diff(after, currentRuleBefore));
+            currentRuleChange.removed = toTriples(diff(currentRuleBefore, after));
+            event.rules.add(currentRuleChange);
+            event.ruleCount = event.rules.size();
+        }
 
         currentRuleBefore = Set.of();
         currentRuleChange = null;
+        currentRuleActive = false;
     }
 
     public void markCommitted() {

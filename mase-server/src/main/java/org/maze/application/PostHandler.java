@@ -9,6 +9,7 @@ import org.maze.api.websocket.MazeBroadcaster;
 import org.maze.application.AccessValidator.PostAccessDecision;
 import org.maze.application.AccessValidator.PostRequestType;
 import org.maze.application.tx.TransactionTraceContext;
+import org.maze.application.tx.TransactionTraceMode;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.PostResult;
 import org.maze.domain.vocab.MazeVocab;
@@ -34,22 +35,22 @@ public class PostHandler {
     private final SailRepository repository;
     private final MazeRuleService ruleService;
     private final AccessValidator accessValidator;
-    private final boolean transactionTraceEnabled;
+    private final TransactionTraceMode transactionTraceMode;
 
     public PostHandler(SailRepository repository,
                        MazeRuleService ruleService,
                        AccessValidator accessValidator) {
-        this(repository, ruleService, accessValidator, false);
+        this(repository, ruleService, accessValidator, TransactionTraceMode.OFF);
     }
 
     public PostHandler(SailRepository repository,
                        MazeRuleService ruleService,
                        AccessValidator accessValidator,
-                       boolean transactionTraceEnabled) {
+                       TransactionTraceMode transactionTraceMode) {
         this.repository = repository;
         this.ruleService = ruleService;
         this.accessValidator = accessValidator;
-        this.transactionTraceEnabled = transactionTraceEnabled;
+        this.transactionTraceMode = transactionTraceMode;
     }
 
     public PostResult performPost(String agentName, String graphIRI, Model rdfModel) {
@@ -57,8 +58,8 @@ public class PostHandler {
     }
 
     public PostResult performPost(String agentName, String graphIRI, Model rdfModel, String requestBody) {
-        TransactionTraceContext trace = TransactionTraceContext.forPostIfEnabled(
-                transactionTraceEnabled,
+        TransactionTraceContext trace = TransactionTraceContext.forPost(
+                transactionTraceMode,
                 agentName,
                 graphIRI,
                 requestBody);

@@ -31,12 +31,8 @@ The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or t
 - Open the Agent Inspector (double-click an agent in the Agent Movements table) to inspect the agent graph.
 - Post Turtle triples from the Agent Inspector directly to the selected agent graph.
 - Monitor Agent Movements in real time (time, agent, and location).
-- Monitor Transaction/Cell Updates in real time when server transaction tracing is enabled (trigger, agent, graph, and rules changed summary).
-- Double-click a Transaction/Cell Updates row to expand full details when trace events are available:
-	- request body,
-	- merge added/removed triples,
-	- per-rule added/removed triples,
-	- status/error and timing.
+- Monitor Transaction/Cell Updates in real time when server transaction tracing is enabled (time, trigger, agent, graph, status, and executed rule count).
+- Double-click a Transaction/Cell Updates row to expand details when trace events are available. Summary mode shows timing, status, graph, agent, and rule count. Full mode also shows request body, merge added/removed triples, and per-rule added/removed triples.
 - Read triples in grouped context form for clarity:
 	- `<context = graph_uri> :`
 	- `<s> <p> <o>`
@@ -52,11 +48,15 @@ Runtime rendering does not require full transaction traces. The canvas is kept i
 - `UI_UPSERT` creates or updates RDF-defined visual elements.
 - `UI_DELETE` removes RDF-defined visual elements.
 
-Detailed `TRANSACTION` events are a debug stream. They include request bodies, merged triples, per-rule RDF diffs, status, and timing. The server only emits them when the selected scenario properties file enables:
+`TRANSACTION` events are controlled by the selected server scenario properties file:
 
 ```properties
-mase.transaction.trace = true
+mase.transaction.trace = summary
 ```
+
+- `summary` emits lightweight headers: time, trigger, agent, graph, status, error, and executed rule count.
+- `full` also emits request bodies, merged triples, and per-rule RDF diffs.
+- `off` disables the Transaction/Cell Updates stream. The canvas still updates from `AGENT_MOVED`, `UI_UPSERT`, and `UI_DELETE`.
 
 ## Background Coloring and Optimal Route
 

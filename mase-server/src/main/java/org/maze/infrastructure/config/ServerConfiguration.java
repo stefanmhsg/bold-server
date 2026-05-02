@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.maze.application.tx.TransactionTraceMode;
 
 /**
  * Server configuration loaded from properties files.
@@ -24,7 +25,7 @@ public class ServerConfiguration {
     private static final String INIT_DATASET_KEY = "mase.init.dataset";
     private static final String SERVER_PROTOCOL_KEY = "mase.server.protocol";
     private static final String TRANSACTION_TRACE_KEY = "mase.transaction.trace";
-    private static final String TRANSACTION_TRACE_DEFAULT = "false";
+    private static final String TRANSACTION_TRACE_DEFAULT = "summary";
     
     private final Properties properties;
     private final String taskName;
@@ -52,8 +53,8 @@ public class ServerConfiguration {
         return properties.getProperty(SERVER_PROTOCOL_KEY);
     }
 
-    public boolean isTransactionTraceEnabled() {
-        return Boolean.parseBoolean(properties.getProperty(
+    public TransactionTraceMode getTransactionTraceMode() {
+        return TransactionTraceMode.fromProperty(properties.getProperty(
                 TRANSACTION_TRACE_KEY,
                 TRANSACTION_TRACE_DEFAULT));
     }

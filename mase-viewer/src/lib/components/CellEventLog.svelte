@@ -20,6 +20,10 @@
     });
 
     function summarizeRules(event: TransactionEvent): string {
+        if (event.traceMode === 'summary') {
+            return `${event.ruleCount ?? event.rules.length} rules`;
+        }
+
         let added = 0;
         let removed = 0;
 
@@ -50,6 +54,10 @@
             return '-';
         }
         return `${Math.max(0, event.finishedAt - event.startedAt)} ms`;
+    }
+
+    function traceLabel(event: TransactionEvent): string {
+        return event.traceMode === 'summary' ? 'summary' : 'full trace';
     }
 
     function formatTerm(value: string): string {
@@ -95,7 +103,7 @@
                 <tr
                     class="border-b hover:bg-gray-50 cursor-pointer"
                     ondblclick={() => toggleExpanded(index)}
-                    title="Double-click for full transaction details"
+                    title={`Double-click for transaction ${traceLabel(event)} details`}
                 >
                     <td class="p-2 text-base whitespace-nowrap text-gray-500">
                         {new Date(event.timestamp).toLocaleTimeString()}
@@ -105,7 +113,7 @@
                     <td class="max-w-[180px] truncate p-2 font-mono text-sm" title={event.graph ?? ''}>
                         {shortGraph(event.graph)}
                     </td>
-                    <td class="p-2 text-sm" title={`status: ${event.status}${event.error ? `, error: ${event.error}` : ''}`}>
+                    <td class="p-2 text-sm" title={`status: ${event.status}, trace: ${traceLabel(event)}${event.error ? `, error: ${event.error}` : ''}`}>
                         {summarizeRules(event)}
                     </td>
                 </tr>
@@ -125,7 +133,9 @@
                                     </div>
                                     <div class="bg-white rounded border p-2">
                                         <div class="text-gray-500">Merge Delta</div>
-                                        <div class="font-semibold">+{event.mergeAdded.length} / -{event.mergeRemoved.length}</div>
+                                        <div class="font-semibold">
+                                            {event.traceMode === 'summary' ? 'not captured' : `+${event.mergeAdded.length} / -${event.mergeRemoved.length}`}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -140,114 +150,120 @@
                                         <h4 class="mb-1 text-sm font-semibold text-gray-700">Request Body</h4>
                                         <pre class="max-h-40 overflow-auto rounded border bg-white p-2 text-sm">{event.requestBody}</pre>
                                     </div>
+                                {:else if event.traceMode === 'summary'}
+                                    <div class="rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-700">
+                                        Summary trace: {event.ruleCount ?? event.rules.length} rules executed. Triple-level request, merge, and per-rule diffs are disabled by the server scenario configuration.
+                                    </div>
                                 {/if}
 
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                        <h4 class="mb-1 text-sm font-semibold text-gray-700">Merge Added ({event.mergeAdded.length})</h4>
-                                        <div class="bg-white border rounded p-2 max-h-40 overflow-auto">
-                                            {#if event.mergeAdded.length === 0}
-                                                <div class="text-sm text-gray-400">No added triples.</div>
-                                            {:else}
-                                                <div class="space-y-2">
-                                                    {#each triplesByContext(event.mergeAdded) as group}
-                                                        <div>
-                                                            <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
-                                                            <ul class="space-y-1 mt-1">
-                                                                {#each group.lines as line}
-                                                                    <li class="break-all font-mono text-sm">{line}</li>
-                                                                {/each}
-                                                            </ul>
-                                                        </div>
-                                                    {/each}
-                                                </div>
-                                            {/if}
+                                {#if event.traceMode !== 'summary'}
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <h4 class="mb-1 text-sm font-semibold text-gray-700">Merge Added ({event.mergeAdded.length})</h4>
+                                            <div class="bg-white border rounded p-2 max-h-40 overflow-auto">
+                                                {#if event.mergeAdded.length === 0}
+                                                    <div class="text-sm text-gray-400">No added triples.</div>
+                                                {:else}
+                                                    <div class="space-y-2">
+                                                        {#each triplesByContext(event.mergeAdded) as group}
+                                                            <div>
+                                                                <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
+                                                                <ul class="space-y-1 mt-1">
+                                                                    {#each group.lines as line}
+                                                                        <li class="break-all font-mono text-sm">{line}</li>
+                                                                    {/each}
+                                                                </ul>
+                                                            </div>
+                                                        {/each}
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h4 class="mb-1 text-sm font-semibold text-gray-700">Merge Removed ({event.mergeRemoved.length})</h4>
+                                            <div class="bg-white border rounded p-2 max-h-40 overflow-auto">
+                                                {#if event.mergeRemoved.length === 0}
+                                                    <div class="text-sm text-gray-400">No removed triples.</div>
+                                                {:else}
+                                                    <div class="space-y-2">
+                                                        {#each triplesByContext(event.mergeRemoved) as group}
+                                                            <div>
+                                                                <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
+                                                                <ul class="space-y-1 mt-1">
+                                                                    {#each group.lines as line}
+                                                                        <li class="break-all font-mono text-sm">{line}</li>
+                                                                    {/each}
+                                                                </ul>
+                                                            </div>
+                                                        {/each}
+                                                    </div>
+                                                {/if}
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <h4 class="mb-1 text-sm font-semibold text-gray-700">Merge Removed ({event.mergeRemoved.length})</h4>
-                                        <div class="bg-white border rounded p-2 max-h-40 overflow-auto">
-                                            {#if event.mergeRemoved.length === 0}
-                                                <div class="text-sm text-gray-400">No removed triples.</div>
+                                        <h4 class="mb-1 text-sm font-semibold text-gray-700">Per Rule Changes</h4>
+                                        <div class="space-y-2 max-h-64 overflow-auto pr-1">
+                                            {#if event.rules.length === 0}
+                                                <div class="rounded border bg-white p-2 text-sm text-gray-400">No rule-level changes.</div>
                                             {:else}
-                                                <div class="space-y-2">
-                                                    {#each triplesByContext(event.mergeRemoved) as group}
-                                                        <div>
-                                                            <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
-                                                            <ul class="space-y-1 mt-1">
-                                                                {#each group.lines as line}
-                                                                    <li class="break-all font-mono text-sm">{line}</li>
-                                                                {/each}
-                                                            </ul>
+                                                {#each event.rules as rule}
+                                                    <div class="bg-white border rounded p-2">
+                                                        <div class="flex justify-between items-center mb-1">
+                                                            <div class="text-sm font-semibold">{rule.ruleName}</div>
+                                                            <div class="text-sm text-gray-500">+{rule.added.length} / -{rule.removed.length}</div>
                                                         </div>
-                                                    {/each}
-                                                </div>
+                                                        {#if rule.error}
+                                                            <div class="mb-1 text-sm text-red-700">Error: {rule.error}</div>
+                                                        {/if}
+                                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                            <div>
+                                                                <div class="mb-1 text-xs text-gray-500">Added</div>
+                                                                {#if rule.added.length === 0}
+                                                                    <div class="text-sm text-gray-400">None</div>
+                                                                {:else}
+                                                                    <div class="space-y-2">
+                                                                        {#each triplesByContext(rule.added) as group}
+                                                                            <div>
+                                                                                <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
+                                                                                <ul class="space-y-1 mt-1">
+                                                                                    {#each group.lines as line}
+                                                                                        <li class="break-all font-mono text-sm">{line}</li>
+                                                                                    {/each}
+                                                                                </ul>
+                                                                            </div>
+                                                                        {/each}
+                                                                    </div>
+                                                                {/if}
+                                                            </div>
+                                                            <div>
+                                                                <div class="mb-1 text-xs text-gray-500">Removed</div>
+                                                                {#if rule.removed.length === 0}
+                                                                    <div class="text-sm text-gray-400">None</div>
+                                                                {:else}
+                                                                    <div class="space-y-2">
+                                                                        {#each triplesByContext(rule.removed) as group}
+                                                                            <div>
+                                                                                <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
+                                                                                <ul class="space-y-1 mt-1">
+                                                                                    {#each group.lines as line}
+                                                                                        <li class="break-all font-mono text-sm">{line}</li>
+                                                                                    {/each}
+                                                                                </ul>
+                                                                            </div>
+                                                                        {/each}
+                                                                    </div>
+                                                                {/if}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                {/each}
                                             {/if}
                                         </div>
                                     </div>
-                                </div>
-
-                                <div>
-                                    <h4 class="mb-1 text-sm font-semibold text-gray-700">Per Rule Changes</h4>
-                                    <div class="space-y-2 max-h-64 overflow-auto pr-1">
-                                        {#if event.rules.length === 0}
-                                            <div class="rounded border bg-white p-2 text-sm text-gray-400">No rule-level changes.</div>
-                                        {:else}
-                                            {#each event.rules as rule}
-                                                <div class="bg-white border rounded p-2">
-                                                    <div class="flex justify-between items-center mb-1">
-                                                        <div class="text-sm font-semibold">{rule.ruleName}</div>
-                                                        <div class="text-sm text-gray-500">+{rule.added.length} / -{rule.removed.length}</div>
-                                                    </div>
-                                                    {#if rule.error}
-                                                        <div class="mb-1 text-sm text-red-700">Error: {rule.error}</div>
-                                                    {/if}
-                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                        <div>
-                                                            <div class="mb-1 text-xs text-gray-500">Added</div>
-                                                            {#if rule.added.length === 0}
-                                                                <div class="text-sm text-gray-400">None</div>
-                                                            {:else}
-                                                                <div class="space-y-2">
-                                                                    {#each triplesByContext(rule.added) as group}
-                                                                        <div>
-                                                                            <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
-                                                                            <ul class="space-y-1 mt-1">
-                                                                                {#each group.lines as line}
-                                                                                    <li class="break-all font-mono text-sm">{line}</li>
-                                                                                {/each}
-                                                                            </ul>
-                                                                        </div>
-                                                                    {/each}
-                                                                </div>
-                                                            {/if}
-                                                        </div>
-                                                        <div>
-                                                            <div class="mb-1 text-xs text-gray-500">Removed</div>
-                                                            {#if rule.removed.length === 0}
-                                                                <div class="text-sm text-gray-400">None</div>
-                                                            {:else}
-                                                                <div class="space-y-2">
-                                                                    {#each triplesByContext(rule.removed) as group}
-                                                                        <div>
-                                                                            <div class="break-all font-mono text-xs text-gray-500">&lt;context = {group.context}&gt; :</div>
-                                                                            <ul class="space-y-1 mt-1">
-                                                                                {#each group.lines as line}
-                                                                                    <li class="break-all font-mono text-sm">{line}</li>
-                                                                                {/each}
-                                                                            </ul>
-                                                                        </div>
-                                                                    {/each}
-                                                                </div>
-                                                            {/if}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            {/each}
-                                        {/if}
-                                    </div>
-                                </div>
+                                {/if}
                             </div>
                         </td>
                     </tr>

@@ -31,6 +31,20 @@ docker run -p 8080:8080 -e TASKNAME=sim-SmallMaze -it mase-server
 ### Entry Point
 http://127.0.1.1:8080/maze
 
+### Scenario Runtime Settings
+
+Server runtime settings that belong to a simulation run are configured in the selected `sim-*.properties` file.
+
+```properties
+mase.transaction.trace = summary
+```
+
+`mase.transaction.trace` controls WebSocket transaction diagnostics:
+
+- `off`: no `TRANSACTION` debug events.
+- `summary`: emit lightweight transaction headers with time, trigger, agent, graph, status, error, and executed rule count. This keeps cell-update visibility without per-triple logging.
+- `full`: include request body, merged triples, and per-rule RDF diffs. This is useful for debugging but expensive during larger multi-agent runs because it snapshots RDF state around rule execution.
+
 ### Example Agent
 
 Run sample dfs agent (name: `bob`) against a running server:
@@ -162,7 +176,7 @@ so visual updates can happen without reloading the page.
 
 - `TRANSACTION`
   Implemented by [TransactionEvent.java](src/main/java/org/maze/api/websocket/events/TransactionEvent.java).
-  Provides a trace of merged triples and per-rule added/removed triples for debugging/inspection. This event is only emitted when `mase.transaction.trace = true` in the selected scenario properties file.
+  Provides transaction diagnostics when `mase.transaction.trace` is `summary` or `full` in the selected scenario properties file. Summary mode emits the transaction header and executed rule count; full mode also includes merged triples and per-rule added/removed triples for debugging/inspection.
 
 ### Relation to Viewer Rendering
 

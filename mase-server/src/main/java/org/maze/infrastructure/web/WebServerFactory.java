@@ -94,7 +94,7 @@ public class WebServerFactory {
             repository,
             gameEngine,
             accessValidator,
-            config.isTransactionTraceEnabled());
+            config.getTransactionTraceMode());
         
         // Share repository, game engine, and services via ServletContext
         context.setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);

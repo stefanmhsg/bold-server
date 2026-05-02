@@ -47,6 +47,8 @@ export interface TransactionEvent extends BaseEvent {
     graph?: string | null;
     requestBody?: string | null;
     error?: string | null;
+    traceMode?: 'off' | 'summary' | 'full' | string | null;
+    ruleCount?: number;
     startedAt: number;
     finishedAt: number;
     mergeAdded: TransactionTriple[];
