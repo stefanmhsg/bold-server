@@ -60,7 +60,7 @@ public class Configurator {
 
         // Run rules once at startup to ensure initial consistency
         SailRepositoryConnection conn = null;
-        TransactionTraceContext startupTrace = TransactionTraceContext.forStartup();
+        TransactionTraceContext startupTrace = TransactionTraceContext.forStartupIfEnabled(config.isTransactionTraceEnabled());
         try {
             conn = repository.getConnection();
             conn.begin();
@@ -68,8 +68,10 @@ public class Configurator {
             log.info("Running initial maze rules on startup...");
             ruleService.executeRules(conn, startupTrace);
             conn.commit();
-            startupTrace.markCommitted();
-            MazeBroadcaster.broadcast(mapper.writeValueAsString(startupTrace.getEvent()));
+            if (startupTrace != null) {
+                startupTrace.markCommitted();
+                MazeBroadcaster.broadcast(mapper.writeValueAsString(startupTrace.getEvent()));
+            }
 
             log.info("Initial rule execution finished");
         } catch (Exception e) {
@@ -81,11 +83,13 @@ public class Configurator {
                     log.error("Rollback during startup failed: ", rollbackError);
                 }
             }
-            startupTrace.markFailed(e.getMessage());
-            try {
-                MazeBroadcaster.broadcast(mapper.writeValueAsString(startupTrace.getEvent()));
-            } catch (Exception broadcastError) {
-                log.error("Failed to broadcast startup transaction event", broadcastError);
+            if (startupTrace != null) {
+                startupTrace.markFailed(e.getMessage());
+                try {
+                    MazeBroadcaster.broadcast(mapper.writeValueAsString(startupTrace.getEvent()));
+                } catch (Exception broadcastError) {
+                    log.error("Failed to broadcast startup transaction event", broadcastError);
+                }
             }
             log.error("Initial rule execution failed: ", e);
             throw e;

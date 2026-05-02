@@ -55,7 +55,7 @@ public class WebServerFactory {
         ServletContextHandler context = new ServletContextHandler("/");
         server.setHandler(context);
         
-        configureRestEndpoints(context, repository, gameEngine);
+        configureRestEndpoints(context, config, repository, gameEngine);
         
         // Configure WebSocket
         JakartaWebSocketServletContainerInitializer.configure(context, (servletContext, container) -> {
@@ -83,13 +83,18 @@ public class WebServerFactory {
         return serverBaseURI;
     }
     
-    private void configureRestEndpoints(ServletContextHandler context, 
+    private void configureRestEndpoints(ServletContextHandler context,
+                                       ServerConfiguration config,
                                        SailRepository repository, 
                                        MazeRuleService gameEngine) {
         // Initialize services - SparqlService must be created first
         SparqlService sparqlService = new SparqlService(repository);
         AccessValidator accessValidator = new AccessValidator(repository, sparqlService);
-        PostHandler postHandler = new PostHandler(repository, gameEngine, accessValidator);
+        PostHandler postHandler = new PostHandler(
+            repository,
+            gameEngine,
+            accessValidator,
+            config.isTransactionTraceEnabled());
         
         // Share repository, game engine, and services via ServletContext
         context.setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);

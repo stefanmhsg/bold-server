@@ -23,9 +23,11 @@ docker compose up --build
 
 For each scenario, a `.properties` file is available (e.g., [sim-SmallMaze.properties](mase-server/sim-SmallMaze.properties)) that defines the maze dataset and the execution order in which the rules (SPARQL Queries, see below) are applied. 
 
+- Scenario properties are the only supported place for server runtime settings that belong to a simulation run.
 - Rules may be applicable to every maze or only to a specific maze scenario (e.g., `SmallMaze`).
 - Rules that apply to a specific maze scenario are always activated (e.g., the unlocking mechanism), while globally applicable rules are optional (e.g., `Stigmergy`).
 - To define which rules that are globally applicable should be activated, pass their names as a second value in `TASKNAME` (e.g., `sim-SmallMaze Stigmergy` to apply the `Stigmergy` ruleset to the `sim-SmallMaze` scenario).
+- Transaction trace broadcasting is configured in the selected scenario file with `mase.transaction.trace`. It defaults to `false` in the shipped scenarios because full transaction traces snapshot RDF state around rule execution and are expensive during multi-agent runs.
 
 The maze dataset is an RDF file that defines the maze structure and the initial state of the environment.
 
@@ -51,7 +53,9 @@ MASE navigation is controlled by HTTP semantics plus RDF validation logic.
 - **Adjacency constraints for movement:** movement POSTs are detected by `dynmaze:entersFrom`; MASE enforces exactly one source cell, requires that source to match the agent’s actual current cell, and allows movement only when an RDF edge (`maze:north|south|east|west|exit`) exists from source to target.
 - **Local perception and action:** authenticated agents can only `GET` and non-movement `POST` on their current cell.
 - **Agent named graph creation:** on first valid maze entry, MASE creates a named graph for the agent IRI and inserts an `a maze:Agent` triple.
-- **Request validation pipeline:** MASE parses RDF payloads, classifies movement vs. interaction, applies access checks, and only then merges triples and executes server rules.
+- **Transactional request pipeline:** MASE parses RDF payloads, then validates access, merges triples, executes rules, and checks core movement postconditions inside one repository transaction.
+- **Scoped concurrency:** POST handling serializes requests that affect the same target graph, movement source graph, or agent identity. Independent graphs can proceed concurrently where their core request scopes do not overlap.
+- **Scenario-specific behavior stays in rules:** Java enforces embodiment, adjacent movement requests, and local-only interaction. Unlocking, switches, UI materialization, and other scenario effects are encoded in SPARQL rules.
 
 ### Example Request Flow
 
@@ -61,7 +65,7 @@ MASE navigation is controlled by HTTP semantics plus RDF validation logic.
 
 3. Bob is now allowed to `GET` and `POST` on `/cells/0/0`. Remember that Bob can only perceive the current cell and can only request a move to an adjacent cell. If Bob tries to move to a non-adjacent cell or tries to `GET` or `POST` on a different cell, the request will be rejected by the server.
 
-4. If a cell is locked and Bob has previously observed a key of the required type, it can `POST` to the locked cell (e.g., `http://127.0.1.1:8080/cells/0/1`) a triple like `<http://127.0.1.1:8080/cells/0/1> <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#keyValue> "redkey" .` to unlock the cell. The ruleset materializing the unlocking is defined in the maze-specific rules file (e.g., [unlock-redkey.rq](mase-server/src/main/resources/rules/SmallMaze/unlock-redkey.rq)).
+4. If the current cell is locked and Bob has previously observed a key of the required type, it can `POST` to that current cell a triple like `<http://127.0.1.1:8080/cells/0/1> <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#keyValue> "redkey" .` to unlock it. Non-movement POSTs are local interactions and are rejected if sent to a cell other than the agent's current cell. The ruleset materializing the unlocking is defined in the maze-specific rules file (e.g., [unlock-redkey.rq](mase-server/src/main/resources/rules/SmallMaze/unlock-redkey.rq)).
 
 5. Consider the maze solved when Bob moved to the exit cell (`/cells/999`) via the `maze:exit` edge.
 

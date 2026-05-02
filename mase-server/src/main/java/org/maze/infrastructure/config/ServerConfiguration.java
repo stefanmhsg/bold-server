@@ -23,6 +23,8 @@ public class ServerConfiguration {
     private static final String SERVER_HTTP_PORT_DEFAULT = "8080";
     private static final String INIT_DATASET_KEY = "mase.init.dataset";
     private static final String SERVER_PROTOCOL_KEY = "mase.server.protocol";
+    private static final String TRANSACTION_TRACE_KEY = "mase.transaction.trace";
+    private static final String TRANSACTION_TRACE_DEFAULT = "false";
     
     private final Properties properties;
     private final String taskName;
@@ -48,6 +50,12 @@ public class ServerConfiguration {
     
     public String getServerProtocol() {
         return properties.getProperty(SERVER_PROTOCOL_KEY);
+    }
+
+    public boolean isTransactionTraceEnabled() {
+        return Boolean.parseBoolean(properties.getProperty(
+                TRANSACTION_TRACE_KEY,
+                TRANSACTION_TRACE_DEFAULT));
     }
     
     public String getTaskName() {

@@ -162,7 +162,7 @@ so visual updates can happen without reloading the page.
 
 - `TRANSACTION`
   Implemented by [TransactionEvent.java](src/main/java/org/maze/api/websocket/events/TransactionEvent.java).
-  Provides a trace of merged triples and per-rule added/removed triples for debugging/inspection.
+  Provides a trace of merged triples and per-rule added/removed triples for debugging/inspection. This event is only emitted when `mase.transaction.trace = true` in the selected scenario properties file.
 
 ### Relation to Viewer Rendering
 

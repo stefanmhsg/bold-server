@@ -31,8 +31,8 @@ The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or t
 - Open the Agent Inspector (double-click an agent in the Agent Movements table) to inspect the agent graph.
 - Post Turtle triples from the Agent Inspector directly to the selected agent graph.
 - Monitor Agent Movements in real time (time, agent, and location).
-- Monitor Transaction/Cell Updates in real time (trigger, agent, graph, and rules changed summary).
-- Double-click a Transaction/Cell Updates row to expand full details:
+- Monitor Transaction/Cell Updates in real time when server transaction tracing is enabled (trigger, agent, graph, and rules changed summary).
+- Double-click a Transaction/Cell Updates row to expand full details when trace events are available:
 	- request body,
 	- merge added/removed triples,
 	- per-rule added/removed triples,
@@ -41,6 +41,22 @@ The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or t
 	- `<context = graph_uri> :`
 	- `<s> <p> <o>`
 - Resize both event tables vertically (up/down) to see more or fewer rows while keeping layout width fixed.
+
+## Live Updates and Transaction Traces
+
+The viewer receives WebSocket events from the MASE server.
+
+Runtime rendering does not require full transaction traces. The canvas is kept in sync from committed runtime events:
+
+- `AGENT_MOVED` updates agent marker positions.
+- `UI_UPSERT` creates or updates RDF-defined visual elements.
+- `UI_DELETE` removes RDF-defined visual elements.
+
+Detailed `TRANSACTION` events are a debug stream. They include request bodies, merged triples, per-rule RDF diffs, status, and timing. The server only emits them when the selected scenario properties file enables:
+
+```properties
+mase.transaction.trace = true
+```
 
 ## Background Coloring and Optimal Route
 

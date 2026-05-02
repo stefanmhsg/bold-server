@@ -26,6 +26,14 @@ public class TransactionTraceContext {
         this.event = new TransactionEvent(trigger);
     }
 
+    public static TransactionTraceContext forPostIfEnabled(boolean enabled, String agent, String graph, String requestBody) {
+        return enabled ? forPost(agent, graph, requestBody) : null;
+    }
+
+    public static TransactionTraceContext forStartupIfEnabled(boolean enabled) {
+        return enabled ? forStartup() : null;
+    }
+
     public static TransactionTraceContext forPost(String agent, String graph, String requestBody) {
         TransactionTraceContext context = new TransactionTraceContext("POST");
         context.event.agent = agent;

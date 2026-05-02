@@ -34,13 +34,22 @@ public class PostHandler {
     private final SailRepository repository;
     private final MazeRuleService ruleService;
     private final AccessValidator accessValidator;
+    private final boolean transactionTraceEnabled;
 
     public PostHandler(SailRepository repository,
                        MazeRuleService ruleService,
                        AccessValidator accessValidator) {
+        this(repository, ruleService, accessValidator, false);
+    }
+
+    public PostHandler(SailRepository repository,
+                       MazeRuleService ruleService,
+                       AccessValidator accessValidator,
+                       boolean transactionTraceEnabled) {
         this.repository = repository;
         this.ruleService = ruleService;
         this.accessValidator = accessValidator;
+        this.transactionTraceEnabled = transactionTraceEnabled;
     }
 
     public PostResult performPost(String agentName, String graphIRI, Model rdfModel) {
@@ -48,7 +57,11 @@ public class PostHandler {
     }
 
     public PostResult performPost(String agentName, String graphIRI, Model rdfModel, String requestBody) {
-        TransactionTraceContext trace = TransactionTraceContext.forPost(agentName, graphIRI, requestBody);
+        TransactionTraceContext trace = TransactionTraceContext.forPostIfEnabled(
+                transactionTraceEnabled,
+                agentName,
+                graphIRI,
+                requestBody);
 
         try (RequestLocks ignored = acquireRequestLocks(agentName, graphIRI, rdfModel);
              SailRepositoryConnection conn = repository.getConnection()) {
@@ -64,7 +77,7 @@ public class PostHandler {
                 conn.rollback();
                 String msg = "Graph not found: " + graphIRI;
                 log.info(msg);
-                trace.markRolledBack(msg);
+                markRolledBack(trace, msg);
                 broadcastTransaction(trace);
                 return PostResult.notFound(msg);
             }
@@ -75,7 +88,7 @@ public class PostHandler {
             AccessResult accessResult = accessDecision.access();
             if (!accessResult.isAllowed()) {
                 conn.rollback();
-                trace.markRolledBack(accessResult.message());
+                markRolledBack(trace, accessResult.message());
                 broadcastTransaction(trace);
                 log.warn("POST denied for agent {} on {}: {}", agentName, graphIRI, accessResult.message());
                 return accessFailure(accessResult.message());
@@ -84,9 +97,9 @@ public class PostHandler {
             int triplesAdded = rdfModel.size();
 
             // Add incoming triples
-            trace.captureMergeBefore(conn, graphIRI);
+            captureMergeBefore(trace, conn, graphIRI);
             conn.add(rdfModel);
-            trace.captureMergeAfter(conn, graphIRI);
+            captureMergeAfter(trace, conn, graphIRI);
             log.debug("Added {} triples to graph {}", triplesAdded, graphIRI);
 
             // Execute rules inside the same transaction
@@ -95,14 +108,14 @@ public class PostHandler {
             if (!validateCorePostconditions(conn, accessDecision)) {
                 conn.rollback();
                 String msg = "Movement request did not materialize. The request may be stale or no movement rule matched.";
-                trace.markRolledBack(msg);
+                markRolledBack(trace, msg);
                 broadcastTransaction(trace);
                 log.warn("POST rolled back for agent {} on {}: {}", agentName, graphIRI, msg);
                 return PostResult.conflict(msg);
             }
 
             conn.commit();
-            trace.markCommitted();
+            markCommitted(trace);
             broadcastTransaction(trace);
             log.info("POST committed: {} triples merged into {}", triplesAdded, graphIRI);
 
@@ -110,7 +123,7 @@ public class PostHandler {
             return PostResult.success(graphIRI, triplesAdded, message);
 
         } catch (Exception e) {
-            trace.markFailed(e.getMessage());
+            markFailed(trace, e.getMessage());
             broadcastTransaction(trace);
             log.error("Error during POST to {}", graphIRI, e);
             return PostResult.failed(e.getMessage());
@@ -119,12 +132,12 @@ public class PostHandler {
 
     private RequestLocks acquireRequestLocks(String agentName, String graphIRI, Model rdfModel) {
         List<String> keys = requestLockKeys(agentName, graphIRI, rdfModel);
-        List<ReentrantLock> acquired = new ArrayList<>(keys.size());
+        List<KeyedLock> acquired = new ArrayList<>(keys.size());
 
         for (String key : keys) {
             ReentrantLock lock = REQUEST_LOCKS.computeIfAbsent(key, ignored -> new ReentrantLock());
             lock.lock();
-            acquired.add(lock);
+            acquired.add(new KeyedLock(key, lock));
         }
 
         return new RequestLocks(acquired);
@@ -167,12 +180,51 @@ public class PostHandler {
         return resourceUri.substring(0, cellsIndex);
     }
 
-    private record RequestLocks(List<ReentrantLock> locks) implements AutoCloseable {
+    private record KeyedLock(String key, ReentrantLock lock) {
+    }
+
+    private record RequestLocks(List<KeyedLock> locks) implements AutoCloseable {
         @Override
         public void close() {
             for (int i = locks.size() - 1; i >= 0; i--) {
-                locks.get(i).unlock();
+                KeyedLock keyedLock = locks.get(i);
+                ReentrantLock lock = keyedLock.lock();
+                lock.unlock();
+
+                if (!lock.isLocked() && !lock.hasQueuedThreads()) {
+                    REQUEST_LOCKS.remove(keyedLock.key(), lock);
+                }
             }
+        }
+    }
+
+    private void captureMergeBefore(TransactionTraceContext trace, SailRepositoryConnection conn, String graphIRI) {
+        if (trace != null) {
+            trace.captureMergeBefore(conn, graphIRI);
+        }
+    }
+
+    private void captureMergeAfter(TransactionTraceContext trace, SailRepositoryConnection conn, String graphIRI) {
+        if (trace != null) {
+            trace.captureMergeAfter(conn, graphIRI);
+        }
+    }
+
+    private void markCommitted(TransactionTraceContext trace) {
+        if (trace != null) {
+            trace.markCommitted();
+        }
+    }
+
+    private void markRolledBack(TransactionTraceContext trace, String message) {
+        if (trace != null) {
+            trace.markRolledBack(message);
+        }
+    }
+
+    private void markFailed(TransactionTraceContext trace, String message) {
+        if (trace != null) {
+            trace.markFailed(message);
         }
     }
 
@@ -208,6 +260,10 @@ public class PostHandler {
     }
 
     private void broadcastTransaction(TransactionTraceContext trace) {
+        if (trace == null) {
+            return;
+        }
+
         try {
             MazeBroadcaster.broadcast(mapper.writeValueAsString(trace.getEvent()));
         } catch (Exception e) {
