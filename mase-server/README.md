@@ -176,7 +176,17 @@ so visual updates can happen without reloading the page.
 
 - `TRANSACTION`
   Implemented by [TransactionEvent.java](src/main/java/org/maze/api/websocket/events/TransactionEvent.java).
-  Provides transaction diagnostics when `mase.transaction.trace` is `summary` or `full` in the selected scenario properties file. Summary mode emits the transaction header and executed rule count; full mode also includes merged triples and per-rule added/removed triples for debugging/inspection.
+  Provides transaction diagnostics when `mase.transaction.trace` is `summary` or `full` in the selected scenario properties file. Summary mode emits the transaction id, transaction header, and executed rule count; full mode also includes merged triples and per-rule added/removed triples for debugging/inspection.
+
+### Request Ordering
+
+POST requests are handled as server-side transactions. Requests that share a direct MASE resource scope use the same request queue:
+
+- target graph,
+- movement source graph from `dynmaze:entersFrom`,
+- authenticated agent identity.
+
+This means same-cell updates and same-agent requests are processed one at a time, while unrelated graph scopes can proceed concurrently. MASE does not impose a global simulation clock; transaction ids are server-issued trace identifiers for analysis of server-observed request order.
 
 ### Relation to Viewer Rendering
 

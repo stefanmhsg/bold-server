@@ -34,7 +34,7 @@ For each scenario, a `.properties` file is available (e.g., [sim-SmallMaze.prope
 `mase.transaction.trace` supports three modes:
 
 - `off`: no `TRANSACTION` debug events are broadcast.
-- `summary`: broadcast committed/rolled-back transaction headers with time, trigger, agent, graph, status, error, and number of executed rules. This is the default middle ground for multi-agent runs.
+- `summary`: broadcast committed/rolled-back transaction headers with transaction id, time, trigger, agent, graph, status, error, and number of executed rules. This is the default middle ground for multi-agent runs.
 - `full`: additionally include request bodies, merge triples, and per-rule RDF diffs. Use this for debugging only because it snapshots repository state around rule execution.
 
 The maze dataset is an RDF file that defines the maze structure and the initial state of the environment.
@@ -62,7 +62,7 @@ MASE navigation is controlled by HTTP semantics plus RDF validation logic.
 - **Local perception and action:** authenticated agents can only `GET` and non-movement `POST` on their current cell.
 - **Agent named graph creation:** on first valid maze entry, MASE creates a named graph for the agent IRI and inserts an `a maze:Agent` triple.
 - **Transactional request pipeline:** MASE parses RDF payloads, then validates access, merges triples, executes rules, and checks core movement postconditions inside one repository transaction.
-- **Scoped concurrency:** POST handling serializes requests that affect the same target graph, movement source graph, or agent identity. Independent graphs can proceed concurrently where their core request scopes do not overlap.
+- **Scoped concurrency:** POST handling uses per-resource request queues for the same target graph, movement source graph, or agent identity. Independent graphs can proceed concurrently where their core request scopes do not overlap.
 - **Scenario-specific behavior stays in rules:** Java enforces embodiment, adjacent movement requests, and local-only interaction. Unlocking, switches, UI materialization, and other scenario effects are encoded in SPARQL rules.
 
 ### Example Request Flow

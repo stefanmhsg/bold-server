@@ -5,6 +5,7 @@ import org.maze.api.websocket.events.TransactionEvent;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 class TransactionTraceModeTest {
@@ -31,6 +32,7 @@ class TransactionTraceModeTest {
                 event.ruleCount);
 
         assertEquals("summary", event.traceMode);
+        assertTrue(event.transactionId > 0);
         assertEquals("POST", event.trigger);
         assertEquals("bob", event.agent);
         assertEquals("http://127.0.1.1:8080/cells/0/0", event.graph);
@@ -39,6 +41,27 @@ class TransactionTraceModeTest {
         assertEquals(0, event.rules.size());
         assertEquals(0, event.mergeAdded.size());
         assertEquals(0, event.mergeRemoved.size());
+    }
+
+    @Test
+    void traceEventsReceiveMonotonicServerTransactionIds() {
+        TransactionTraceContext first = TransactionTraceContext.forPost(
+                TransactionTraceMode.SUMMARY,
+                "bob",
+                "http://127.0.1.1:8080/cells/0/0",
+                "");
+        TransactionTraceContext second = TransactionTraceContext.forPost(
+                TransactionTraceMode.SUMMARY,
+                "alice",
+                "http://127.0.1.1:8080/cells/0/1",
+                "");
+
+        System.out.printf(
+                "[TEST] transaction ids -> first=%d, second=%d%n",
+                first.getEvent().transactionId,
+                second.getEvent().transactionId);
+
+        assertTrue(second.getEvent().transactionId > first.getEvent().transactionId);
     }
 
     @Test

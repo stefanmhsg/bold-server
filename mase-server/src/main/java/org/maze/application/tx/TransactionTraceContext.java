@@ -6,6 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Statement;
@@ -15,6 +16,8 @@ import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.maze.api.websocket.events.TransactionEvent;
 
 public class TransactionTraceContext {
+
+    private static final AtomicLong TRANSACTION_IDS = new AtomicLong();
 
     private final TransactionEvent event;
     private final TransactionTraceMode mode;
@@ -28,6 +31,7 @@ public class TransactionTraceContext {
         this.mode = mode;
         this.event = new TransactionEvent(trigger);
         this.event.traceMode = mode.wireValue();
+        this.event.transactionId = TRANSACTION_IDS.incrementAndGet();
     }
 
     public static TransactionTraceContext forPost(TransactionTraceMode mode, String agent, String graph, String requestBody) {

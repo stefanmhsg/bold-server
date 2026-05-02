@@ -14,6 +14,7 @@ public class TransactionEvent extends MazeEvent {
     public String requestBody;
     public String error;
     public String traceMode;
+    public long transactionId;
     public int ruleCount;
     public long startedAt;
     public long finishedAt;

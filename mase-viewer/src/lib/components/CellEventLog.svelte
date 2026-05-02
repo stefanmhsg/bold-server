@@ -113,7 +113,7 @@
                     <td class="max-w-[180px] truncate p-2 font-mono text-sm" title={event.graph ?? ''}>
                         {shortGraph(event.graph)}
                     </td>
-                    <td class="p-2 text-sm" title={`status: ${event.status}, trace: ${traceLabel(event)}${event.error ? `, error: ${event.error}` : ''}`}>
+                    <td class="p-2 text-sm" title={`tx: ${event.transactionId ?? '-'}, status: ${event.status}, trace: ${traceLabel(event)}${event.error ? `, error: ${event.error}` : ''}`}>
                         {summarizeRules(event)}
                     </td>
                 </tr>
@@ -122,7 +122,11 @@
                     <tr class="border-b bg-gray-50">
                         <td colspan="5" class="p-3">
                             <div class="space-y-3">
-                                <div class="grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
+                                <div class="grid grid-cols-1 gap-2 text-sm md:grid-cols-4">
+                                    <div class="bg-white rounded border p-2">
+                                        <div class="text-gray-500">Transaction</div>
+                                        <div class="font-semibold">{event.transactionId ?? '-'}</div>
+                                    </div>
                                     <div class="bg-white rounded border p-2">
                                         <div class="text-gray-500">Status</div>
                                         <div class="font-semibold">{event.status}</div>

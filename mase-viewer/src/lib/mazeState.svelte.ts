@@ -48,6 +48,7 @@ export interface TransactionEvent extends BaseEvent {
     requestBody?: string | null;
     error?: string | null;
     traceMode?: 'off' | 'summary' | 'full' | string | null;
+    transactionId?: number;
     ruleCount?: number;
     startedAt: number;
     finishedAt: number;

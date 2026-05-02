@@ -20,17 +20,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class PostHandler {
 
     private static final Logger log = LoggerFactory.getLogger(PostHandler.class);
     private static final ObjectMapper mapper = new ObjectMapper();
-    private static final ConcurrentHashMap<String, ReentrantLock> REQUEST_LOCKS = new ConcurrentHashMap<>();
+    private static final RequestLockRegistry REQUEST_LOCKS = new RequestLockRegistry();
 
     private final SailRepository repository;
     private final MazeRuleService ruleService;
@@ -133,15 +134,7 @@ public class PostHandler {
 
     private RequestLocks acquireRequestLocks(String agentName, String graphIRI, Model rdfModel) {
         List<String> keys = requestLockKeys(agentName, graphIRI, rdfModel);
-        List<KeyedLock> acquired = new ArrayList<>(keys.size());
-
-        for (String key : keys) {
-            ReentrantLock lock = REQUEST_LOCKS.computeIfAbsent(key, ignored -> new ReentrantLock());
-            lock.lock();
-            acquired.add(new KeyedLock(key, lock));
-        }
-
-        return new RequestLocks(acquired);
+        return REQUEST_LOCKS.acquireAll(keys);
     }
 
     private List<String> requestLockKeys(String agentName, String graphIRI, Model rdfModel) {
@@ -181,20 +174,52 @@ public class PostHandler {
         return resourceUri.substring(0, cellsIndex);
     }
 
-    private record KeyedLock(String key, ReentrantLock lock) {
+    private static final class RequestLockRegistry {
+        private final Map<String, LockEntry> entries = new HashMap<>();
+
+        private RequestLocks acquireAll(List<String> keys) {
+            List<KeyedLock> acquired = new ArrayList<>(keys.size());
+
+            for (String key : keys) {
+                LockEntry entry = retain(key);
+                entry.lock.lock();
+                acquired.add(new KeyedLock(key, entry));
+            }
+
+            return new RequestLocks(this, acquired);
+        }
+
+        private synchronized LockEntry retain(String key) {
+            LockEntry entry = entries.computeIfAbsent(key, ignored -> new LockEntry());
+            entry.references++;
+            return entry;
+        }
+
+        private synchronized void release(String key, LockEntry entry) {
+            entry.references--;
+            if (entry.references == 0) {
+                entries.remove(key, entry);
+            }
+        }
     }
 
-    private record RequestLocks(List<KeyedLock> locks) implements AutoCloseable {
+    private static final class LockEntry {
+        // Fair locks preserve request arrival order for one graph/agent key as closely
+        // as the JVM scheduler allows, matching MASE's per-resource request queue model.
+        private final ReentrantLock lock = new ReentrantLock(true);
+        private int references;
+    }
+
+    private record KeyedLock(String key, LockEntry entry) {
+    }
+
+    private record RequestLocks(RequestLockRegistry registry, List<KeyedLock> locks) implements AutoCloseable {
         @Override
         public void close() {
             for (int i = locks.size() - 1; i >= 0; i--) {
                 KeyedLock keyedLock = locks.get(i);
-                ReentrantLock lock = keyedLock.lock();
-                lock.unlock();
-
-                if (!lock.isLocked() && !lock.hasQueuedThreads()) {
-                    REQUEST_LOCKS.remove(keyedLock.key(), lock);
-                }
+                keyedLock.entry().lock.unlock();
+                registry.release(keyedLock.key(), keyedLock.entry());
             }
         }
     }
