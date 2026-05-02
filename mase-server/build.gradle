@@ -113,4 +113,8 @@ tasks.register('runA2AKeySeekerAgent', JavaExec) {
 
 test {
     useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        showStandardStreams = true
+    }
 }
