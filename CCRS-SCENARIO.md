@@ -1,5 +1,13 @@
 # CCRS Scenario
 
+---
+
+Please note that everything related to "CCRS" is tailored to my master's thesis and is thus not fully explained here.
+
+Nevertheless, I invite you to run the scenario `sim-CcrsMaze` as a demonstration of what is possible with the MASE project.
+
+---
+
 Data: [CcrsMaze.trig](mase-server/data/CcrsMaze.trig)
 
 Infrastructure Agents: [CcrsAgent.java](mase-server/src/main/java/org/maze/examples/CcrsAgent.java)
