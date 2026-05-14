@@ -19,6 +19,9 @@
     let uiLayer: Konva.Layer;
 
     let agentLayer: Konva.Layer;
+    let tooltipLayer: Konva.Layer;
+    let cellTooltip: Konva.Label;
+    let cellTooltipText: Konva.Text;
     let unsubscribeRuntimeCanvasEvents: (() => void) | null = null;
     let cellRects: Map<string, Konva.Rect> = new Map();
     let cellBaseFillById: Map<string, string> = new Map();
@@ -274,6 +277,10 @@
         agentLayer = new Konva.Layer();
         stage.add(agentLayer);
 
+        tooltipLayer = new Konva.Layer({ listening: false });
+        stage.add(tooltipLayer);
+        createCellTooltip();
+
         drawMaze();
 
         // Apply initial UI snapshot
@@ -387,18 +394,24 @@
                 rect.on('dblclick', () => {
                     onCellSelect(cell.id);
                 });
-                // Visual feedback for interactivity
-                rect.on('mouseenter', () => {
-                    stage.container().style.cursor = 'pointer';
-                    rect.fill('#f0f9ff'); // Light blue highlight
-                    mazeLayer.draw();
-                });
-                rect.on('mouseleave', () => {
-                    stage.container().style.cursor = 'default';
-                    rect.fill(cellBaseFillById.get(cell.id) ?? '#ffffff');
-                    mazeLayer.draw();
-                });
             }
+
+            // Visual feedback and coordinate tooltip for interactivity.
+            rect.on('mouseenter', () => {
+                stage.container().style.cursor = onCellSelect ? 'pointer' : 'default';
+                rect.fill('#f0f9ff');
+                showCellTooltip(cell);
+                mazeLayer.draw();
+            });
+            rect.on('mousemove', () => {
+                positionCellTooltip();
+            });
+            rect.on('mouseleave', () => {
+                stage.container().style.cursor = 'default';
+                rect.fill(cellBaseFillById.get(cell.id) ?? '#ffffff');
+                hideCellTooltip();
+                mazeLayer.draw();
+            });
 
             mazeLayer.add(rect);
 
@@ -511,6 +524,74 @@
             fontStyle: 'bold'
         });
         mazeLayer.add(label);
+    }
+
+    function createCellTooltip() {
+        cellTooltip = new Konva.Label({
+            opacity: 0.92,
+            visible: false,
+            listening: false
+        });
+
+        cellTooltip.add(new Konva.Tag({
+            fill: '#111827',
+            pointerDirection: 'down',
+            pointerWidth: 8,
+            pointerHeight: 6,
+            cornerRadius: 4,
+            shadowColor: 'black',
+            shadowBlur: 8,
+            shadowOpacity: 0.18,
+            shadowOffset: { x: 0, y: 2 }
+        }));
+
+        cellTooltipText = new Konva.Text({
+            text: '',
+            fontFamily: 'Arial',
+            fontSize: 13,
+            fill: '#ffffff',
+            padding: 6
+        });
+        cellTooltip.add(cellTooltipText);
+        tooltipLayer.add(cellTooltip);
+    }
+
+    function showCellTooltip(cell: Cell) {
+        if (!cellTooltip || !cellTooltipText) return;
+
+        cellTooltipText.text(shortCellCoordinate(cell));
+        cellTooltip.visible(true);
+        positionCellTooltip();
+    }
+
+    function positionCellTooltip() {
+        if (!cellTooltip || !tooltipLayer || !cellTooltip.visible()) return;
+
+        const pointer = stage.getPointerPosition();
+        if (!pointer) return;
+
+        cellTooltip.absolutePosition({
+            x: pointer.x + 12,
+            y: pointer.y - 8
+        });
+        tooltipLayer.batchDraw();
+    }
+
+    function hideCellTooltip() {
+        if (!cellTooltip || !tooltipLayer) return;
+
+        cellTooltip.visible(false);
+        tooltipLayer.batchDraw();
+    }
+
+    function shortCellCoordinate(cell: Cell): string {
+        const marker = '/cells/';
+        const idx = cell.id.indexOf(marker);
+        if (idx !== -1) {
+            return cell.id.substring(idx + marker.length);
+        }
+
+        return cell.label || `${cell.x}/${cell.y}`;
     }
 
     $effect(() => {
