@@ -73,6 +73,22 @@ The model stores walls as absent connections. Connections are always normalized 
     </cells/999> { </cells/999> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
     ```
 
+- `Optimal Route`:
+  - Click and drag across existing cells only.
+  - Does not create cells.
+  - Does not require or create wall connections; the route may cross walls because runtime wall state can change.
+  - Renders a purple overlay in the editor.
+  - Appends a `#Correct plan` comment list with absolute cell URLs, matching the comment convention visible in [CcrsMazeV1.trig](../mase-server/data/CcrsMazeV1.trig).
+  - Can be cleared independently from the maze with the `Clear Optimal` action.
+  - The viewer does not read this comment section from TriG. To show it in the viewer overlay, copy the exported route cells into [optimalRoutes.ts](../mase-viewer/src/lib/optimalRoutes.ts) for the target scenario.
+- `maze:green`:
+  - Click and drag across existing cells only.
+  - Does not create cells.
+  - Does not require or create wall connections.
+  - Renders a small dark-green overlay in the editor.
+  - Serializes route successors as `maze:green </cells/x/y>` predicates inside the corresponding cell graphs.
+  - Can be cleared independently from the maze with the `Clear maze:green` action.
+
 ## Parsing Existing TriG
 
 The parser is intentionally tolerant:
@@ -127,8 +143,12 @@ The SPARQL validation/server mode writes its RDFWriter output to `app/data/valid
 - `Place Start` and `Place Exit` persist in serialized TriG.
 - Serializer emits one coordinate cell per line and sorts by X, then Y.
 - Serializer emits directions in the fixed `north`, `west`, `south`, `east` order.
+- Serializer emits optimal-route `#Correct plan` comments without changing cell graph predicates.
+- Serializer emits `maze:green` route successors only for the separate `maze:green` tool.
 - Parser loads one-line and multiline named graph cell bodies.
 - Parser tolerates extra predicates such as `maze:green`.
+- Parser loads the optimal route from `#Correct plan`.
+- Parser loads the `maze:green` route from `maze:green` successors.
 - Parser normalizes adjacent parsed references into bidirectional connections.
 - Parser ignores non-coordinate named graphs without failing.
 - Boundary hit testing only selects a wall when the click is within the configured margin.
@@ -146,6 +166,7 @@ The SPARQL validation/server mode writes its RDFWriter output to `app/data/valid
 - [x] Add fixed-path `Create Maze` export and an `Erase All` canvas reset.
 - [x] Keep validation export separate from editor export so RDFWriter block formatting cannot replace creator output.
 - [x] Split mode data into `app/data/editor` and `app/data/validation`.
+- [x] Split optimal-route drawing and `maze:green` drawing into separate tools and outputs.
 - [x] Keep the existing SPARQL validation/server path available as the second part.
 - [x] Add regression tests for the logical editor and TriG IO.
 - [ ] Future: preserve and edit custom per-cell statements instead of only tolerating them during parsing.

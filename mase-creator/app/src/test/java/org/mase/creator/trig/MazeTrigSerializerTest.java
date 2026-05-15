@@ -9,6 +9,7 @@ import org.mase.creator.model.PathStroke;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MazeTrigSerializerTest {
@@ -59,5 +60,50 @@ class MazeTrigSerializerTest {
 
         assertTrue(cellLine.endsWith(". }"));
         assertTrue(cellLine.contains("maze:north maze:Wall;") || cellLine.contains("maze:north maze:Wall ;"));
+    }
+
+    @Test
+    void serializesOptimalRouteAsCorrectPlanCommentsOnly() {
+        MazeModel model = MazeModel.blank(3, 3);
+        CellCoordinate first = new CellCoordinate(1, 1);
+        CellCoordinate second = new CellCoordinate(1, 2);
+        CellCoordinate third = new CellCoordinate(2, 2);
+        model.createCell(first);
+        model.createCell(second);
+        model.createCell(third);
+        PathStroke routeStroke = model.beginOptimalRoute(first).orElseThrow();
+        model.continueOptimalRoute(routeStroke, second);
+        model.continueOptimalRoute(routeStroke, third);
+        model.placeExit(third);
+
+        String trig = new MazeTrigSerializer().serialize(model);
+
+        assertTrue(trig.contains("</cells/1/1> { </cells/1/1> a maze:Cell ;"));
+        assertFalse(trig.contains("maze:green"));
+        assertTrue(trig.contains("#Correct plan"));
+        assertTrue(trig.contains("# http://127.0.1.1:8080/cells/1/1"));
+        assertTrue(trig.contains("# http://127.0.1.1:8080/cells/1/2"));
+        assertTrue(trig.contains("# http://127.0.1.1:8080/cells/2/2"));
+        assertTrue(trig.contains("# http://127.0.1.1:8080/cells/999"));
+    }
+
+    @Test
+    void serializesGreenRouteAsGreenSuccessorsOnly() {
+        MazeModel model = MazeModel.blank(3, 3);
+        CellCoordinate first = new CellCoordinate(1, 1);
+        CellCoordinate second = new CellCoordinate(1, 2);
+        CellCoordinate third = new CellCoordinate(2, 2);
+        model.createCell(first);
+        model.createCell(second);
+        model.createCell(third);
+        PathStroke greenStroke = model.beginGreenRoute(first).orElseThrow();
+        model.continueGreenRoute(greenStroke, second);
+        model.continueGreenRoute(greenStroke, third);
+
+        String trig = new MazeTrigSerializer().serialize(model);
+
+        assertTrue(trig.contains("maze:green </cells/1/2> . }"));
+        assertTrue(trig.contains("maze:green </cells/2/2> . }"));
+        assertFalse(trig.contains("#Correct plan"));
     }
 }

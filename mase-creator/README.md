@@ -13,13 +13,20 @@ The current implementation plan and open follow-up items live in [MASE-CREATOR.m
 .\gradlew.bat run
 ```
 
-This opens the desktop maze editor with a blank X/Y grid. The editor supports loading an existing `.trig` file, drawing paths, drawing walls, deleting cells, placing the start, placing the exit, auto-saving drafts, restoring an auto-save when needed, clearing the canvas with **Erase All**, and exporting the generated TriG file.
+This opens the desktop maze editor with a blank X/Y grid. The editor supports loading an existing `.trig` file, drawing paths, drawing a commented optimal route, drawing `maze:green` route predicates, drawing walls, deleting cells, placing the start, placing the exit, auto-saving drafts, restoring an auto-save when needed, clearing route metadata, clearing the canvas with **Erase All**, and exporting the generated TriG file.
 
 Editor data lives under `app/data/editor`:
 
 - Optional editor input files: `app/data/editor/input`
 - Auto-save snapshots: `app/data/editor/autosave/MaseCreator-autosave.trig`
 - **Create Maze** output: `app/data/editor/output/MaseCreator.trig`
+
+Route tools mark only existing cells. They do not create cells and do not open or close walls.
+
+- **Optimal Route** exports a `#Correct plan` comment list only.
+- **maze:green** exports `maze:green </cells/x/y>` successor predicates inside cell graphs.
+
+The viewer's optimal-route overlay is hardcoded in [optimalRoutes.ts](../mase-viewer/src/lib/optimalRoutes.ts); it does not read the `#Correct plan` section from TriG. To show an exported route in the viewer, copy the generated comment cells into that TypeScript route list for the target scenario.
 
 ## SPARQL Validation Mode
 

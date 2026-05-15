@@ -2,6 +2,8 @@ package org.mase.creator.ui;
 
 public enum EditorTool {
     DRAW_PATH("Path"),
+    DRAW_OPTIMAL_ROUTE("Optimal Route"),
+    DRAW_GREEN_ROUTE("maze:green"),
     DRAW_WALL("Wall"),
     DELETE_CELL("Erase"),
     PLACE_START("Start"),

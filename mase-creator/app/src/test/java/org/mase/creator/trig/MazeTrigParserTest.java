@@ -5,6 +5,8 @@ import org.mase.creator.model.CellCoordinate;
 import org.mase.creator.model.Direction;
 import org.mase.creator.model.MazeModel;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,6 +53,8 @@ class MazeTrigParserTest {
         assertEquals(first, model.cell(second).orElseThrow().connection(Direction.WEST).orElseThrow());
         assertEquals(first, model.startCell().orElseThrow());
         assertEquals(second, model.exitSourceCell().orElseThrow());
+        assertEquals(List.of(first, second), model.greenRoute());
+        assertTrue(model.optimalRoute().isEmpty());
     }
 
     @Test
@@ -65,5 +69,49 @@ class MazeTrigParserTest {
 
         assertFalse(model.hasCell(new CellCoordinate(1, 1)));
         assertTrue(model.hasCell(new CellCoordinate(2, 3)));
+    }
+
+    @Test
+    void parsesCorrectPlanCommentsAsOptimalRoute() {
+        String trig = """
+                @prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
+                </cells/1/1> { </cells/1/1> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
+                </cells/1/2> { </cells/1/2> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
+                </cells/2/2> { </cells/2/2> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
+                #NAMED_GRAPHS_END
+                #Correct plan
+                    # http://127.0.1.1:8080/cells/1/1
+                    # http://127.0.1.1:8080/cells/1/2
+                    # http://127.0.1.1:8080/cells/2/2
+                    # http://127.0.1.1:8080/cells/999
+                """;
+
+        MazeModel model = new MazeTrigParser().parse(trig);
+
+        assertEquals(List.of(
+                new CellCoordinate(1, 1),
+                new CellCoordinate(1, 2),
+                new CellCoordinate(2, 2)
+        ), model.optimalRoute());
+        assertTrue(model.greenRoute().isEmpty());
+    }
+
+    @Test
+    void reconstructsGreenRouteFromGreenSuccessors() {
+        String trig = """
+                @prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
+                </cells/1/1> { </cells/1/1> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall; maze:green </cells/1/2> . }
+                </cells/1/2> { </cells/1/2> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall; maze:green </cells/2/2> . }
+                </cells/2/2> { </cells/2/2> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
+                """;
+
+        MazeModel model = new MazeTrigParser().parse(trig);
+
+        assertEquals(List.of(
+                new CellCoordinate(1, 1),
+                new CellCoordinate(1, 2),
+                new CellCoordinate(2, 2)
+        ), model.greenRoute());
+        assertTrue(model.optimalRoute().isEmpty());
     }
 }

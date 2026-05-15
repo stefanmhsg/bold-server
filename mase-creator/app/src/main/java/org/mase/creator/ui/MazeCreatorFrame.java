@@ -85,6 +85,14 @@ public final class MazeCreatorFrame extends JFrame {
         eraseAllButton.addActionListener(event -> eraseAll());
         toolbar.add(eraseAllButton);
 
+        JButton clearOptimalRouteButton = new JButton("Clear Optimal");
+        clearOptimalRouteButton.addActionListener(event -> clearOptimalRoute());
+        toolbar.add(clearOptimalRouteButton);
+
+        JButton clearGreenRouteButton = new JButton("Clear maze:green");
+        clearGreenRouteButton.addActionListener(event -> clearGreenRoute());
+        toolbar.add(clearGreenRouteButton);
+
         JButton restoreButton = new JButton("Restore Auto-Save");
         restoreButton.addActionListener(event -> restoreAutoSave());
         toolbar.add(restoreButton);
@@ -155,6 +163,16 @@ public final class MazeCreatorFrame extends JFrame {
         attachModel(MazeModel.blank(model.xCount(), model.yCount()));
         autoSave();
         statusLabel.setText("Canvas erased");
+    }
+
+    private void clearOptimalRoute() {
+        model.clearOptimalRoute();
+        statusLabel.setText("Optimal route cleared");
+    }
+
+    private void clearGreenRoute() {
+        model.clearGreenRoute();
+        statusLabel.setText("maze:green route cleared");
     }
 
     private void restoreAutoSave() {

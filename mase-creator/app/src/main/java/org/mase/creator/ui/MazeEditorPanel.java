@@ -26,6 +26,8 @@ public final class MazeEditorPanel extends JPanel {
     private static final Color EMPTY_FILL = Color.WHITE;
     private static final Color EMPTY_BORDER = new Color(218, 224, 218);
     private static final Color CELL_FILL = new Color(181, 221, 174);
+    private static final Color OPTIMAL_ROUTE_FILL = new Color(255, 195, 255, 175);
+    private static final Color GREEN_ROUTE_FILL = new Color(38, 151, 76, 180);
     private static final Color WALL_COLOR = Color.BLACK;
     private static final Color MARKER_COLOR = new Color(22, 76, 55);
     private static final int DEFAULT_CELL_SIZE = 28;
@@ -35,6 +37,8 @@ public final class MazeEditorPanel extends JPanel {
     private MazeModel model;
     private EditorTool tool = EditorTool.DRAW_PATH;
     private PathStroke activeStroke;
+    private PathStroke activeOptimalRouteStroke;
+    private PathStroke activeGreenRouteStroke;
     private int cellSize = DEFAULT_CELL_SIZE;
 
     public MazeEditorPanel(MazeModel model) {
@@ -56,6 +60,8 @@ public final class MazeEditorPanel extends JPanel {
             @Override
             public void mouseReleased(MouseEvent event) {
                 activeStroke = null;
+                activeOptimalRouteStroke = null;
+                activeGreenRouteStroke = null;
             }
         };
         addMouseListener(mouseAdapter);
@@ -65,6 +71,8 @@ public final class MazeEditorPanel extends JPanel {
     public void setModel(MazeModel model) {
         this.model = model;
         activeStroke = null;
+        activeOptimalRouteStroke = null;
+        activeGreenRouteStroke = null;
         revalidate();
         repaint();
     }
@@ -72,6 +80,8 @@ public final class MazeEditorPanel extends JPanel {
     public void setTool(EditorTool tool) {
         this.tool = tool;
         activeStroke = null;
+        activeOptimalRouteStroke = null;
+        activeGreenRouteStroke = null;
     }
 
     public EditorTool tool() {
@@ -119,6 +129,19 @@ public final class MazeEditorPanel extends JPanel {
             RectanglePixels rect = rectangleFor(cell.coordinate());
             g.setColor(CELL_FILL);
             g.fillRect(rect.x(), rect.y(), cellSize, cellSize);
+        }
+
+        g.setColor(OPTIMAL_ROUTE_FILL);
+        for (CellCoordinate coordinate : model.optimalRoute()) {
+            RectanglePixels rect = rectangleFor(coordinate);
+            g.fillRect(rect.x() + 4, rect.y() + 4, cellSize - 8, cellSize - 8);
+        }
+
+        g.setColor(GREEN_ROUTE_FILL);
+        for (CellCoordinate coordinate : model.greenRoute()) {
+            RectanglePixels rect = rectangleFor(coordinate);
+            int inset = Math.max(7, cellSize / 4);
+            g.fillRect(rect.x() + inset, rect.y() + inset, cellSize - inset * 2, cellSize - inset * 2);
         }
 
         g.setStroke(new BasicStroke(3f));
@@ -171,6 +194,14 @@ public final class MazeEditorPanel extends JPanel {
         switch (tool) {
             case DRAW_PATH -> hitTester.cellAt(point, model.bounds(), cellSize)
                     .ifPresent(coordinate -> activeStroke = model.beginPath(coordinate));
+            case DRAW_OPTIMAL_ROUTE -> hitTester.cellAt(point, model.bounds(), cellSize)
+                    .filter(model::hasCell)
+                    .flatMap(model::beginOptimalRoute)
+                    .ifPresent(stroke -> activeOptimalRouteStroke = stroke);
+            case DRAW_GREEN_ROUTE -> hitTester.cellAt(point, model.bounds(), cellSize)
+                    .filter(model::hasCell)
+                    .flatMap(model::beginGreenRoute)
+                    .ifPresent(stroke -> activeGreenRouteStroke = stroke);
             case DRAW_WALL -> hitTester.boundaryAt(point, model.bounds(), cellSize, WALL_MARGIN)
                     .ifPresent(hit -> model.drawWall(hit.coordinate(), hit.direction()));
             case DELETE_CELL -> hitTester.cellAt(point, model.bounds(), cellSize)
@@ -192,6 +223,16 @@ public final class MazeEditorPanel extends JPanel {
         if (tool == EditorTool.DRAW_PATH && activeStroke != null) {
             model.continuePath(activeStroke, coordinate.get());
             repaint();
+        } else if (tool == EditorTool.DRAW_OPTIMAL_ROUTE && activeOptimalRouteStroke != null) {
+            if (model.hasCell(coordinate.get())) {
+                model.continueOptimalRoute(activeOptimalRouteStroke, coordinate.get());
+                repaint();
+            }
+        } else if (tool == EditorTool.DRAW_GREEN_ROUTE && activeGreenRouteStroke != null) {
+            if (model.hasCell(coordinate.get())) {
+                model.continueGreenRoute(activeGreenRouteStroke, coordinate.get());
+                repaint();
+            }
         } else if (tool == EditorTool.DELETE_CELL) {
             model.deleteCell(coordinate.get());
             repaint();
