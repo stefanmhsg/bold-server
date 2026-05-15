@@ -121,7 +121,7 @@ public final class MazeTrigSerializer {
         }
 
         CellCoordinate greenSuccessor = greenSuccessors.get(cell.coordinate());
-        if (greenSuccessor != null && model.hasCell(greenSuccessor)) {
+        if (greenSuccessor != null) {
             statement.append("; maze:green ").append(greenSuccessor.iri());
         }
 
@@ -163,10 +163,10 @@ public final class MazeTrigSerializer {
     }
 
     private Map<CellCoordinate, CellCoordinate> greenSuccessors(MazeModel model) {
-        List<CellCoordinate> route = model.greenRoute();
-        return java.util.stream.IntStream.range(0, Math.max(0, route.size() - 1))
-                .boxed()
-                .collect(Collectors.toMap(route::get, index -> route.get(index + 1), (first, ignored) -> first));
+        return model.greenRoutes().stream()
+                .flatMap(route -> java.util.stream.IntStream.range(0, Math.max(0, route.size() - 1))
+                        .mapToObj(index -> Map.entry(route.get(index), route.get(index + 1))))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignored) -> first));
     }
 
     private void appendCorrectPlan(StringBuilder trig, MazeModel model) {

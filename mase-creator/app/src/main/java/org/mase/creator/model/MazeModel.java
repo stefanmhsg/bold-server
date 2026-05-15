@@ -13,7 +13,7 @@ public final class MazeModel {
     private final NavigableMap<CellCoordinate, MazeCell> cells = new TreeMap<>();
     private final List<Runnable> changeListeners = new ArrayList<>();
     private final List<CellCoordinate> optimalRoute = new ArrayList<>();
-    private final List<CellCoordinate> greenRoute = new ArrayList<>();
+    private final List<List<CellCoordinate>> greenRoutes = new ArrayList<>();
     private CellCoordinate startCell;
     private CellCoordinate exitSourceCell;
 
@@ -66,11 +66,20 @@ public final class MazeModel {
     }
 
     public List<CellCoordinate> greenRoute() {
-        return List.copyOf(greenRoute);
+        return greenRoutes.stream()
+                .findFirst()
+                .map(List::copyOf)
+                .orElse(List.of());
+    }
+
+    public List<List<CellCoordinate>> greenRoutes() {
+        return greenRoutes.stream()
+                .map(List::copyOf)
+                .toList();
     }
 
     public boolean isGreenRouteCell(CellCoordinate coordinate) {
-        return greenRoute.contains(coordinate);
+        return greenRoutes.stream().anyMatch(route -> route.contains(coordinate));
     }
 
     public void addChangeListener(Runnable listener) {
@@ -127,15 +136,29 @@ public final class MazeModel {
     }
 
     public Optional<PathStroke> beginGreenRoute(CellCoordinate coordinate) {
-        return beginExistingCellRoute(greenRoute, coordinate);
+        if (!hasCell(coordinate)) {
+            return Optional.empty();
+        }
+
+        boolean changed = greenRoutes.size() != 1 || !greenRoutes.get(0).equals(List.of(coordinate));
+        greenRoutes.clear();
+        greenRoutes.add(new ArrayList<>(List.of(coordinate)));
+        notifyIfChanged(changed);
+        return Optional.of(new PathStroke(coordinate, true));
     }
 
     public void continueGreenRoute(PathStroke stroke, CellCoordinate target) {
-        continueExistingCellRoute(greenRoute, stroke, target);
+        if (greenRoutes.isEmpty()) {
+            return;
+        }
+        continueExistingCellRoute(greenRoutes.get(0), stroke, target);
     }
 
     public void clearGreenRoute() {
-        clearRoute(greenRoute);
+        if (!greenRoutes.isEmpty()) {
+            greenRoutes.clear();
+            notifyChanged();
+        }
     }
 
     public boolean createCell(CellCoordinate coordinate) {
@@ -174,7 +197,7 @@ public final class MazeModel {
             exitSourceCell = null;
         }
         optimalRoute.remove(coordinate);
-        greenRoute.remove(coordinate);
+        removeCoordinateFromGreenRoutes(coordinate);
 
         notifyIfChanged(changed);
         return true;
@@ -212,7 +235,7 @@ public final class MazeModel {
                 .toList();
         outside.forEach(this::deleteCellWithoutNotification);
         optimalRoute.removeIf(coordinate -> !bounds.contains(coordinate) || !hasCell(coordinate));
-        greenRoute.removeIf(coordinate -> !bounds.contains(coordinate) || !hasCell(coordinate));
+        splitGreenRoutesAround(coordinate -> !bounds.contains(coordinate));
 
         if (startCell != null && !bounds.contains(startCell)) {
             startCell = null;
@@ -241,7 +264,23 @@ public final class MazeModel {
     }
 
     public void setGreenRouteFromParser(List<CellCoordinate> route) {
-        setRouteFromParser(greenRoute, route);
+        setGreenRoutesFromParser(route.isEmpty() ? List.of() : List.of(route));
+    }
+
+    public void setGreenRoutesFromParser(List<List<CellCoordinate>> routes) {
+        greenRoutes.clear();
+        for (List<CellCoordinate> route : routes) {
+            List<CellCoordinate> normalized = new ArrayList<>();
+            for (CellCoordinate coordinate : route) {
+                if (!normalized.isEmpty() && normalized.get(normalized.size() - 1).equals(coordinate)) {
+                    continue;
+                }
+                normalized.add(coordinate);
+            }
+            if (!normalized.isEmpty() && hasCell(normalized.get(0))) {
+                greenRoutes.add(normalized);
+            }
+        }
     }
 
     private boolean extendPathByOneCell(CellCoordinate current, CellCoordinate next) {
@@ -326,6 +365,32 @@ public final class MazeModel {
         }
     }
 
+    private void removeCoordinateFromGreenRoutes(CellCoordinate coordinate) {
+        splitGreenRoutesAround(coordinate::equals);
+    }
+
+    private void splitGreenRoutesAround(java.util.function.Predicate<CellCoordinate> shouldRemove) {
+        List<List<CellCoordinate>> nextRoutes = new ArrayList<>();
+        for (List<CellCoordinate> route : greenRoutes) {
+            List<CellCoordinate> current = new ArrayList<>();
+            for (CellCoordinate coordinate : route) {
+                if (shouldRemove.test(coordinate)) {
+                    if (!current.isEmpty()) {
+                        nextRoutes.add(current);
+                        current = new ArrayList<>();
+                    }
+                } else {
+                    current.add(coordinate);
+                }
+            }
+            if (!current.isEmpty()) {
+                nextRoutes.add(current);
+            }
+        }
+        greenRoutes.clear();
+        greenRoutes.addAll(nextRoutes);
+    }
+
     private boolean ensureCell(CellCoordinate coordinate) {
         bounds = bounds.include(coordinate);
         if (cells.containsKey(coordinate)) {
@@ -381,7 +446,7 @@ public final class MazeModel {
             cell.disconnectTarget(coordinate);
         }
         optimalRoute.remove(coordinate);
-        greenRoute.remove(coordinate);
+        removeCoordinateFromGreenRoutes(coordinate);
     }
 
     private void notifyIfChanged(boolean changed) {

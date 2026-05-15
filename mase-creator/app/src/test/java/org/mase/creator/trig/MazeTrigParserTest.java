@@ -113,7 +113,57 @@ class MazeTrigParserTest {
                 new CellCoordinate(1, 2),
                 new CellCoordinate(2, 2)
         ), model.greenRoute());
+        assertEquals(List.of(model.greenRoute()), model.greenRoutes());
         assertTrue(model.optimalRoute().isEmpty());
+    }
+
+    @Test
+    void preservesDisconnectedGreenRouteZonesAndIgnoresCommentedGraphBlocks() {
+        String trig = """
+                @prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
+                </cells/28/11> { </cells/28/11> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east </cells/28/12>; maze:green </cells/28/12> . }
+                </cells/28/12> { </cells/28/12> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/11>; maze:south maze:Wall; maze:east </cells/28/13>; maze:green </cells/28/13> . }
+                # </cells/28/13> { </cells/28/13> a maze:Cell, dyn:Lock ; maze:north maze:Wall; maze:west </cells/28/12>; maze:south maze:Wall . #maze:east </cells/28/14>; maze:green </cells/28/14>
+                # }
+                </cells/28/13> { </cells/28/13> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/12>; maze:south maze:Wall; maze:east </cells/28/14> . } #; maze:green </cells/28/14>
+                </cells/28/14> { </cells/28/14> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/13>; maze:south maze:Wall; maze:east </cells/28/15>; maze:green </cells/28/15> . }
+                </cells/28/15> { </cells/28/15> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/14>; maze:south </cells/29/15>; maze:east maze:Wall; maze:green </cells/29/15> . }
+                </cells/29/15> { </cells/29/15> a maze:Cell ; maze:north </cells/28/15>; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
+                """;
+
+        MazeModel model = new MazeTrigParser().parse(trig);
+
+        assertEquals(List.of(
+                List.of(new CellCoordinate(28, 11), new CellCoordinate(28, 12), new CellCoordinate(28, 13)),
+                List.of(new CellCoordinate(28, 14), new CellCoordinate(28, 15), new CellCoordinate(29, 15))
+        ), model.greenRoutes());
+
+        String serialized = new MazeTrigSerializer().serialize(model);
+
+        assertTrue(serialized.contains("</cells/28/14> { </cells/28/14> a maze:Cell"));
+        assertTrue(serialized.contains("maze:green </cells/28/15> . }"));
+        assertTrue(serialized.contains("maze:green </cells/29/15> . }"));
+        assertTrue(serialized.contains("#; maze:green </cells/28/14>"));
+    }
+
+    @Test
+    void preservesGreenTargetsThatDoNotHaveACellGraph() {
+        String trig = """
+                @prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
+                </cells/36/39> { </cells/36/39> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east </cells/36/40>; maze:green </cells/36/40> . }
+                # </cells/36/40> { </cells/36/40> a maze:Cell ; maze:green </cells/37/40> . }
+                """;
+
+        MazeModel model = new MazeTrigParser().parse(trig);
+
+        assertEquals(List.of(List.of(
+                new CellCoordinate(36, 39),
+                new CellCoordinate(36, 40)
+        )), model.greenRoutes());
+
+        String serialized = new MazeTrigSerializer().serialize(model);
+
+        assertTrue(serialized.contains("maze:green </cells/36/40> . }"));
     }
 
     @Test

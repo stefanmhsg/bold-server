@@ -87,6 +87,8 @@ The model stores walls as absent connections. Connections are always normalized 
   - Does not require or create wall connections.
   - Renders a small dark-green overlay in the editor.
   - Serializes route successors as `maze:green </cells/x/y>` predicates inside the corresponding cell graphs.
+  - Loaded files may contain multiple disconnected `maze:green` zones; the parser preserves and renders all of them.
+  - Drawing a new `maze:green` route from the tool replaces the loaded route set with the newly drawn route.
   - Can be cleared independently from the maze with the `Clear maze:green` action.
 
 ## Parsing Existing TriG
@@ -98,6 +100,8 @@ The parser is intentionally tolerant:
 - It accepts either `a maze:Cell` or `rdf:type maze:Cell`.
 - It extracts the canonical directions, `maze:exit`, `maze:green`, and `#Correct plan` route comments.
 - It strips comments before interpreting route predicates so commented-out snippets such as `#maze:east ...; maze:green ...` do not become active editor data.
+- It ignores graph blocks that are commented out line-by-line.
+- It preserves multiple disconnected active `maze:green` chains, including chains that intentionally point at a missing/commented target graph.
 - It preserves custom cell graph payloads lexically:
   - extra same-subject types such as `dyn:Lock`;
   - extra same-subject predicates such as `hydra:operation ...` or `maze:orange ...`;
@@ -157,6 +161,7 @@ The SPARQL validation/server mode writes its RDFWriter output to `app/data/valid
 - Parser preserves additional multiline statements inside cell graphs, such as lock operations and key records.
 - Parser preserves trailing same-line graph comments.
 - Parser ignores commented-out `maze:green` predicates when reconstructing the separate `maze:green` route.
+- Parser preserves multiple disconnected `maze:green` zones and active `maze:green` targets without coordinate cell graphs.
 - Parser loads the optimal route from `#Correct plan`.
 - Parser loads the `maze:green` route from `maze:green` successors.
 - Parser normalizes adjacent parsed references into bidirectional connections.

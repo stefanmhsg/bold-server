@@ -139,10 +139,15 @@ public final class MazeEditorPanel extends JPanel {
         }
 
         g.setColor(GREEN_ROUTE_FILL);
-        for (CellCoordinate coordinate : model.greenRoute()) {
-            RectanglePixels rect = rectangleFor(coordinate);
-            int inset = Math.max(7, cellSize / 4);
-            g.fillRect(rect.x() + inset, rect.y() + inset, cellSize - inset * 2, cellSize - inset * 2);
+        for (java.util.List<CellCoordinate> route : model.greenRoutes()) {
+            for (CellCoordinate coordinate : route) {
+                if (!model.hasCell(coordinate)) {
+                    continue;
+                }
+                RectanglePixels rect = rectangleFor(coordinate);
+                int inset = Math.max(7, cellSize / 4);
+                g.fillRect(rect.x() + inset, rect.y() + inset, cellSize - inset * 2, cellSize - inset * 2);
+            }
         }
 
         g.setColor(CUSTOM_CONTENT_MARKER);

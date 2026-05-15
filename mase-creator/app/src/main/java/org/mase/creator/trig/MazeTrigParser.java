@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 
 public final class MazeTrigParser {
 
-    private static final Pattern GRAPH_PATTERN = Pattern.compile("<([^>]+)>\\s*\\{(.*?)\\}([ \\t]*#[^\\r\\n]*)?", Pattern.DOTALL);
+    private static final Pattern GRAPH_PATTERN = Pattern.compile("(?m)^[ \\t]*<([^>]+)>\\s*\\{(.*?)\\}([ \\t]*#[^\\r\\n]*)?", Pattern.DOTALL);
     private static final Pattern START_PATTERN = Pattern.compile("xhv:start\\s+(<[^>]+>)");
     private static final Pattern EXIT_PATTERN = Pattern.compile("maze:exit\\s+(<[^>]+>)");
     private static final Pattern GREEN_PATTERN = Pattern.compile("maze:green\\s+(<[^>]+>)");
@@ -82,7 +82,7 @@ public final class MazeTrigParser {
             model.setExitFromParser(parsedExitSource);
         }
         model.setOptimalRouteFromParser(parseCorrectPlan(trig, model));
-        model.setGreenRouteFromParser(reconstructRouteFromGreenSuccessors(pendingRouteSuccessors, model));
+        model.setGreenRoutesFromParser(reconstructRoutesFromGreenSuccessors(pendingRouteSuccessors, model));
 
         return model;
     }
@@ -376,7 +376,7 @@ public final class MazeTrigParser {
         return route;
     }
 
-    private List<CellCoordinate> reconstructRouteFromGreenSuccessors(
+    private List<List<CellCoordinate>> reconstructRoutesFromGreenSuccessors(
             List<PendingConnection> pendingRouteSuccessors,
             MazeModel model
     ) {
@@ -384,31 +384,58 @@ public final class MazeTrigParser {
             return List.of();
         }
 
-        java.util.Map<CellCoordinate, CellCoordinate> successors = new java.util.HashMap<>();
+        java.util.Map<CellCoordinate, CellCoordinate> successors = new java.util.TreeMap<>();
         java.util.Set<CellCoordinate> targets = new java.util.HashSet<>();
         for (PendingConnection connection : pendingRouteSuccessors) {
-            if (model.hasCell(connection.source()) && model.hasCell(connection.target())) {
+            if (model.hasCell(connection.source())) {
                 successors.putIfAbsent(connection.source(), connection.target());
                 targets.add(connection.target());
             }
         }
 
-        Optional<CellCoordinate> start = successors.keySet().stream()
-                .filter(source -> !targets.contains(source))
-                .min(CellCoordinate::compareTo)
-                .or(() -> successors.keySet().stream().min(CellCoordinate::compareTo));
-        if (start.isEmpty()) {
+        if (successors.isEmpty()) {
             return List.of();
         }
 
-        List<CellCoordinate> route = new ArrayList<>();
-        java.util.Set<CellCoordinate> seen = new java.util.HashSet<>();
-        CellCoordinate current = start.get();
-        while (current != null && model.hasCell(current) && seen.add(current)) {
-            route.add(current);
-            current = successors.get(current);
+        List<List<CellCoordinate>> routes = new ArrayList<>();
+        java.util.Set<CellCoordinate> consumedSources = new java.util.HashSet<>();
+        successors.keySet().stream()
+                .filter(source -> !targets.contains(source))
+                .forEach(source -> routes.add(followGreenRoute(source, successors, consumedSources)));
+
+        for (CellCoordinate source : successors.keySet()) {
+            if (!consumedSources.contains(source)) {
+                routes.add(followGreenRoute(source, successors, consumedSources));
+            }
         }
 
+        return routes.stream()
+                .filter(route -> !route.isEmpty())
+                .toList();
+    }
+
+    private List<CellCoordinate> followGreenRoute(
+            CellCoordinate start,
+            java.util.Map<CellCoordinate, CellCoordinate> successors,
+            java.util.Set<CellCoordinate> consumedSources
+    ) {
+        List<CellCoordinate> route = new ArrayList<>();
+        java.util.Set<CellCoordinate> seenInRoute = new java.util.HashSet<>();
+        CellCoordinate current = start;
+
+        while (current != null && seenInRoute.add(current)) {
+            route.add(current);
+            CellCoordinate next = successors.get(current);
+            if (next == null) {
+                break;
+            }
+            consumedSources.add(current);
+            current = next;
+        }
+
+        if (current != null && route.size() > 1 && route.get(0).equals(current)) {
+            route.add(current);
+        }
         return route;
     }
 
