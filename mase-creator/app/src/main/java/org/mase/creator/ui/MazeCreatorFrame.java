@@ -22,7 +22,9 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 public final class MazeCreatorFrame extends JFrame {
 
@@ -207,12 +209,103 @@ public final class MazeCreatorFrame extends JFrame {
 
     private void saveTrigFile() {
         try {
-            java.nio.file.Files.createDirectories(OUTPUT_PATH.getParent());
-            java.nio.file.Files.writeString(OUTPUT_PATH, serializer.serialize(model));
-            statusLabel.setText("Created " + OUTPUT_PATH);
+            Files.createDirectories(OUTPUT_PATH.getParent());
+            Optional<Path> selectedPath = selectExportPath();
+            if (selectedPath.isEmpty()) {
+                statusLabel.setText("Create Maze canceled");
+                return;
+            }
+
+            Path outputPath = selectedPath.get();
+            Files.writeString(outputPath, serializer.serialize(model));
+            Path absolutePath = outputPath.toAbsolutePath().normalize();
+            statusLabel.setText("Created " + absolutePath);
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Maze file generated:" + System.lineSeparator() + absolutePath,
+                    "MASE Creator",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
         } catch (IOException e) {
             showError("Could not create maze file", e);
         }
+    }
+
+    private Optional<Path> selectExportPath() {
+        if (!Files.exists(OUTPUT_PATH)) {
+            return Optional.of(OUTPUT_PATH);
+        }
+
+        String message = "A maze file already exists:" + System.lineSeparator()
+                + OUTPUT_PATH.toAbsolutePath().normalize() + System.lineSeparator()
+                + System.lineSeparator()
+                + "Overwrite it or create a differently named file in the same output directory?";
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                message,
+                "Create Maze",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                new Object[] {"Overwrite", "Adjust Name", "Cancel"},
+                "Adjust Name"
+        );
+
+        if (choice == JOptionPane.YES_OPTION) {
+            return Optional.of(OUTPUT_PATH);
+        }
+        if (choice == JOptionPane.NO_OPTION) {
+            return promptForExportFileName();
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Path> promptForExportFileName() {
+        Path outputDirectory = OUTPUT_PATH.getParent();
+        String suggestedName = ExportFileNames.nextAvailableFileName(outputDirectory, OUTPUT_PATH.getFileName().toString());
+
+        while (true) {
+            Object input = JOptionPane.showInputDialog(
+                    this,
+                    "File name in " + outputDirectory.toAbsolutePath().normalize() + ":",
+                    "Create Maze",
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    null,
+                    suggestedName
+            );
+            if (input == null) {
+                return Optional.empty();
+            }
+
+            String fileName;
+            try {
+                fileName = ExportFileNames.normalizeTrigFileName(input.toString());
+            } catch (IllegalArgumentException e) {
+                JOptionPane.showMessageDialog(this, e.getMessage(), "MASE Creator", JOptionPane.WARNING_MESSAGE);
+                continue;
+            }
+
+            Path selected = outputDirectory.resolve(fileName);
+            if (!Files.exists(selected) || confirmOverwrite(selected)) {
+                return Optional.of(selected);
+            }
+            suggestedName = ExportFileNames.nextAvailableFileName(outputDirectory, fileName);
+        }
+    }
+
+    private boolean confirmOverwrite(Path path) {
+        int choice = JOptionPane.showConfirmDialog(
+                this,
+                "A file already exists:" + System.lineSeparator()
+                        + path.toAbsolutePath().normalize() + System.lineSeparator()
+                        + System.lineSeparator()
+                        + "Overwrite it?",
+                "Create Maze",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+        return choice == JOptionPane.YES_OPTION;
     }
 
     private JFileChooser trigChooser() {

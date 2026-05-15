@@ -28,6 +28,7 @@ public final class MazeEditorPanel extends JPanel {
     private static final Color CELL_FILL = new Color(181, 221, 174);
     private static final Color OPTIMAL_ROUTE_FILL = new Color(255, 195, 255, 175);
     private static final Color GREEN_ROUTE_FILL = new Color(38, 151, 76, 180);
+    private static final Color CUSTOM_CONTENT_MARKER = new Color(224, 144, 38);
     private static final Color WALL_COLOR = Color.BLACK;
     private static final Color MARKER_COLOR = new Color(22, 76, 55);
     private static final int DEFAULT_CELL_SIZE = 28;
@@ -142,6 +143,15 @@ public final class MazeEditorPanel extends JPanel {
             RectanglePixels rect = rectangleFor(coordinate);
             int inset = Math.max(7, cellSize / 4);
             g.fillRect(rect.x() + inset, rect.y() + inset, cellSize - inset * 2, cellSize - inset * 2);
+        }
+
+        g.setColor(CUSTOM_CONTENT_MARKER);
+        for (MazeCell cell : model.cells()) {
+            if (cell.hasCustomContent()) {
+                RectanglePixels rect = rectangleFor(cell.coordinate());
+                int size = Math.max(5, cellSize / 5);
+                g.fillRect(rect.x() + cellSize - size - 4, rect.y() + 4, size, size);
+            }
         }
 
         g.setStroke(new BasicStroke(3f));

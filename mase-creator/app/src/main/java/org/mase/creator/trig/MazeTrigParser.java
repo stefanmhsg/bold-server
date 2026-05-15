@@ -2,6 +2,7 @@ package org.mase.creator.trig;
 
 import org.mase.creator.model.CellCoordinate;
 import org.mase.creator.model.Direction;
+import org.mase.creator.model.MazeCell;
 import org.mase.creator.model.MazeModel;
 
 import java.io.IOException;
@@ -15,7 +16,7 @@ import java.util.regex.Pattern;
 
 public final class MazeTrigParser {
 
-    private static final Pattern GRAPH_PATTERN = Pattern.compile("<([^>]+)>\\s*\\{(.*?)\\}", Pattern.DOTALL);
+    private static final Pattern GRAPH_PATTERN = Pattern.compile("<([^>]+)>\\s*\\{(.*?)\\}([ \\t]*#[^\\r\\n]*)?", Pattern.DOTALL);
     private static final Pattern START_PATTERN = Pattern.compile("xhv:start\\s+(<[^>]+>)");
     private static final Pattern EXIT_PATTERN = Pattern.compile("maze:exit\\s+(<[^>]+>)");
     private static final Pattern GREEN_PATTERN = Pattern.compile("maze:green\\s+(<[^>]+>)");
@@ -41,24 +42,33 @@ public final class MazeTrigParser {
             }
 
             String body = graphMatcher.group(2);
-            if (!body.contains("maze:Cell")) {
+            String activeBody = stripComments(body);
+            if (!activeBody.contains("maze:Cell")) {
                 continue;
             }
 
             CellCoordinate source = coordinate.get();
             model.createCell(source);
+            MazeCell cell = model.cell(source).orElseThrow();
+            CustomCellContent customContent = extractCustomCellContent(graphToken, body, graphMatcher.group(3));
+            cell.setCustomContent(
+                    customContent.typeSuffix(),
+                    customContent.predicateSegments(),
+                    customContent.graphTail(),
+                    customContent.trailingGraphComment()
+            );
 
             for (Direction direction : Direction.values()) {
-                parseDirectionTarget(body, direction)
+                parseDirectionTarget(activeBody, direction)
                         .flatMap(CellCoordinate::parse)
                         .ifPresent(target -> pendingConnections.add(new PendingConnection(source, target)));
             }
 
-            if (isExitReference(body)) {
+            if (isExitReference(activeBody)) {
                 parsedExitSource = source;
             }
 
-            parseGreenTarget(body)
+            parseGreenTarget(activeBody)
                     .flatMap(CellCoordinate::parse)
                     .ifPresent(target -> pendingRouteSuccessors.add(new PendingConnection(source, target)));
         }
@@ -92,6 +102,229 @@ public final class MazeTrigParser {
             return Optional.of(matcher.group(1));
         }
         return Optional.empty();
+    }
+
+    private CustomCellContent extractCustomCellContent(
+            String graphToken,
+            String body,
+            String trailingGraphComment
+    ) {
+        int statementStart = body.indexOf(graphToken);
+        if (statementStart < 0) {
+            return new CustomCellContent("", List.of(), body, trailingGraphComment);
+        }
+
+        int statementEnd = findFirstStatementEnd(body, statementStart);
+        if (statementEnd < 0) {
+            return new CustomCellContent("", List.of(), "", trailingGraphComment);
+        }
+
+        String firstStatement = body.substring(statementStart, statementEnd + 1);
+        String graphTail = body.substring(statementEnd + 1);
+        return new CustomCellContent(
+                extractTypeSuffix(firstStatement),
+                extractCustomPredicateSegments(firstStatement),
+                graphTail,
+                trailingGraphComment
+        );
+    }
+
+    private int findFirstStatementEnd(String text, int start) {
+        boolean inIri = false;
+        boolean inComment = false;
+        char quote = 0;
+        boolean escaped = false;
+
+        for (int i = start; i < text.length(); i++) {
+            char current = text.charAt(i);
+            if (inComment) {
+                if (current == '\n' || current == '\r') {
+                    inComment = false;
+                }
+                continue;
+            }
+            if (quote != 0) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (inIri) {
+                if (current == '>') {
+                    inIri = false;
+                }
+                continue;
+            }
+
+            if (current == '#') {
+                inComment = true;
+            } else if (current == '<') {
+                inIri = true;
+            } else if (current == '"' || current == '\'') {
+                quote = current;
+            } else if (current == '.') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private String extractTypeSuffix(String firstStatement) {
+        List<String> segments = splitTopLevelSemicolonSegments(stripFinalStatementDot(firstStatement));
+        if (segments.isEmpty()) {
+            return "";
+        }
+
+        String typeSegment = segments.get(0);
+        int cellTypeIndex = typeSegment.indexOf("maze:Cell");
+        if (cellTypeIndex < 0) {
+            return "";
+        }
+        return typeSegment.substring(cellTypeIndex + "maze:Cell".length()).strip();
+    }
+
+    private List<String> extractCustomPredicateSegments(String firstStatement) {
+        List<String> segments = splitTopLevelSemicolonSegments(stripFinalStatementDot(firstStatement));
+        if (segments.size() < 2) {
+            return List.of();
+        }
+
+        List<String> customSegments = new ArrayList<>();
+        for (int i = 1; i < segments.size(); i++) {
+            String segment = segments.get(i).strip();
+            if (!segment.isBlank() && !isGeneratedCellPredicateSegment(segment)) {
+                customSegments.add(segment);
+            }
+        }
+        return customSegments;
+    }
+
+    private String stripFinalStatementDot(String statement) {
+        int end = statement.length() - 1;
+        while (end >= 0 && Character.isWhitespace(statement.charAt(end))) {
+            end--;
+        }
+        if (end >= 0 && statement.charAt(end) == '.') {
+            return statement.substring(0, end);
+        }
+        return statement;
+    }
+
+    private List<String> splitTopLevelSemicolonSegments(String statement) {
+        List<String> segments = new ArrayList<>();
+        int segmentStart = 0;
+        boolean inIri = false;
+        char quote = 0;
+        boolean escaped = false;
+        int bracketDepth = 0;
+
+        for (int i = 0; i < statement.length(); i++) {
+            char current = statement.charAt(i);
+            if (quote != 0) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (inIri) {
+                if (current == '>') {
+                    inIri = false;
+                }
+                continue;
+            }
+
+            if (current == '<') {
+                inIri = true;
+            } else if (current == '"' || current == '\'') {
+                quote = current;
+            } else if (current == '[' || current == '(') {
+                bracketDepth++;
+            } else if ((current == ']' || current == ')') && bracketDepth > 0) {
+                bracketDepth--;
+            } else if (current == ';' && bracketDepth == 0) {
+                segments.add(statement.substring(segmentStart, i));
+                segmentStart = i + 1;
+            }
+        }
+
+        segments.add(statement.substring(segmentStart));
+        return segments;
+    }
+
+    private boolean isGeneratedCellPredicateSegment(String segment) {
+        return startsWithPredicate(segment, Direction.NORTH.predicate())
+                || startsWithPredicate(segment, Direction.WEST.predicate())
+                || startsWithPredicate(segment, Direction.SOUTH.predicate())
+                || startsWithPredicate(segment, Direction.EAST.predicate())
+                || startsWithPredicate(segment, "maze:exit")
+                || startsWithPredicate(segment, "maze:green");
+    }
+
+    private boolean startsWithPredicate(String segment, String predicate) {
+        return segment.equals(predicate)
+                || segment.startsWith(predicate + " ")
+                || segment.startsWith(predicate + "\t")
+                || segment.startsWith(predicate + System.lineSeparator());
+    }
+
+    private String stripComments(String text) {
+        StringBuilder stripped = new StringBuilder(text.length());
+        boolean inIri = false;
+        boolean inComment = false;
+        char quote = 0;
+        boolean escaped = false;
+
+        for (int i = 0; i < text.length(); i++) {
+            char current = text.charAt(i);
+            if (inComment) {
+                if (current == '\n' || current == '\r') {
+                    inComment = false;
+                    stripped.append(current);
+                } else {
+                    stripped.append(' ');
+                }
+                continue;
+            }
+            if (quote != 0) {
+                stripped.append(current);
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (inIri) {
+                stripped.append(current);
+                if (current == '>') {
+                    inIri = false;
+                }
+                continue;
+            }
+
+            if (current == '#') {
+                inComment = true;
+                stripped.append(' ');
+            } else {
+                stripped.append(current);
+                if (current == '<') {
+                    inIri = true;
+                } else if (current == '"' || current == '\'') {
+                    quote = current;
+                }
+            }
+        }
+        return stripped.toString();
     }
 
     private Optional<CellCoordinate> parseStart(String trig) {
@@ -180,5 +413,13 @@ public final class MazeTrigParser {
     }
 
     private record PendingConnection(CellCoordinate source, CellCoordinate target) {
+    }
+
+    private record CustomCellContent(
+            String typeSuffix,
+            List<String> predicateSegments,
+            String graphTail,
+            String trailingGraphComment
+    ) {
     }
 }

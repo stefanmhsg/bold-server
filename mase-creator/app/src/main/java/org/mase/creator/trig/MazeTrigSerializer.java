@@ -77,30 +77,81 @@ public final class MazeTrigSerializer {
             Map<CellCoordinate, CellCoordinate> greenSuccessors
     ) {
         String iri = cell.coordinate().iri();
+        String firstStatement = renderCellStatement(model, cell, greenSuccessors);
+        if (!cell.customGraphTail().isBlank()) {
+            StringBuilder block = new StringBuilder();
+            block.append(iri).append(" { ").append(firstStatement);
+            if (!startsWithWhitespace(cell.customGraphTail())) {
+                block.append(" ");
+            }
+            block.append(cell.customGraphTail()).append(System.lineSeparator()).append("}");
+            appendTrailingGraphComment(block, cell);
+            return block.toString();
+        }
+
         StringBuilder line = new StringBuilder();
-        line.append(iri).append(" { ").append(iri).append(" a maze:Cell ; ");
+        line.append(iri).append(" { ").append(firstStatement).append(" }");
+        appendTrailingGraphComment(line, cell);
+        return line.toString();
+    }
+
+    private String renderCellStatement(
+            MazeModel model,
+            MazeCell cell,
+            Map<CellCoordinate, CellCoordinate> greenSuccessors
+    ) {
+        String iri = cell.coordinate().iri();
+        StringBuilder statement = new StringBuilder();
+        statement.append(iri).append(" a maze:Cell");
+        appendCustomTypeSuffix(statement, cell.customTypeSuffix());
+        statement.append(" ; ");
 
         for (int i = 0; i < Direction.SERIALIZATION_ORDER.size(); i++) {
             Direction direction = Direction.SERIALIZATION_ORDER.get(i);
-            line.append(direction.predicate())
+            statement.append(direction.predicate())
                     .append(" ")
                     .append(renderTarget(model, cell, direction));
             if (i < Direction.SERIALIZATION_ORDER.size() - 1) {
-                line.append("; ");
+                statement.append("; ");
             }
         }
 
         if (model.exitSourceCell().filter(cell.coordinate()::equals).isPresent()) {
-            line.append("; maze:exit </cells/999>");
+            statement.append("; maze:exit </cells/999>");
         }
 
         CellCoordinate greenSuccessor = greenSuccessors.get(cell.coordinate());
         if (greenSuccessor != null && model.hasCell(greenSuccessor)) {
-            line.append("; maze:green ").append(greenSuccessor.iri());
+            statement.append("; maze:green ").append(greenSuccessor.iri());
         }
 
-        line.append(" . }");
-        return line.toString();
+        for (String segment : cell.customPredicateSegments()) {
+            statement.append("; ").append(segment);
+        }
+
+        statement.append(" .");
+        return statement.toString();
+    }
+
+    private void appendCustomTypeSuffix(StringBuilder statement, String customTypeSuffix) {
+        if (customTypeSuffix.isBlank()) {
+            return;
+        }
+        if (customTypeSuffix.startsWith(",") || customTypeSuffix.startsWith(";")) {
+            statement.append(customTypeSuffix);
+        } else {
+            statement.append(" ").append(customTypeSuffix);
+        }
+    }
+
+    private boolean startsWithWhitespace(String value) {
+        return !value.isEmpty() && Character.isWhitespace(value.charAt(0));
+    }
+
+    private void appendTrailingGraphComment(StringBuilder output, MazeCell cell) {
+        if (!cell.trailingGraphComment().isBlank()) {
+            output.append(" ").append(cell.trailingGraphComment());
+        }
     }
 
     private String renderTarget(MazeModel model, MazeCell cell, Direction direction) {

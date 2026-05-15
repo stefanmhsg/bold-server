@@ -10,7 +10,10 @@ public final class MazeCell {
 
     private final CellCoordinate coordinate;
     private final EnumMap<Direction, CellCoordinate> connections = new EnumMap<>(Direction.class);
-    private final List<String> customStatements = new ArrayList<>();
+    private String customTypeSuffix = "";
+    private final List<String> customPredicateSegments = new ArrayList<>();
+    private String customGraphTail = "";
+    private String trailingGraphComment = "";
 
     public MazeCell(CellCoordinate coordinate) {
         this.coordinate = coordinate;
@@ -28,12 +31,44 @@ public final class MazeCell {
         return Map.copyOf(connections);
     }
 
-    public List<String> customStatements() {
-        return List.copyOf(customStatements);
+    public String customTypeSuffix() {
+        return customTypeSuffix;
     }
 
-    public void addCustomStatement(String statement) {
-        customStatements.add(statement);
+    public List<String> customPredicateSegments() {
+        return List.copyOf(customPredicateSegments);
+    }
+
+    public String customGraphTail() {
+        return customGraphTail;
+    }
+
+    public String trailingGraphComment() {
+        return trailingGraphComment;
+    }
+
+    public boolean hasCustomContent() {
+        return !customTypeSuffix.isBlank()
+                || !customPredicateSegments.isEmpty()
+                || !customGraphTail.isBlank()
+                || !trailingGraphComment.isBlank();
+    }
+
+    public void setCustomContent(
+            String customTypeSuffix,
+            List<String> customPredicateSegments,
+            String customGraphTail,
+            String trailingGraphComment
+    ) {
+        this.customTypeSuffix = customTypeSuffix == null ? "" : customTypeSuffix.stripTrailing();
+        this.customPredicateSegments.clear();
+        for (String segment : customPredicateSegments) {
+            if (segment != null && !segment.isBlank()) {
+                this.customPredicateSegments.add(segment.strip());
+            }
+        }
+        this.customGraphTail = customGraphTail == null ? "" : customGraphTail.stripTrailing();
+        this.trailingGraphComment = trailingGraphComment == null ? "" : trailingGraphComment.strip();
     }
 
     boolean connect(Direction direction, CellCoordinate target) {

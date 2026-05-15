@@ -96,12 +96,17 @@ The parser is intentionally tolerant:
 - It scans coordinate cell named graphs such as `</cells/12/34> { ... }`.
 - It accepts one-line or multiline graph bodies.
 - It accepts either `a maze:Cell` or `rdf:type maze:Cell`.
-- It extracts only the canonical directions and `maze:exit`.
-- It ignores extra predicates for now without failing.
+- It extracts the canonical directions, `maze:exit`, `maze:green`, and `#Correct plan` route comments.
+- It strips comments before interpreting route predicates so commented-out snippets such as `#maze:east ...; maze:green ...` do not become active editor data.
+- It preserves custom cell graph payloads lexically:
+  - extra same-subject types such as `dyn:Lock`;
+  - extra same-subject predicates such as `hydra:operation ...` or `maze:orange ...`;
+  - additional statements inside the cell named graph, including multiline lock/key blocks;
+  - trailing same-line graph comments after `}`.
 - It ignores non-coordinate cell names except the special exit graph `</cells/999>`.
 - It normalizes adjacent cell references into bidirectional editor connections.
 
-Future custom cell support should extend `MazeCell`'s custom statement slot instead of changing the base direction model.
+The preservation strategy is deliberately lexical rather than a full RDF rewrite. The editor regenerates the canonical maze statement and replays the preserved custom payload around it. Cells with preserved custom payload are marked with a small amber corner indicator in the editor. They remain editable because walls and base directions are known maze structure, but custom references can become semantically stale if the user changes nearby cells. Deleting a custom cell deletes its preserved payload. Future custom editing should build typed controls on top of this preserved payload instead of changing the base direction model.
 
 ## Serialization
 
@@ -114,7 +119,7 @@ The serializer owns the fixed block order:
 5. Optional `</cells/999>` exit graph.
 6. `#NAMED_GRAPHS_END`.
 
-Each coordinate cell graph is emitted as one line for clarity and diff stability. Direction order is always:
+Coordinate cells without extra graph payload are emitted as one line for clarity and diff stability. Cells that were loaded with additional multiline statements are emitted as a small block so the extra RDF remains readable and intact. Direction order is always:
 
 1. `maze:north`
 2. `maze:west`
@@ -147,6 +152,11 @@ The SPARQL validation/server mode writes its RDFWriter output to `app/data/valid
 - Serializer emits `maze:green` route successors only for the separate `maze:green` tool.
 - Parser loads one-line and multiline named graph cell bodies.
 - Parser tolerates extra predicates such as `maze:green`.
+- Parser preserves custom same-subject predicates such as `maze:orange`.
+- Parser preserves extra same-subject types such as `dyn:Lock`.
+- Parser preserves additional multiline statements inside cell graphs, such as lock operations and key records.
+- Parser preserves trailing same-line graph comments.
+- Parser ignores commented-out `maze:green` predicates when reconstructing the separate `maze:green` route.
 - Parser loads the optimal route from `#Correct plan`.
 - Parser loads the `maze:green` route from `maze:green` successors.
 - Parser normalizes adjacent parsed references into bidirectional connections.
@@ -169,7 +179,9 @@ The SPARQL validation/server mode writes its RDFWriter output to `app/data/valid
 - [x] Split optimal-route drawing and `maze:green` drawing into separate tools and outputs.
 - [x] Keep the existing SPARQL validation/server path available as the second part.
 - [x] Add regression tests for the logical editor and TriG IO.
-- [ ] Future: preserve and edit custom per-cell statements instead of only tolerating them during parsing.
+- [x] Preserve custom per-cell graph payloads during load and export.
+- [ ] Future: add typed editing controls for preserved custom per-cell statements.
+- [ ] Future: warn when preserved custom references point at cells whose base maze connections changed.
 - [ ] Future: add undo/redo for editor operations.
 - [ ] Future: add validation warnings directly in the editor before export.
 - [ ] Future: support non-coordinate legacy start cells through an explicit migration workflow.
