@@ -1,0 +1,25 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ldp: <http://www.w3.org/ns/ldp#> .
+@prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
+@prefix xhv: <http://www.w3.org/1999/xhtml/vocab#> .
+@prefix http: <http://www.w3.org/2011/http#> .
+@prefix httpm: <http://www.w3.org/2011/http-methods#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
+@prefix ui: <https://example.org/ui#> .
+@prefix stig: <https://example.org/stigmark#> .
+@prefix ccrs: <https://example.org/ccrs#> .
+@prefix hydra: <http://www.w3.org/ns/hydra/core#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+</maze> {
+    </maze> a ldp:BasicContainer , maze:CcrsMaze ;
+        maze:transitions maze:north, maze:south, maze:east, maze:west , maze:exit ;
+        ldp:contains </map> ;
+        xhv:start </cells/1/1> .
+}
+
+#NAMED_GRAPHS_START
+#NAMED_GRAPHS_END

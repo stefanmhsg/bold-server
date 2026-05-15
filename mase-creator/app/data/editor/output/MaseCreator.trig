@@ -1,0 +1,77 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ldp: <http://www.w3.org/ns/ldp#> .
+@prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
+@prefix xhv: <http://www.w3.org/1999/xhtml/vocab#> .
+@prefix http: <http://www.w3.org/2011/http#> .
+@prefix httpm: <http://www.w3.org/2011/http-methods#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
+@prefix ui: <https://example.org/ui#> .
+@prefix stig: <https://example.org/stigmark#> .
+@prefix ccrs: <https://example.org/ccrs#> .
+@prefix hydra: <http://www.w3.org/ns/hydra/core#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+</maze> {
+    </maze> a ldp:BasicContainer , maze:CcrsMaze ;
+        maze:transitions maze:north, maze:south, maze:east, maze:west , maze:exit ;
+        ldp:contains </map> ;
+        xhv:start </cells/1/1> .
+}
+
+#NAMED_GRAPHS_START
+</cells/1/1> { </cells/1/1> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east </cells/1/2> . }
+</cells/1/2> { </cells/1/2> a maze:Cell ; maze:north maze:Wall; maze:west </cells/1/1>; maze:south </cells/2/2>; maze:east maze:Wall . }
+</cells/1/8> { </cells/1/8> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south </cells/2/8>; maze:east maze:Wall . }
+</cells/2/2> { </cells/2/2> a maze:Cell ; maze:north </cells/1/2>; maze:west maze:Wall; maze:south </cells/3/2>; maze:east maze:Wall . }
+</cells/2/4> { </cells/2/4> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south </cells/3/4>; maze:east </cells/2/5> . }
+</cells/2/5> { </cells/2/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/2/4>; maze:south maze:Wall; maze:east </cells/2/6> . }
+</cells/2/6> { </cells/2/6> a maze:Cell ; maze:north maze:Wall; maze:west </cells/2/5>; maze:south </cells/3/6>; maze:east </cells/2/7> . }
+</cells/2/7> { </cells/2/7> a maze:Cell ; maze:north maze:Wall; maze:west </cells/2/6>; maze:south maze:Wall; maze:east </cells/2/8> . }
+</cells/2/8> { </cells/2/8> a maze:Cell ; maze:north </cells/1/8>; maze:west </cells/2/7>; maze:south maze:Wall; maze:east maze:Wall . }
+</cells/3/2> { </cells/3/2> a maze:Cell ; maze:north </cells/2/2>; maze:west maze:Wall; maze:south </cells/4/2>; maze:east </cells/3/3> . }
+</cells/3/3> { </cells/3/3> a maze:Cell ; maze:north maze:Wall; maze:west </cells/3/2>; maze:south maze:Wall; maze:east </cells/3/4> . }
+</cells/3/4> { </cells/3/4> a maze:Cell ; maze:north </cells/2/4>; maze:west </cells/3/3>; maze:south maze:Wall; maze:east maze:Wall . }
+</cells/3/6> { </cells/3/6> a maze:Cell ; maze:north </cells/2/6>; maze:west maze:Wall; maze:south </cells/4/6>; maze:east maze:Wall . }
+</cells/4/2> { </cells/4/2> a maze:Cell ; maze:north </cells/3/2>; maze:west maze:Wall; maze:south </cells/5/2>; maze:east maze:Wall . }
+</cells/4/6> { </cells/4/6> a maze:Cell ; maze:north </cells/3/6>; maze:west maze:Wall; maze:south </cells/5/6>; maze:east maze:Wall . }
+</cells/5/2> { </cells/5/2> a maze:Cell ; maze:north </cells/4/2>; maze:west maze:Wall; maze:south </cells/6/2>; maze:east maze:Wall . }
+</cells/5/3> { </cells/5/3> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south </cells/6/3>; maze:east </cells/5/4> . }
+</cells/5/4> { </cells/5/4> a maze:Cell ; maze:north maze:Wall; maze:west </cells/5/3>; maze:south maze:Wall; maze:east </cells/5/5> . }
+</cells/5/5> { </cells/5/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/5/4>; maze:south maze:Wall; maze:east </cells/5/6> . }
+</cells/5/6> { </cells/5/6> a maze:Cell ; maze:north </cells/4/6>; maze:west </cells/5/5>; maze:south </cells/6/6>; maze:east maze:Wall . }
+</cells/6/1> { </cells/6/1> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south </cells/7/1>; maze:east maze:Wall . }
+</cells/6/2> { </cells/6/2> a maze:Cell ; maze:north </cells/5/2>; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
+</cells/6/3> { </cells/6/3> a maze:Cell ; maze:north </cells/5/3>; maze:west maze:Wall; maze:south </cells/7/3>; maze:east maze:Wall . }
+</cells/6/4> { </cells/6/4> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south </cells/7/4>; maze:east </cells/6/5> . }
+</cells/6/5> { </cells/6/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/6/4>; maze:south </cells/7/5>; maze:east maze:Wall . }
+</cells/6/6> { </cells/6/6> a maze:Cell ; maze:north </cells/5/6>; maze:west maze:Wall; maze:south </cells/7/6>; maze:east maze:Wall . }
+</cells/6/8> { </cells/6/8> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south </cells/7/8>; maze:east </cells/6/9> . }
+</cells/6/9> { </cells/6/9> a maze:Cell ; maze:north maze:Wall; maze:west </cells/6/8>; maze:south maze:Wall; maze:east </cells/6/10> . }
+</cells/6/10> { </cells/6/10> a maze:Cell ; maze:north maze:Wall; maze:west </cells/6/9>; maze:south </cells/7/10>; maze:east maze:Wall . }
+</cells/7/1> { </cells/7/1> a maze:Cell ; maze:north </cells/6/1>; maze:west maze:Wall; maze:south </cells/8/1>; maze:east maze:Wall . }
+</cells/7/3> { </cells/7/3> a maze:Cell ; maze:north </cells/6/3>; maze:west maze:Wall; maze:south </cells/8/3>; maze:east maze:Wall . }
+</cells/7/4> { </cells/7/4> a maze:Cell ; maze:north </cells/6/4>; maze:west maze:Wall; maze:south </cells/8/4>; maze:east maze:Wall . }
+</cells/7/5> { </cells/7/5> a maze:Cell ; maze:north </cells/6/5>; maze:west maze:Wall; maze:south </cells/8/5>; maze:east maze:Wall . }
+</cells/7/6> { </cells/7/6> a maze:Cell ; maze:north </cells/6/6>; maze:west maze:Wall; maze:south </cells/8/6>; maze:east </cells/7/7> . }
+</cells/7/7> { </cells/7/7> a maze:Cell ; maze:north maze:Wall; maze:west </cells/7/6>; maze:south maze:Wall; maze:east </cells/7/8> . }
+</cells/7/8> { </cells/7/8> a maze:Cell ; maze:north </cells/6/8>; maze:west </cells/7/7>; maze:south maze:Wall; maze:east maze:Wall . }
+</cells/7/10> { </cells/7/10> a maze:Cell ; maze:north </cells/6/10>; maze:west maze:Wall; maze:south </cells/8/10>; maze:east maze:Wall . }
+</cells/8/1> { </cells/8/1> a maze:Cell ; maze:north </cells/7/1>; maze:west maze:Wall; maze:south maze:Wall; maze:east </cells/8/2> . }
+</cells/8/2> { </cells/8/2> a maze:Cell ; maze:north maze:Wall; maze:west </cells/8/1>; maze:south maze:Wall; maze:east </cells/8/3> . }
+</cells/8/3> { </cells/8/3> a maze:Cell ; maze:north </cells/7/3>; maze:west </cells/8/2>; maze:south maze:Wall; maze:east maze:Wall . }
+</cells/8/4> { </cells/8/4> a maze:Cell ; maze:north </cells/7/4>; maze:west maze:Wall; maze:south </cells/9/4>; maze:east maze:Wall . }
+</cells/8/5> { </cells/8/5> a maze:Cell ; maze:north </cells/7/5>; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
+</cells/8/6> { </cells/8/6> a maze:Cell ; maze:north </cells/7/6>; maze:west maze:Wall; maze:south </cells/9/6>; maze:east maze:Wall . }
+</cells/8/9> { </cells/8/9> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south </cells/9/9>; maze:east </cells/8/10> . }
+</cells/8/10> { </cells/8/10> a maze:Cell ; maze:north </cells/7/10>; maze:west </cells/8/9>; maze:south maze:Wall; maze:east maze:Wall . }
+</cells/9/4> { </cells/9/4> a maze:Cell ; maze:north </cells/8/4>; maze:west maze:Wall; maze:south maze:Wall; maze:east </cells/9/5> . }
+</cells/9/5> { </cells/9/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/9/4>; maze:south maze:Wall; maze:east </cells/9/6> . }
+</cells/9/6> { </cells/9/6> a maze:Cell ; maze:north </cells/8/6>; maze:west </cells/9/5>; maze:south maze:Wall; maze:east maze:Wall . }
+</cells/9/9> { </cells/9/9> a maze:Cell ; maze:north </cells/8/9>; maze:west maze:Wall; maze:south </cells/10/9>; maze:east maze:Wall . }
+</cells/10/9> { </cells/10/9> a maze:Cell ; maze:north </cells/9/9>; maze:west maze:Wall; maze:south maze:Wall; maze:east </cells/10/10> . }
+</cells/10/10> { </cells/10/10> a maze:Cell ; maze:north maze:Wall; maze:west </cells/10/9>; maze:south maze:Wall; maze:east maze:Wall; maze:exit </cells/999> . }
+</cells/999> { </cells/999> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
+#NAMED_GRAPHS_END

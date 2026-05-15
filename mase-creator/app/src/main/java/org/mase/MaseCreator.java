@@ -1,5 +1,6 @@
 package org.mase;
 
+import org.mase.creator.ui.MazeCreatorFrame;
 import org.apache.jena.query.*;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
@@ -11,6 +12,7 @@ import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.fuseki.main.FusekiServer;
 
+import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -21,20 +23,55 @@ import java.util.List;
 public class MaseCreator {
 
     private static final Path INPUT_TRIG =
-            Path.of("data/input/MidMaze.trig");
+            dataPath("validation", "input", "MidMaze.trig");
 
     private static final Path QUERY_DIR =
-            Path.of("data/query");
+            dataPath("validation", "query");
 
     private static final Path VALIDATION_DIR =
-            Path.of("data/validate");
+            dataPath("validation", "validate");
 
     private static final Path OUTPUT_TRIG =
-            Path.of("data/output/MaseCreator.trig");
+            dataPath("validation", "output", "MaseCreator-validation.trig");
 
     private static final String BASE_IRI = "http://127.0.1.1:8080";
 
+    private static Path dataPath(String mode, String directory) {
+        return dataPath(mode, directory, null);
+    }
+
+    private static Path dataPath(String mode, String directory, String fileName) {
+        for (Path candidate : new Path[] {
+                Path.of("data"),
+                Path.of("app").resolve("data"),
+                Path.of("mase-creator").resolve("app").resolve("data")
+        }) {
+            if (Files.exists(candidate)) {
+                Path path = candidate.resolve(mode).resolve(directory);
+                return fileName == null ? path : path.resolve(fileName);
+            }
+        }
+
+        Path path = Path.of("app").resolve("data").resolve(mode).resolve(directory);
+        return fileName == null ? path : path.resolve(fileName);
+    }
+
     public static void main(String[] args) throws IOException {
+        if (args.length > 0 && ("--validate".equals(args[0]) || "validate".equals(args[0]))) {
+            runValidationServer();
+            return;
+        }
+
+        if (GraphicsEnvironment.isHeadless()) {
+            System.out.println("MASE Creator editor requires a graphical desktop.");
+            System.out.println("Run with --validate to use the existing SPARQL validation/server flow.");
+            return;
+        }
+
+        MazeCreatorFrame.showEditor();
+    }
+
+    private static void runValidationServer() throws IOException {
 
         Dataset dataset = DatasetFactory.createTxnMem();
 
