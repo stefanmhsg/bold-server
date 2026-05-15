@@ -60,8 +60,8 @@ public class KeyHolderAgent {
 
     private static final String BASE_URI = "http://127.0.1.1:8080";
     private static final String MAZE_URI = BASE_URI + "/maze";
-    private static final String AGENT_NAME = "key-holder-agent-1";
-    private static final String TARGET_COORDINATE = "36/36"; // 36/36 for CCRS-Scenario. 15/7 for paper
+    private static final String AGENT_NAME = "key-holder-agent-3";
+    private static final String TARGET_COORDINATE = "42/41"; // 42/41 for CCRS-Scenario. 15/7 for paper
     private static final int DEFAULT_A2A_PORT = 8095;
     private static final int MAX_STEPS = 2_000;
     private static final String CELLS_SEGMENT = "/cells/";
@@ -72,12 +72,12 @@ public class KeyHolderAgent {
     private static final String HYDRA_TARGET = "http://www.w3.org/ns/hydra/core#target";
     private static final String STATE = MazeVocab.DYNMAZE_NS + "state";
     private static final String LOCKED = MazeVocab.DYNMAZE_NS + "locked";
-        private static final String RED_KEY_TURTLE = """
+        private static final String BLUE_KEY_TURTLE = """
                         @prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
 
-                        <http://127.0.1.1:8080/cells/36/36#key> a dyn:RedKey;
-                            dyn:fitsInLock <http://127.0.1.1:8080/cells/36/36>;
-                            dyn:keyValue "redkey-1670" .
+                        <http://127.0.1.1:8080/cells/42/41#key> a dyn:BlueKey;
+                            dyn:fitsInLock <http://127.0.1.1:8080/cells/44/45>;
+                            dyn:keyValue "bluekey-9347" .
                         """;
 
     private static final List<Direction> DIRECTION_ORDER = List.of(
@@ -93,7 +93,14 @@ public class KeyHolderAgent {
             "37/31", "36/31", "35/31", "35/30", "35/29", "35/28", "35/27",
             "34/27", "33/27", "33/26", "33/25", "33/24", "32/24", "31/24", "31/25");
 
-    private static final List<List<String>> GUIDED_COORDINATE_LISTS = List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES);
+    private static final List<String> CONSTRUCTION_SITE_ZONE_COORDINATES = List.of(
+            "36/36", "36/37", "36/38", "36/39", "35/39", "34/39", "34/40", 
+            "33/40", "32/40", "31/40", "31/41", "31/42", "31/43");
+
+    private static final List<String> TARGET_LOCATION_COORDINATES = List.of(
+            "42/43","42/42","42/41");
+
+    private static final List<List<String>> GUIDED_COORDINATE_LISTS = List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, TARGET_LOCATION_COORDINATES);
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -126,7 +133,7 @@ public class KeyHolderAgent {
     }
 
         private RestHandler createRestHandler(int port) {
-        AgentExecutor agentExecutor = new RedKeyAgentExecutor();
+        AgentExecutor agentExecutor = new BlueKeyAgentExecutor();
         TaskStore taskStore = new InMemoryTaskStore();
         QueueManager queueManager = new InMemoryQueueManager((TaskStateProvider) taskStore);
         PushNotificationConfigStore pushConfigStore = new InMemoryPushNotificationConfigStore();
@@ -150,11 +157,11 @@ public class KeyHolderAgent {
             .build();
 
         AgentSkill skill = new AgentSkill.Builder()
-            .id("provide_red_key")
-            .name("Provide Red Key")
-            .description("Returns RDF triple of red key")
-            .tags(List.of("key", "red-key", "a2a"))
-            .examples(List.of("provide_red_key"))
+            .id("provide_blue_key")
+            .name("Provide Blue Key")
+            .description("Returns RDF triple of blue key")
+            .tags(List.of("key", "blue-key", "a2a"))
+            .examples(List.of("provide_blue_key"))
             .inputModes(List.of("text"))
             .outputModes(List.of("text"))
             .security(List.of())
@@ -165,7 +172,7 @@ public class KeyHolderAgent {
 
         return new AgentCard.Builder()
             .name("Key Holder Agent (" + agentName + ")")
-            .description("Provides red key via A2A")
+            .description("Provides blue key via A2A")
             .url(sendUrl)
             .version("1.0.0")
             .capabilities(capabilities)
@@ -205,13 +212,13 @@ public class KeyHolderAgent {
         });
 
         // Convenience endpoint for legacy direct retrieval.
-        server.createContext("/provide_red_key", exchange -> {
+        server.createContext("/provide_blue_key", exchange -> {
             String method = exchange.getRequestMethod();
             if (!"GET".equalsIgnoreCase(method) && !"POST".equalsIgnoreCase(method)) {
                 respond(exchange, 405, "text/plain", "Method Not Allowed");
                 return;
             }
-            respond(exchange, 200, "text/turtle", RED_KEY_TURTLE);
+            respond(exchange, 200, "text/turtle", BLUE_KEY_TURTLE);
         });
 
         return server;
@@ -295,19 +302,19 @@ public class KeyHolderAgent {
         }
     }
 
-        private static final class RedKeyAgentExecutor implements AgentExecutor {
+        private static final class BlueKeyAgentExecutor implements AgentExecutor {
 
         @Override
         public void execute(RequestContext context, EventQueue queue) {
             String taskId = context.getTask() == null ? "<new-task>" : context.getTask().getId();
-            System.out.println("[" + AGENT_NAME + " A2A] Executor.execute task=" + taskId + " -> returning red key artifact");
+            System.out.println("[" + AGENT_NAME + " A2A] Executor.execute task=" + taskId + " -> returning blue key artifact");
             TaskUpdater updater = new TaskUpdater(context, queue);
             if (context.getTask() == null) {
                 updater.submit();
             }
             updater.startWork();
-            List<Part<?>> parts = List.of(new TextPart(RED_KEY_TURTLE));
-            updater.addArtifact(parts, "red-key", "text/turtle", Map.of(
+            List<Part<?>> parts = List.of(new TextPart(BLUE_KEY_TURTLE));
+            updater.addArtifact(parts, "blue-key", "text/turtle", Map.of(
                     "contentType", "text/turtle",
                     "confidence", "0.99"));
             updater.complete();
@@ -642,7 +649,7 @@ public class KeyHolderAgent {
 
             <%s>
               a2a:agentCard <http://127.0.0.1:%d/.well-known/agent-card.json> ;
-              a2a:providesType dyn:RedKey ;
+              a2a:providesType dyn:BlueKey ;
               a2a:providesProperty dyn:keyValue .
             """.formatted(agentUri, DEFAULT_A2A_PORT);
 

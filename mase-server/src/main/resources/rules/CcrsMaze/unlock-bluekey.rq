@@ -20,8 +20,7 @@ DELETE {
     ?blueAction xsd:dateTime ?oldTimestamp .
 
     # remove the door to the south
-    ?cell maze:east <http://127.0.1.1:8080/cells/28/14> ;
-          maze:green <http://127.0.1.1:8080/cells/28/14> .
+    ?cell maze:south <http://127.0.1.1:8080/cells/45/45> .
 
     # remove the key
     ?cell dyn:keyValue ?anyKeyValue .
@@ -40,7 +39,7 @@ WHERE {
   GRAPH ?g {
     ?cell a maze:Cell , dyn:Lock ;
           hydra:operation ?blueAction ;
-          maze:east <http://127.0.1.1:8080/cells/28/14> .
+          maze:south <http://127.0.1.1:8080/cells/45/45> .
 
     ?blueAction xsd:dateTime ?unlockTimestamp .
 
@@ -55,7 +54,7 @@ WHERE {
   
   # Only apply if a Move occured AFTER the cell was unlocked
   FILTER(?moveTimestamp > ?unlockTimestamp)
-  FILTER(?targetCell = <http://127.0.1.1:8080/cells/28/14>)
+  FILTER(?targetCell = <http://127.0.1.1:8080/cells/45/45>)
 
   }
 } ;
@@ -65,7 +64,7 @@ WHERE {
 # UNLOCK CELL IF KEY
 # ------------------
 
-# Unlock cell with blue key /28/13 - leads to cell 28/14
+# Unlock cell with blue key /45/44 - leads to cell 45/45
 DELETE {
   GRAPH ?g {
     # remove old state of this lock
@@ -78,9 +77,8 @@ DELETE {
 }
 INSERT {
   GRAPH ?g {
-    # ensure the door to the east is present
-    ?cell maze:east <http://127.0.1.1:8080/cells/28/14> .
-    ?cell maze:green <http://127.0.1.1:8080/cells/28/14> .
+    # ensure the door to the south is present
+    ?cell maze:south <http://127.0.1.1:8080/cells/45/45> .
 
     # new state for the cell
     ?cell dyn:state dyn:unlocked .
@@ -103,5 +101,7 @@ WHERE {
     OPTIONAL { ?blueAction xsd:dateTime ?oldTimestamp . }
 
     BIND( NOW() AS ?timestamp )
+
+    FILTER(?cell = <http://127.0.1.1:8080/cells/44/45>)
   }
 }

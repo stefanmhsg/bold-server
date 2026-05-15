@@ -327,8 +327,15 @@ public class CcrsAgent {
             keyValue = keyringByType.get(localName);
         }
         if (keyValue == null) {
-            // Fallback for CCRS scenarios: try one direct red key guess when no key is known.
-            keyValue = "redkey-1670";
+            String currentCoordinate = coordinateOf(parsedCell.cellUri());
+            if ("36/36".equals(currentCoordinate)) {
+                keyValue = "redkey-1670";
+            } else if ("44/45".equals(currentCoordinate)) {
+                keyValue = "bluekey-9347";
+            }
+        }
+        if (keyValue == null) {
+            return false;
         }
 
         String turtle = "<" + parsedCell.lockTargetCell() + "> <" + KEY_VALUE + "> \"" + keyValue + "\" .\n";
