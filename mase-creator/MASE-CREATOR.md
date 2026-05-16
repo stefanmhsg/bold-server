@@ -102,6 +102,9 @@ The parser is intentionally tolerant:
 - It strips comments before interpreting route predicates so commented-out snippets such as `#maze:east ...; maze:green ...` do not become active editor data.
 - It ignores graph blocks that are commented out line-by-line.
 - It preserves multiple disconnected active `maze:green` chains, including chains that intentionally point at a missing/commented target graph.
+- It preserves document-level comments and non-coordinate named graphs that the logical grid does not edit directly, such as legacy `</cells/0>`, `</counter>`, and `</colors>` blocks.
+- It preserves raw `#Correct plan` comment sections when loading existing files, so legacy entries such as `/cells/0` are not dropped by the coordinate-only route model.
+- It preserves non-coordinate direction targets on coordinate cells, such as `</cells/0/2> maze:north </cells/0>`, until the user edits that side.
 - It preserves custom cell graph payloads lexically:
   - extra same-subject types such as `dyn:Lock`;
   - extra same-subject predicates such as `hydra:operation ...` or `maze:orange ...`;
@@ -162,12 +165,15 @@ The SPARQL validation/server mode writes its RDFWriter output to `app/data/valid
 - Parser preserves trailing same-line graph comments.
 - Parser ignores commented-out `maze:green` predicates when reconstructing the separate `maze:green` route.
 - Parser preserves multiple disconnected `maze:green` zones and active `maze:green` targets without coordinate cell graphs.
+- Parser preserves document-level comments, non-coordinate named graphs, and raw `#Correct plan` sections during no-edit round trips.
+- Parser preserves legacy non-coordinate direction targets on coordinate cells.
 - Parser loads the optimal route from `#Correct plan`.
 - Parser loads the `maze:green` route from `maze:green` successors.
 - Parser normalizes adjacent parsed references into bidirectional connections.
 - Parser ignores non-coordinate named graphs without failing.
 - Boundary hit testing only selects a wall when the click is within the configured margin.
 - Auto-save writes a restorable TriG file.
+- Fixture round trip: parse [CcrsMazeV1.trig](app/src/test/resources/fixtures/CcrsMazeV1.trig), serialize it, and verify active `maze:green` successors plus representative comments, non-coordinate graphs, legacy direction targets, custom cell payloads, and raw correct-plan comments survive whitespace-insensitively.
 
 ## To Do
 
@@ -185,6 +191,7 @@ The SPARQL validation/server mode writes its RDFWriter output to `app/data/valid
 - [x] Keep the existing SPARQL validation/server path available as the second part.
 - [x] Add regression tests for the logical editor and TriG IO.
 - [x] Preserve custom per-cell graph payloads during load and export.
+- [x] Add a CcrsMazeV1 fixture round-trip regression for preserving existing scenario components.
 - [ ] Future: add typed editing controls for preserved custom per-cell statements.
 - [ ] Future: warn when preserved custom references point at cells whose base maze connections changed.
 - [ ] Future: add undo/redo for editor operations.

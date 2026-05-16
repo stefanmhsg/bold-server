@@ -14,7 +14,10 @@ public final class MazeModel {
     private final List<Runnable> changeListeners = new ArrayList<>();
     private final List<CellCoordinate> optimalRoute = new ArrayList<>();
     private final List<List<CellCoordinate>> greenRoutes = new ArrayList<>();
+    private final List<String> preservedDocumentBlocks = new ArrayList<>();
+    private final List<String> preservedCorrectPlanLines = new ArrayList<>();
     private CellCoordinate startCell;
+    private String rawStartIri;
     private CellCoordinate exitSourceCell;
 
     public MazeModel(GridBounds bounds) {
@@ -53,12 +56,24 @@ public final class MazeModel {
         return Optional.ofNullable(startCell);
     }
 
+    public Optional<String> rawStartIri() {
+        return Optional.ofNullable(rawStartIri);
+    }
+
     public Optional<CellCoordinate> exitSourceCell() {
         return Optional.ofNullable(exitSourceCell);
     }
 
     public List<CellCoordinate> optimalRoute() {
         return List.copyOf(optimalRoute);
+    }
+
+    public List<String> preservedCorrectPlanLines() {
+        return List.copyOf(preservedCorrectPlanLines);
+    }
+
+    public List<String> preservedDocumentBlocks() {
+        return List.copyOf(preservedDocumentBlocks);
     }
 
     public boolean isOptimalRouteCell(CellCoordinate coordinate) {
@@ -124,7 +139,9 @@ public final class MazeModel {
     }
 
     public Optional<PathStroke> beginOptimalRoute(CellCoordinate coordinate) {
-        return beginExistingCellRoute(optimalRoute, coordinate);
+        Optional<PathStroke> stroke = beginExistingCellRoute(optimalRoute, coordinate);
+        stroke.ifPresent(ignored -> preservedCorrectPlanLines.clear());
+        return stroke;
     }
 
     public void continueOptimalRoute(PathStroke stroke, CellCoordinate target) {
@@ -132,6 +149,7 @@ public final class MazeModel {
     }
 
     public void clearOptimalRoute() {
+        preservedCorrectPlanLines.clear();
         clearRoute(optimalRoute);
     }
 
@@ -209,6 +227,7 @@ public final class MazeModel {
         }
         if (!coordinate.equals(startCell)) {
             startCell = coordinate;
+            rawStartIri = null;
             notifyChanged();
         }
     }
@@ -250,7 +269,12 @@ public final class MazeModel {
     public void setStartFromParser(CellCoordinate coordinate) {
         if (hasCell(coordinate)) {
             startCell = coordinate;
+            rawStartIri = null;
         }
+    }
+
+    public void setRawStartIriFromParser(String rawStartIri) {
+        this.rawStartIri = rawStartIri;
     }
 
     public void setExitFromParser(CellCoordinate coordinate) {
@@ -261,6 +285,16 @@ public final class MazeModel {
 
     public void setOptimalRouteFromParser(List<CellCoordinate> route) {
         setRouteFromParser(optimalRoute, route);
+    }
+
+    public void setPreservedCorrectPlanLinesFromParser(List<String> lines) {
+        preservedCorrectPlanLines.clear();
+        preservedCorrectPlanLines.addAll(lines);
+    }
+
+    public void setPreservedDocumentBlocksFromParser(List<String> blocks) {
+        preservedDocumentBlocks.clear();
+        preservedDocumentBlocks.addAll(blocks);
     }
 
     public void setGreenRouteFromParser(List<CellCoordinate> route) {

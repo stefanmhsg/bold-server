@@ -36,6 +36,7 @@ public final class MazeTrigSerializer {
         StringBuilder trig = new StringBuilder();
         PREFIXES.forEach(prefix -> trig.append(prefix).append(System.lineSeparator()));
         trig.append(System.lineSeparator());
+        appendPreservedDocumentBlocks(trig, model);
         appendMazeGraph(trig, model);
         trig.append(System.lineSeparator());
         trig.append("#NAMED_GRAPHS_START").append(System.lineSeparator());
@@ -57,11 +58,13 @@ public final class MazeTrigSerializer {
 
     private void appendMazeGraph(StringBuilder trig, MazeModel model) {
         String startIri = model.startCell()
-                .or(() -> model.cells().stream()
-                        .map(MazeCell::coordinate)
-                        .min(CellCoordinate::compareTo))
                 .map(CellCoordinate::iri)
-                .orElse("</cells/1/1>");
+                .orElseGet(() -> model.rawStartIri()
+                        .orElseGet(() -> model.cells().stream()
+                                .map(MazeCell::coordinate)
+                                .min(CellCoordinate::compareTo)
+                                .map(CellCoordinate::iri)
+                                .orElse("</cells/1/1>")));
 
         trig.append("</maze> {").append(System.lineSeparator());
         trig.append("    </maze> a ldp:BasicContainer , maze:CcrsMaze ;").append(System.lineSeparator());
@@ -69,6 +72,14 @@ public final class MazeTrigSerializer {
         trig.append("        ldp:contains </map> ;").append(System.lineSeparator());
         trig.append("        xhv:start ").append(startIri).append(" .").append(System.lineSeparator());
         trig.append("}").append(System.lineSeparator());
+    }
+
+    private void appendPreservedDocumentBlocks(StringBuilder trig, MazeModel model) {
+        for (String block : model.preservedDocumentBlocks()) {
+            if (!block.isBlank()) {
+                trig.append(block.stripTrailing()).append(System.lineSeparator()).append(System.lineSeparator());
+            }
+        }
     }
 
     private String renderCell(
@@ -159,7 +170,7 @@ public final class MazeTrigSerializer {
                 .filter(model::hasCell)
                 .filter(target -> cell.coordinate().isAdjacent(target))
                 .map(CellCoordinate::iri)
-                .orElse("maze:Wall");
+                .orElseGet(() -> cell.preservedDirectionTarget(direction).orElse("maze:Wall"));
     }
 
     private Map<CellCoordinate, CellCoordinate> greenSuccessors(MazeModel model) {
@@ -170,6 +181,14 @@ public final class MazeTrigSerializer {
     }
 
     private void appendCorrectPlan(StringBuilder trig, MazeModel model) {
+        List<String> preservedLines = model.preservedCorrectPlanLines();
+        if (!preservedLines.isEmpty()) {
+            for (String line : preservedLines) {
+                trig.append(line).append(System.lineSeparator());
+            }
+            return;
+        }
+
         List<CellCoordinate> route = model.optimalRoute();
         if (route.isEmpty()) {
             return;

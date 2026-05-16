@@ -10,6 +10,7 @@ public final class MazeCell {
 
     private final CellCoordinate coordinate;
     private final EnumMap<Direction, CellCoordinate> connections = new EnumMap<>(Direction.class);
+    private final EnumMap<Direction, String> preservedDirectionTargets = new EnumMap<>(Direction.class);
     private String customTypeSuffix = "";
     private final List<String> customPredicateSegments = new ArrayList<>();
     private String customGraphTail = "";
@@ -29,6 +30,18 @@ public final class MazeCell {
 
     public Map<Direction, CellCoordinate> connections() {
         return Map.copyOf(connections);
+    }
+
+    public Optional<String> preservedDirectionTarget(Direction direction) {
+        return Optional.ofNullable(preservedDirectionTargets.get(direction));
+    }
+
+    public void setPreservedDirectionTarget(Direction direction, String target) {
+        if (target == null || target.isBlank() || "maze:Wall".equals(target.strip())) {
+            preservedDirectionTargets.remove(direction);
+        } else {
+            preservedDirectionTargets.put(direction, target.strip());
+        }
     }
 
     public String customTypeSuffix() {
@@ -51,7 +64,8 @@ public final class MazeCell {
         return !customTypeSuffix.isBlank()
                 || !customPredicateSegments.isEmpty()
                 || !customGraphTail.isBlank()
-                || !trailingGraphComment.isBlank();
+                || !trailingGraphComment.isBlank()
+                || !preservedDirectionTargets.isEmpty();
     }
 
     public void setCustomContent(
@@ -73,11 +87,14 @@ public final class MazeCell {
 
     boolean connect(Direction direction, CellCoordinate target) {
         CellCoordinate existing = connections.put(direction, target);
+        preservedDirectionTargets.remove(direction);
         return !target.equals(existing);
     }
 
     boolean disconnect(Direction direction) {
-        return connections.remove(direction) != null;
+        boolean changed = connections.remove(direction) != null;
+        changed |= preservedDirectionTargets.remove(direction) != null;
+        return changed;
     }
 
     boolean disconnectTarget(CellCoordinate target) {

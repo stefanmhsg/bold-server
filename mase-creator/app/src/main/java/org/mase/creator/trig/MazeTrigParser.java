@@ -28,6 +28,8 @@ public final class MazeTrigParser {
 
     public MazeModel parse(String trig) {
         MazeModel model = MazeModel.blank(1, 1);
+        model.setPreservedDocumentBlocksFromParser(collectPreservedDocumentBlocks(trig));
+        model.setPreservedCorrectPlanLinesFromParser(parseCorrectPlanLines(trig));
         List<PendingConnection> pendingConnections = new ArrayList<>();
         List<PendingConnection> pendingRouteSuccessors = new ArrayList<>();
         CellCoordinate parsedExitSource = null;
@@ -59,9 +61,12 @@ public final class MazeTrigParser {
             );
 
             for (Direction direction : Direction.values()) {
-                parseDirectionTarget(activeBody, direction)
-                        .flatMap(CellCoordinate::parse)
-                        .ifPresent(target -> pendingConnections.add(new PendingConnection(source, target)));
+                Optional<String> directionTarget = parseDirectionTarget(activeBody, direction);
+                directionTarget.flatMap(CellCoordinate::parse)
+                        .ifPresentOrElse(
+                                target -> pendingConnections.add(new PendingConnection(source, target)),
+                                () -> directionTarget.ifPresent(target -> cell.setPreservedDirectionTarget(direction, target))
+                        );
             }
 
             if (isExitReference(activeBody)) {
@@ -77,7 +82,8 @@ public final class MazeTrigParser {
             model.connectIfAdjacent(connection.source(), connection.target());
         }
 
-        parseStart(trig).ifPresent(model::setStartFromParser);
+        parseStartToken(trig).ifPresent(startToken -> CellCoordinate.parse(startToken)
+                .ifPresentOrElse(model::setStartFromParser, () -> model.setRawStartIriFromParser(startToken)));
         if (parsedExitSource != null) {
             model.setExitFromParser(parsedExitSource);
         }
@@ -327,12 +333,80 @@ public final class MazeTrigParser {
         return stripped.toString();
     }
 
-    private Optional<CellCoordinate> parseStart(String trig) {
+    private Optional<String> parseStartToken(String trig) {
         Matcher matcher = START_PATTERN.matcher(trig);
         if (matcher.find()) {
-            return CellCoordinate.parse(matcher.group(1));
+            return Optional.of(matcher.group(1));
         }
         return Optional.empty();
+    }
+
+    private List<String> collectPreservedDocumentBlocks(String trig) {
+        List<PreservedBlock> blocks = new ArrayList<>();
+
+        Matcher graphMatcher = GRAPH_PATTERN.matcher(trig);
+        while (graphMatcher.find()) {
+            String graphToken = "<" + graphMatcher.group(1) + ">";
+            if (shouldPreserveDocumentGraph(graphToken)) {
+                blocks.add(new PreservedBlock(graphMatcher.start(), graphMatcher.group().stripTrailing()));
+            }
+        }
+
+        blocks.addAll(collectCommentBlocksBeforeCorrectPlan(trig));
+        return blocks.stream()
+                .sorted(java.util.Comparator.comparingInt(PreservedBlock::position))
+                .map(PreservedBlock::text)
+                .toList();
+    }
+
+    private boolean shouldPreserveDocumentGraph(String graphToken) {
+        if ("</maze>".equals(graphToken) || "</cells/999>".equals(graphToken)) {
+            return false;
+        }
+        return CellCoordinate.parse(graphToken).isEmpty();
+    }
+
+    private List<PreservedBlock> collectCommentBlocksBeforeCorrectPlan(String trig) {
+        List<PreservedBlock> blocks = new ArrayList<>();
+        String[] lines = trig.split("\\R", -1);
+        int position = 0;
+        int blockStart = -1;
+        StringBuilder block = new StringBuilder();
+        boolean inCorrectPlan = false;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if ("#Correct plan".equals(trimmed)) {
+                inCorrectPlan = true;
+                flushCommentBlock(blocks, blockStart, block);
+            }
+
+            boolean keepComment = !inCorrectPlan
+                    && trimmed.startsWith("#")
+                    && !"#NAMED_GRAPHS_START".equals(trimmed)
+                    && !"#NAMED_GRAPHS_END".equals(trimmed);
+            if (keepComment) {
+                if (block.length() == 0) {
+                    blockStart = position;
+                }
+                block.append(line).append(System.lineSeparator());
+            } else {
+                flushCommentBlock(blocks, blockStart, block);
+                blockStart = -1;
+            }
+
+            position += line.length() + 1;
+        }
+
+        flushCommentBlock(blocks, blockStart, block);
+        return blocks;
+    }
+
+    private void flushCommentBlock(List<PreservedBlock> blocks, int blockStart, StringBuilder block) {
+        if (block.length() > 0 && blockStart >= 0) {
+            blocks.add(new PreservedBlock(blockStart, block.toString().stripTrailing()));
+            block.setLength(0);
+        }
     }
 
     private boolean isExitReference(String body) {
@@ -374,6 +448,26 @@ public final class MazeTrigParser {
             }
         }
         return route;
+    }
+
+    private List<String> parseCorrectPlanLines(String trig) {
+        int markerIndex = trig.indexOf("#Correct plan");
+        if (markerIndex < 0) {
+            return List.of();
+        }
+
+        List<String> lines = new ArrayList<>();
+        for (String line : trig.substring(markerIndex).split("\\R")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            if (!trimmed.startsWith("#")) {
+                break;
+            }
+            lines.add(line.stripTrailing());
+        }
+        return lines;
     }
 
     private List<List<CellCoordinate>> reconstructRoutesFromGreenSuccessors(
@@ -448,5 +542,8 @@ public final class MazeTrigParser {
             String graphTail,
             String trailingGraphComment
     ) {
+    }
+
+    private record PreservedBlock(int position, String text) {
     }
 }
