@@ -5,8 +5,6 @@ import org.mase.creator.model.MazeModel;
 import org.mase.creator.trig.MazeTrigParser;
 import org.mase.creator.trig.MazeTrigSerializer;
 
-import javax.swing.ButtonGroup;
-import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -14,7 +12,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
-import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
@@ -76,59 +73,23 @@ public final class MazeCreatorFrame extends JFrame {
     }
 
     private JToolBar createToolbar() {
-        JToolBar toolbar = new JToolBar();
-        toolbar.setFloatable(false);
-
-        JButton newButton = new JButton("New");
-        newButton.addActionListener(event -> newBlankModel());
-        toolbar.add(newButton);
-
-        JButton eraseAllButton = new JButton("Erase All");
-        eraseAllButton.addActionListener(event -> eraseAll());
-        toolbar.add(eraseAllButton);
-
-        JButton clearOptimalRouteButton = new JButton("Clear Optimal");
-        clearOptimalRouteButton.addActionListener(event -> clearOptimalRoute());
-        toolbar.add(clearOptimalRouteButton);
-
-        JButton clearGreenRouteButton = new JButton("Clear maze:green");
-        clearGreenRouteButton.addActionListener(event -> clearGreenRoute());
-        toolbar.add(clearGreenRouteButton);
-
-        JButton restoreButton = new JButton("Restore Auto-Save");
-        restoreButton.addActionListener(event -> restoreAutoSave());
-        toolbar.add(restoreButton);
-
-        JButton openButton = new JButton("Open");
-        openButton.addActionListener(event -> openTrigFile());
-        toolbar.add(openButton);
-
-        JButton createButton = new JButton("Create Maze");
-        createButton.addActionListener(event -> saveTrigFile());
-        toolbar.add(createButton);
-
-        toolbar.addSeparator();
-        ButtonGroup tools = new ButtonGroup();
-        for (EditorTool tool : EditorTool.values()) {
-            JToggleButton button = new JToggleButton(tool.label());
-            button.addActionListener(event -> editorPanel.setTool(tool));
-            tools.add(button);
-            toolbar.add(button);
-            if (tool == EditorTool.DRAW_PATH) {
-                button.setSelected(true);
-            }
-        }
-
-        toolbar.addSeparator();
-        toolbar.add(new JLabel("X"));
-        toolbar.add(xSpinner);
-        toolbar.add(new JLabel("Y"));
-        toolbar.add(ySpinner);
-
         xSpinner.addChangeListener(event -> resizeModelFromSpinners());
         ySpinner.addChangeListener(event -> resizeModelFromSpinners());
 
-        return toolbar;
+        return MazeToolbarFactory.create(
+                new MazeToolbarFactory.Actions(
+                        this::newBlankModel,
+                        this::openTrigFile,
+                        this::restoreAutoSave,
+                        this::saveTrigFile,
+                        this::eraseAll,
+                        this::clearOptimalRoute,
+                        this::clearGreenRoute
+                ),
+                editorPanel,
+                xSpinner,
+                ySpinner
+        );
     }
 
     private JPanel createStatusBar() {

@@ -376,16 +376,16 @@ These packages group the remaining work into coherent increments. Packages are i
 
 Goal: make the existing Swing editor easier to use before adding deeper scenario-authoring features.
 
-- [ ] Group toolbar actions by workflow:
+- [x] Group toolbar actions by workflow:
   - file/session actions: `New`, `Open`, `Restore Auto-Save`, `Create Maze`;
   - destructive/reset actions: `Erase All`, `Clear Optimal`, `Clear maze:green`;
   - drawing tools: path, wall, delete, start, exit, optimal route, `maze:green`;
   - grid size controls: X/Y spinners.
-- [ ] Add tooltips to every action and drawing tool.
-- [ ] Use clearer labels where the current wording is ambiguous.
-- [ ] Add visual separators or small titled groups so the toolbar no longer reads as one long button row.
-- [ ] Keep keyboard focus and selected-tool state predictable after clicking action buttons.
-- [ ] Add lightweight UI tests or component-level assertions where practical.
+- [x] Add tooltips to every action and drawing tool.
+- [x] Use clearer labels where the current wording is ambiguous.
+- [x] Add visual separators or small titled groups so the toolbar no longer reads as one long button row.
+- [x] Keep keyboard focus and selected-tool state predictable after clicking action buttons.
+- [x] Add lightweight UI tests or component-level assertions where practical.
 
 ### WP2: Preservation And Editing Safety
 
