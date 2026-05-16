@@ -56,6 +56,8 @@ The sample agent always sends `Authorization: bob`, starts with `GET /maze`, ent
 
 Detailed example-agent documentation: [src/main/java/org/maze/examples/README.md](src/main/java/org/maze/examples/README.md)
 
+API response behavior is documented in [src/main/java/org/maze/api/README.md](src/main/java/org/maze/api/README.md).
+
 ---
 
 ## Defining UI Elements in RDF

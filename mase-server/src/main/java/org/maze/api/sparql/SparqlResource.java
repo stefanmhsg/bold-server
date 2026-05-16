@@ -7,9 +7,13 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.UriInfo;
 
+import org.maze.api.ErrorResponseBuilder;
 import org.maze.application.SparqlService;
 import org.maze.domain.model.SparqlResult;
 import org.maze.domain.utils.AgentAuthUtil;
@@ -70,9 +74,11 @@ public class SparqlResource {
     public Response executeSparqlQueryBody(
             String query,
             @HeaderParam("Accept") String acceptHeader,
-            @HeaderParam("Authorization") String authorizationHeader) {
+            @HeaderParam("Authorization") String authorizationHeader,
+            @Context HttpHeaders headers,
+            @Context UriInfo uriInfo) {
         
-        return executeSparql(query, acceptHeader, authorizationHeader);
+        return executeSparql(query, acceptHeader, authorizationHeader, headers, uriInfo);
     }
     
     /**
@@ -99,23 +105,28 @@ public class SparqlResource {
     public Response executeSparqlQueryParam(
             @QueryParam("query") String query,
             @HeaderParam("Accept") String acceptHeader,
-            @HeaderParam("Authorization") String authorizationHeader) {
+            @HeaderParam("Authorization") String authorizationHeader,
+            @Context HttpHeaders headers,
+            @Context UriInfo uriInfo) {
         
         if (query == null || query.trim().isEmpty()) {
             log.warn("SPARQL endpoint called with empty query parameter");
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\":\"Query parameter is required\"}")
-                    .type("application/json")
-                    .build();
+            return errorResponse(headers, uriInfo, Response.Status.BAD_REQUEST.getStatusCode(),
+                    "Query parameter is required",
+                    "{\"error\":\"Query parameter is required\"}");
         }
         
-        return executeSparql(query, acceptHeader, authorizationHeader);
+        return executeSparql(query, acceptHeader, authorizationHeader, headers, uriInfo);
     }
     
     /**
      * Core SPARQL execution logic.
      */
-    private Response executeSparql(String query, String acceptHeader, String authorizationHeader) {
+    private Response executeSparql(String query,
+                                   String acceptHeader,
+                                   String authorizationHeader,
+                                   HttpHeaders headers,
+                                   UriInfo uriInfo) {
         // Extract agent name for audit logging (optional)
         String agentName = null;
         if (authorizationHeader != null && !authorizationHeader.trim().isEmpty()) {
@@ -131,10 +142,9 @@ public class SparqlResource {
         // Validate query
         if (query == null || query.trim().isEmpty()) {
             log.warn("SPARQL endpoint called with empty query");
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\":\"Query is required\"}")
-                    .type("application/json")
-                    .build();
+            return errorResponse(headers, uriInfo, Response.Status.BAD_REQUEST.getStatusCode(),
+                    "Query is required",
+                    "{\"error\":\"Query is required\"}");
         }
         
         // Get SPARQL service from servlet context
@@ -143,10 +153,9 @@ public class SparqlResource {
         
         if (sparqlService == null) {
             log.error("SparqlService not found in servlet context");
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("{\"error\":\"Game engine not initialized\"}")
-                    .type("application/json")
-                    .build();
+            return errorResponse(headers, uriInfo, Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(),
+                    "Game engine not initialized",
+                    "{\"error\":\"Game engine not initialized\"}");
         }
         
         // Execute query
@@ -166,16 +175,26 @@ public class SparqlResource {
             // Check if error message indicates syntax/parsing error
             if (result.errorMessage().toLowerCase().contains("parse") ||
                 result.errorMessage().toLowerCase().contains("syntax")) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(errorJson)
-                        .type("application/json")
-                        .build();
+                return errorResponse(headers, uriInfo, Response.Status.BAD_REQUEST.getStatusCode(),
+                        result.errorMessage(), errorJson);
             } else {
-                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                        .entity(errorJson)
-                        .type("application/json")
-                        .build();
+                return errorResponse(headers, uriInfo, Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(),
+                        result.errorMessage(), errorJson);
             }
         }
+    }
+
+    private Response errorResponse(HttpHeaders headers,
+                                   UriInfo uriInfo,
+                                   int statusCode,
+                                   String message,
+                                   String fallbackJson) {
+        return ErrorResponseBuilder.build(
+                headers.getAcceptableMediaTypes(),
+                statusCode,
+                uriInfo.getAbsolutePath().toString(),
+                message,
+                fallbackJson,
+                MediaType.APPLICATION_JSON_TYPE);
     }
 }

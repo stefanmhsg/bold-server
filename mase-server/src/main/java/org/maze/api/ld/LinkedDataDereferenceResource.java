@@ -36,6 +36,7 @@ import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
+import org.maze.api.ErrorResponseBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +79,7 @@ public class LinkedDataDereferenceResource {
     private ServletContext servletContext;
 
     @GET
-    @Produces({ "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples" })
+    @Produces({ "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples", "text/plain" })
     public Response getGraph(@Context UriInfo uriinfo,
                              @Context HttpHeaders headers,
                              @HeaderParam("Authorization") String authorization) {
@@ -88,18 +89,16 @@ public class LinkedDataDereferenceResource {
         String agentName = AgentAuthUtil.extractAgentName(authorization, requestedCellUri);
         
         if (agentName != null && agentName.contains(" ")) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Agent name cannot contain whitespaces.")
-                    .build();
+            return errorResponse(headers, Response.Status.BAD_REQUEST.getStatusCode(),
+                    requestedCellUri, "Agent name cannot contain whitespaces.");
         }
 
         AccessValidator accessValidator = getAccessValidator();
         AccessResult accessResult = accessValidator.validateAccess(agentName, requestedCellUri, "GET");
         
         if (!accessResult.isAllowed()) {
-            return Response.status(Response.Status.FORBIDDEN)
-                    .entity(accessResult.message())
-                    .build();
+            return errorResponse(headers, Response.Status.FORBIDDEN.getStatusCode(),
+                    requestedCellUri, accessResult.message());
         }
         
         // Use JAX-RS content negotiation to determine best format
@@ -113,7 +112,7 @@ public class LinkedDataDereferenceResource {
         
         RDFFormat fmt = mediaTypeToRDFFormat(acceptedType);
         log.info("LD GET request for graph ({}): {}", acceptedType, uriinfo.getAbsolutePath());
-        StreamingOutput out = streamGraph(uriinfo, fmt);
+        StreamingOutput out = streamGraph(uriinfo, headers, fmt);
         return Response.ok(out, acceptedType).build();
     }
 
@@ -128,7 +127,7 @@ public class LinkedDataDereferenceResource {
 
     @POST
     @Consumes({ "text/turtle", "application/n-triples", "application/ld+json", "application/rdf+xml", "text/plain", "*/*" })
-    @Produces("text/plain")
+    @Produces({ "text/plain", "text/turtle", "application/ld+json", "application/rdf+xml", "application/n-triples" })
     public Response postGraph(@HeaderParam("Authorization") String authorization,
                               @Context HttpHeaders headers,
                               @Context UriInfo uriinfo, 
@@ -137,9 +136,8 @@ public class LinkedDataDereferenceResource {
         String agentName = AgentAuthUtil.extractAgentName(authorization, graphIRI);
         
         if (agentName != null && agentName.contains(" ")) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Agent name cannot contain whitespaces.")
-                    .build();
+            return errorResponse(headers, Response.Status.BAD_REQUEST.getStatusCode(),
+                    graphIRI, "Agent name cannot contain whitespaces.");
         }
         
         log.info("LD POST to graph: {} by agent: {}", graphIRI, 
@@ -149,9 +147,8 @@ public class LinkedDataDereferenceResource {
         MediaType contentType = headers.getMediaType();
         Model model = parseRdfBody(body, graphIRI, contentType);
         if (model == null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Bad RDF payload")
-                    .build();
+            return errorResponse(headers, Response.Status.BAD_REQUEST.getStatusCode(),
+                    graphIRI, "Bad RDF payload");
         }
 
         // Execute POST operation
@@ -160,13 +157,12 @@ public class LinkedDataDereferenceResource {
         
         if (!postResult.isSuccess()) {
             log.warn("POST to {} failed for agent {}: {}", graphIRI, agentName, postResult.errorMessage());
-            return Response.status(postResult.statusCode())
-                    .entity(postResult.errorMessage())
-                    .build();
+            return errorResponse(headers, postResult.statusCode(), graphIRI, postResult.errorMessage());
         }
         
         log.info("POST successful: {} triples merged into {}", postResult.triplesAdded(), graphIRI);
         return Response.created(URI.create(graphIRI))
+                .type(MediaType.TEXT_PLAIN_TYPE)
                 .entity("Graph updated: " + graphIRI)
                 .build();
     }
@@ -209,7 +205,7 @@ public class LinkedDataDereferenceResource {
     /**
      * Create a StreamingOutput that exports an RDF graph.
      */
-    private StreamingOutput streamGraph(UriInfo uriinfo, RDFFormat outputFormat) {
+    private StreamingOutput streamGraph(UriInfo uriinfo, HttpHeaders headers, RDFFormat outputFormat) {
         SailRepository repo = getRepository();
         SailRepositoryConnection connection = repo.getConnection();
 
@@ -224,9 +220,8 @@ public class LinkedDataDereferenceResource {
                 connection.close();
                 log.info("LD graph not found, returning 404 for {}", graphName);
                 throw new WebApplicationException(
-                    Response.status(Response.Status.NOT_FOUND)
-                            .entity("Graph not found in RDF dataset: " + graphName)
-                            .build());
+                    errorResponse(headers, Response.Status.NOT_FOUND.getStatusCode(),
+                            graphName.stringValue(), "Graph not found in RDF dataset: " + graphName));
             }
 
             StreamingOutput output = new StreamingOutput() {
@@ -252,6 +247,10 @@ public class LinkedDataDereferenceResource {
             log.error("LD error while dereferencing {}", uriinfo.getAbsolutePath(), e);
             throw e;
         }
+    }
+
+    private Response errorResponse(HttpHeaders headers, int statusCode, String targetResourceUri, String message) {
+        return ErrorResponseBuilder.build(headers.getAcceptableMediaTypes(), statusCode, targetResourceUri, message);
     }
 
     /**

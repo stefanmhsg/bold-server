@@ -32,6 +32,12 @@ public final class MazeVocab {
      * Used for data types like dateTime, integer, etc.
      */
     public static final String XSD = "http://www.w3.org/2001/XMLSchema#";
+
+    /**
+     * W3C HTTP-in-RDF vocabulary namespace.
+     * Used for RDF representations of HTTP response metadata.
+     */
+    public static final String HTTP_NS = "http://www.w3.org/2011/http#";
     
     /**
      * Dynamic Maze vocabulary namespace.
@@ -50,6 +56,12 @@ public final class MazeVocab {
      * Used for UI element properties and types.
      */
     public static final String UI_NS = "https://example.org/ui#"; //TODO
+
+    /**
+     * MASE HTTP API vocabulary namespace.
+     * Used for RDF representations of API-level metadata such as error responses.
+     */
+    public static final String MASE_NS = "https://example.org/mase#"; //TODO
     
     // ============ Common Predicates ============
     
@@ -57,6 +69,21 @@ public final class MazeVocab {
      * Predicate for maze navigation - request by Agent to move to target cell.
      */
     public static final String ENTERS_FROM = DYNMAZE_NS + "entersFrom";
+
+    /**
+     * Exact human-readable error message returned by the HTTP API.
+     */
+    public static final String ERROR_MESSAGE = MASE_NS + "errorMessage";
+
+    /**
+     * Numeric HTTP status code returned with an RDF error response.
+     */
+    public static final String ERROR_STATUS_CODE = MASE_NS + "errorStatusCode";
+
+    /**
+     * W3C HTTP-in-RDF status code value property.
+     */
+    public static final String HTTP_STATUS_CODE_VALUE = HTTP_NS + "statusCodeValue";
 
     /**
      * Object for successful movement - indicates agent has moved to target cell.
