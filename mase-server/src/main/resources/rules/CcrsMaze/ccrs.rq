@@ -706,7 +706,49 @@ WHERE {
     BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
     BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
   
-    # starting at cell 36/37 and ending at cell 54/58 
+    # starting at cell 36/37 up to 31/43 and ending at 38/43
+    FILTER(
+      (
+        # Base Frame
+        ?x >= 31 &&
+        ?x <= 38 &&
+        ?y >= 38 &&
+        ?y <= 43
+      )
+      # Include
+      ||
+      ?coords IN ("36/37") 
+    )
+} ;
+
+# ----------
+# SOCIAL ZONE
+# ----------
+
+# Set Cell Background Color
+INSERT {
+    GRAPH ?g {
+        ?cell ui:hasUiElement ?cellColor .
+
+        ?cellColor ui:layer "cellBackground" ;
+                             ui:fill "#f1bbc2" .
+    }
+}
+WHERE {
+    GRAPH ?g {
+        ?cell a maze:Cell .
+    }
+    BIND(IRI(CONCAT(STR(?cell), "#ui-bg")) AS ?cellColor)
+
+    # limit to zone
+    BIND(STRAFTER(STR(?g), "/cells/") AS ?coords)
+    FILTER(CONTAINS(?coords, "/"))  # keep only /cells/x/y
+  
+    BIND(xsd:integer(STRBEFORE(?coords, "/")) AS ?x)
+    BIND(xsd:integer(STRAFTER(?coords, "/")) AS ?y)
+  
+    # starting at cell 40/28 and ending at cell 54/58, plus the
+    # remainder of the previous combined construction/social zone.
     FILTER(
       (
         (
@@ -724,11 +766,18 @@ WHERE {
         )
         ) &&
         # Exclude
-        ?coords NOT IN ("40/33") 
+        ?coords NOT IN ("40/33") &&
+        # Construction site zone
+        !(
+            ?coords IN ("36/37") ||
+            (
+                ?x >= 31 &&
+                ?x <= 38 &&
+                ?y >= 38 &&
+                ?y <= 43
+            )
+        )
       )
-      # Include
-      ||
-      ?coords IN ("36/37") 
     )
 } 
 
