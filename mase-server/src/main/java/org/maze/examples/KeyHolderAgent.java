@@ -61,7 +61,7 @@ public class KeyHolderAgent {
     private static final String BASE_URI = "http://127.0.1.1:8080";
     private static final String MAZE_URI = BASE_URI + "/maze";
     private static final String AGENT_NAME = "key-holder-agent-3";
-    private static final String TARGET_COORDINATE = "42/41"; // 42/41 for CCRS-Scenario. 15/7 for paper
+    private static final String TARGET_COORDINATE = "42/43"; // 42/43 for CCRS-Scenario. 15/7 for paper
     private static final int DEFAULT_A2A_PORT = 8095;
     private static final int MAX_STEPS = 2_000;
     private static final String CELLS_SEGMENT = "/cells/";
@@ -97,10 +97,7 @@ public class KeyHolderAgent {
             "36/36", "36/37", "36/38", "36/39", "35/39", "34/39", "34/40", 
             "33/40", "32/40", "31/40", "31/41", "31/42", "31/43");
 
-    private static final List<String> TARGET_LOCATION_COORDINATES = List.of(
-            "42/43","42/42","42/41");
-
-    private static final List<List<String>> GUIDED_COORDINATE_LISTS = List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES, TARGET_LOCATION_COORDINATES);
+    private static final List<List<String>> GUIDED_COORDINATE_LISTS = List.of(GREEN_KEY_LOCATION_COORDINATES, MIXED_ZONE_EMERGENCY_COORDINATES, CONSTRUCTION_SITE_ZONE_COORDINATES);
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
