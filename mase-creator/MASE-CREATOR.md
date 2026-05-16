@@ -340,6 +340,7 @@ This section should eventually move into a dedicated `mase-server` README once t
 - Parser ignores non-coordinate named graphs without failing.
 - Boundary hit testing only selects a wall when the click is within the configured margin.
 - Auto-save writes a restorable TriG file.
+- Current UI shell test: toolbar controls are grouped by workflow, all action/tool buttons expose tooltips, and the active drawing tool remains visually clear.
 - Fixture round trip: parse [CcrsMazeV1.trig](app/src/test/resources/fixtures/CcrsMazeV1.trig), serialize it, and verify active `maze:green` successors plus representative comments, non-coordinate graphs, legacy direction targets, custom cell payloads, and raw correct-plan comments survive whitespace-insensitively.
 - Future package export test: create a scenario package and verify it contains data, properties, rule folders, README, manifest, and `.env.example`.
 - Future package export test: generated package paths are relative to the package root and contain no user-local absolute paths or secrets.
@@ -349,7 +350,11 @@ This section should eventually move into a dedicated `mase-server` README once t
 - Future LLM-assisted rule test: with mocked LLM output, generated draft rules are marked as unvalidated until local validation succeeds.
 - Future server-package smoke test: a scenario folder can be loaded as one unit by the server-side loader once that loader exists.
 
-## To Do
+## Work Packages
+
+These packages group the remaining work into coherent increments. Packages are intentionally ordered from near-term MVP polish to larger authoring and packaging features.
+
+### WP0: Completed Foundations
 
 - [x] Add this living implementation document.
 - [x] Add logical model classes for coordinates, directions, cells, strokes, and grid bounds.
@@ -366,14 +371,100 @@ This section should eventually move into a dedicated `mase-server` README once t
 - [x] Add regression tests for the logical editor and TriG IO.
 - [x] Preserve custom per-cell graph payloads during load and export.
 - [x] Add a CcrsMazeV1 fixture round-trip regression for preserving existing scenario components.
-- [ ] Future: add **Create Scenario Package** export with TriG, properties, rules, README, manifest, and `.env.example`.
-- [ ] Future: add typed key-lock authoring tools that generate RDF and matching SPARQL rule requirements.
-- [ ] Future: add typed editing controls for preserved custom per-cell statements.
-- [ ] Future: add custom inline predicate-object and custom cell-block editors.
-- [ ] Future: add deterministic SPARQL rule templates based on existing working rules.
-- [ ] Future: add optional LLM-assisted SPARQL drafting through a local `.env` key, with generated rules treated as drafts until validated.
-- [ ] Future: add scenario-package validation that checks data, rules, properties, docs, missing references, and secret leakage.
-- [ ] Future: warn when preserved custom references point at cells whose base maze connections changed.
-- [ ] Future: add undo/redo for editor operations.
-- [ ] Future: add validation warnings directly in the editor before export.
-- [ ] Future: support non-coordinate legacy start cells through an explicit migration workflow.
+
+### WP1: Current MVP UI Cleanup
+
+Goal: make the existing Swing editor easier to use before adding deeper scenario-authoring features.
+
+- [ ] Group toolbar actions by workflow:
+  - file/session actions: `New`, `Open`, `Restore Auto-Save`, `Create Maze`;
+  - destructive/reset actions: `Erase All`, `Clear Optimal`, `Clear maze:green`;
+  - drawing tools: path, wall, delete, start, exit, optimal route, `maze:green`;
+  - grid size controls: X/Y spinners.
+- [ ] Add tooltips to every action and drawing tool.
+- [ ] Use clearer labels where the current wording is ambiguous.
+- [ ] Add visual separators or small titled groups so the toolbar no longer reads as one long button row.
+- [ ] Keep keyboard focus and selected-tool state predictable after clicking action buttons.
+- [ ] Add lightweight UI tests or component-level assertions where practical.
+
+### WP2: Preservation And Editing Safety
+
+Goal: make imported custom scenarios safer to inspect and edit without silently breaking preserved RDF.
+
+- [ ] Warn when preserved custom references point at cells whose base maze connections changed.
+- [ ] Add validation warnings directly in the editor before export.
+- [ ] Support non-coordinate legacy start cells through an explicit migration workflow.
+- [ ] Show a custom-content summary for selected cells.
+- [ ] Track whether a custom cell payload is unchanged, edited, or potentially stale.
+
+### WP3: Custom RDF Editing
+
+Goal: give advanced users controlled editing access to cell-specific RDF without hand-editing the exported TriG file.
+
+- [ ] Add typed editing controls for preserved custom per-cell statements.
+- [ ] Add custom inline predicate-object editor for the cell subject.
+- [ ] Add custom cell-block editor for additional statements inside the cell named graph.
+- [ ] Separate generated canonical predicates from user-authored custom predicates in the UI.
+- [ ] Validate custom RDF snippets before allowing export.
+- [ ] Preserve custom inline predicate-object and custom block edits across load, edit, export, and re-import.
+
+### WP4: Typed Scenario Mechanics
+
+Goal: model common interactive mechanics explicitly so users do not need to write RDF and SPARQL manually.
+
+- [ ] Add typed key-lock authoring tools that generate RDF and matching SPARQL rule requirements.
+- [ ] Add key placement settings: key type, key value, display label, target lock, and optional UI styling.
+- [ ] Add lock placement settings: accepted key, unlock behavior, single-use/permanent behavior, and target passage.
+- [ ] Add templates for redirects, broken cells, colored markers, pickup items, and single-passage enforcement.
+- [ ] Generate Hydra operation and SHACL shape fragments from structured settings where needed.
+- [ ] Add smoke tests for generated key-lock and redirect mechanics.
+
+### WP5: Deterministic Rule Generation
+
+Goal: turn existing working SPARQL rules into reusable creator templates.
+
+- [ ] Add deterministic SPARQL rule templates based on existing working rules.
+- [ ] Extract reusable rule fragments from current CcrsMaze and Global rules.
+- [ ] Add a rule-generation service that maps typed mechanics to `.rq` outputs.
+- [ ] Validate generated SPARQL syntax.
+- [ ] Dry-run generated rules against a temporary dataset.
+- [ ] Report missing prefixes, missing cells, and missing supporting RDF before package export.
+
+### WP6: Scenario Package Export
+
+Goal: export a complete scenario folder instead of requiring users to manually place data, rules, config, and docs.
+
+- [ ] Add **Create Scenario Package** export with TriG, properties, rules, README, manifest, and `.env.example`.
+- [ ] Add package metadata fields: scenario name, description, start/exit notes, mechanics used, generated files, and warnings.
+- [ ] Generate a properties file derived from the current `sim-*.properties` pattern.
+- [ ] Generate a scenario README from the package metadata.
+- [ ] Ensure generated package paths are relative to the package root and contain no user-local absolute paths.
+- [ ] Add scenario-package validation that checks data, rules, properties, docs, missing references, and secret leakage.
+
+### WP7: Optional LLM-Assisted SPARQL Drafting
+
+Goal: support experimental rule authoring while keeping deterministic templates as the trusted default.
+
+- [ ] Add optional LLM-assisted SPARQL drafting through a local `.env` key.
+- [ ] Keep `.env` local and export only `.env.example`.
+- [ ] Provide prompt context from scenario metadata, selected RDF snippets, existing working rules, and requested behavior.
+- [ ] Mark LLM-generated rules as drafts until local validation succeeds.
+- [ ] Add mocked-output tests for the LLM rule draft workflow.
+
+### WP8: Server Scenario Folder Alignment
+
+Goal: align future creator packages with a simpler `mase-server` loading model.
+
+- [ ] Define the scenario folder contract in a future `mase-server` README.
+- [ ] Add server-side support for loading data, rules, properties, validation files, and docs from one scenario folder.
+- [ ] Keep compatibility with the current separated data/rules/config setup during migration.
+- [ ] Add server-package smoke tests once the loader exists.
+
+### WP9: Editor Ergonomics
+
+Goal: improve day-to-day editing once the main authoring model is stable.
+
+- [ ] Add undo/redo for editor operations.
+- [ ] Add keyboard shortcuts for common tools and actions.
+- [ ] Add selection details for the currently hovered or selected cell.
+- [ ] Add optional minimap or viewport controls for large scenarios.
