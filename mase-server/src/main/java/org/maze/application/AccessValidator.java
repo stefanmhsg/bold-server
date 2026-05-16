@@ -210,10 +210,10 @@ public class AccessValidator {
     private AccessResult validateInteraction(String agentName, String requestedCellUri, String currentLocation) {
         // Agent can only POST to and GET from cells they're currently in
         if (!currentLocation.equals(requestedCellUri)) {
-            log.warn("Agent {} at {} attempted to POST to {} - denied (not at location)",
+            log.warn("Agent {} at {} attempted to POST or GET to {} - denied (not at location)",
                      agentName, currentLocation, requestedCellUri);
             return AccessResult.deny(
-                String.format("Access denied. You can only POST to your current cell. You are at %s, not %s",
+                String.format("Access denied. You can only POST or GET from your current cell. You are at %s, not %s",
                              currentLocation, requestedCellUri));
         }
         
