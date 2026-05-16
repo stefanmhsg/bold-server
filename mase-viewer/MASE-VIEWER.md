@@ -337,11 +337,39 @@ Medium-term:
 
 - Introduce an event archive module with an interface that can start with
   IndexedDB and later support export or server-backed storage.
+- Investigate RDF-backed agent location rendering from `maze:contains` cell
+  triples.
 - Archive completed agent trails when an exit movement arrives.
 - Add CSV export for agent movement archives.
 - Add NDJSON export for transaction archives.
 - Add table pagination or virtual scrolling.
 - Store summary rows separately from full transaction details.
+
+Workpackage: agent location rendering from cell containment triples:
+
+- Goal: determine whether live agent markers can be rendered from authoritative
+  `maze:contains` triples in cell graphs instead of relying only on frontend
+  projection from `AGENT_MOVED` events.
+- Review the server-side movement source of truth in
+  [PostHandler.java](../mase-server/src/main/java/org/maze/application/PostHandler.java)
+  and the global movement rules in
+  [move.rq](../mase-server/src/main/resources/rules/Global/move.rq) and
+  [move_start.rq](../mase-server/src/main/resources/rules/Global/move_start.rq).
+- Determine how the viewer could receive containment state: admin snapshot
+  fields, a SPARQL query, transaction trace deltas, a new compact WebSocket
+  event, or deriving `AGENT_MOVED` server-side from RDF updates.
+- Compare the RDF-backed path with the current canvas path in
+  [mazeState.svelte.ts](src/lib/mazeState.svelte.ts) and
+  [MazeCanvas.svelte](src/lib/components/MazeCanvas.svelte), especially for
+  latency, event ordering, reconnect replay, trace mode `off`, and exit-cell
+  handling.
+- Prototype a normalization layer that turns containment changes into the same
+  canvas movement command shape used by the current `AGENT_MOVED` listener so
+  rendering stays fast and table history does not become the canvas source of
+  truth.
+- Decide whether `AGENT_MOVED` should remain the compact rendering event, become
+  derived from RDF containment changes on the server, or be replaced by an
+  RDF-backed location event.
 
 Long-term:
 
