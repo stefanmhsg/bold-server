@@ -46,6 +46,65 @@ Core types:
 
 The model stores walls as absent connections. Connections are always normalized bidirectionally when the target is an adjacent coordinate cell.
 
+## Technology Notes And Migration Discussion
+
+Current MVP technology:
+
+- Java with Gradle is used because this project already lives near Java/RDF tooling and can reuse the existing repository setup.
+- Swing is used for the desktop editor UI because it is available in the JDK, needs no browser/runtime packaging, and is enough for a grid canvas, toolbar buttons, file dialogs, and quick local testing.
+- The editor model is plain Java objects (`MazeModel`, `MazeCell`, `CellCoordinate`, `Direction`) rather than RDF4J/Jena state. This keeps drawing operations deterministic and testable.
+- TriG parsing/serialization is mostly custom and lexical. This was chosen because the editor must preserve comments, one-line cell formatting, commented-out scenario variants, and custom graph payloads that normal RDF parsers/writers would discard or reformat.
+- Tests are JUnit-based and focus on model behavior plus parser/serializer round trips.
+
+Why this is acceptable for the MVP:
+
+- It keeps the creator self-contained and fast to iterate on.
+- It avoids introducing a web build toolchain before the core maze model and preservation rules are stable.
+- It allows direct local file access, auto-save, and fixed output paths without a server component.
+- It makes the important architectural boundary clear: logical maze state is separate from RDF/SPARQL validation.
+
+Known limitations of the current stack:
+
+- Swing is functional but not ideal for a polished authoring tool with rich inspectors, docked panels, searchable RDF forms, drag handles, minimaps, and complex validation feedback.
+- Custom lexical TriG handling is useful for preservation, but it is also a maintenance risk. It should remain isolated behind parser/serializer tests and fixture round trips.
+- UI state is currently coupled to the Swing panel. A future migration is easier if core operations stay in model/service classes and do not depend on Swing types.
+- Rich RDF editing will become awkward if implemented only through text dialogs. Typed editors for keys, locks, UI markers, and rule requirements need stronger form abstractions.
+
+Future UI technology candidates:
+
+- **JavaFX desktop app**:
+  - Keeps the app in Java and can reuse the current model almost directly.
+  - Better UI controls and styling than Swing.
+  - Still a desktop app; packaging and distribution need attention.
+- **Web UI with local backend**:
+  - A browser frontend can provide a more sophisticated canvas, side panels, validation views, and package wizards.
+  - The Java core could become a local service or CLI library that handles parsing, serialization, rule generation, and validation.
+  - Adds frontend build complexity and local server/process coordination.
+- **Electron/Tauri-style desktop shell**:
+  - Good for a polished desktop authoring experience using web UI technology.
+  - Needs a clear bridge to the Java/RDF logic or a rewrite of the core services.
+  - Packaging can become more complex than the current Gradle app.
+- **Integrated server-hosted editor**:
+  - The creator could eventually run as part of `mase-server`, editing scenario folders directly.
+  - Useful once server-side scenario packages exist.
+  - Risk: editor experiments could become coupled to runtime server behavior too early.
+
+Migration principles:
+
+- Keep `MazeModel` and related logical operations UI-agnostic.
+- Keep TriG preservation, package generation, and rule generation behind service APIs with tests.
+- Do not put Swing-specific types into parser, serializer, rule-generation, or scenario-package code.
+- Treat the current Swing UI as replaceable MVP shell around reusable core logic.
+- Prefer adding new authoring features first as model/service capabilities, then exposing them through Swing controls. That makes later migration to JavaFX or web UI less expensive.
+
+Open discussion questions:
+
+- Should the long-term creator be a standalone desktop application, a web UI backed by a local service, or a module inside `mase-server`?
+- Should RDF editing use structured forms only, or also expose an expert text editor for raw cell graph snippets?
+- Should scenario-package generation become the main output path, with standalone TriG export treated as an advanced/debug export?
+- Should LLM-assisted SPARQL drafting live inside the creator UI, or as a separate command/plugin that the creator can call?
+- How much of the current lexical TriG preservation should remain once typed editors cover the major custom scenario features?
+
 ## Editing Behavior
 
 - Empty grid tiles render white with light borders.
