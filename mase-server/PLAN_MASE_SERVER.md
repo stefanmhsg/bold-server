@@ -4,7 +4,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 No `PLANS.md` or `.agent/PLANS.md` guide is currently checked into this repository. This plan follows the local `PLAN_<SCOPE>.md` convention from the Codex exec-plan guidance.
 
-This is the directory-scope plan for `mase-server`. Feature-specific server plans may exist beside it, such as [PLAN_ADMIN_RESET.md](PLAN_ADMIN_RESET.md), and should be referenced here when their work affects the server-wide architecture. The creator-side feature plan for package export is [../mase-creator/MASE-CREATOR.md](../mase-creator/MASE-CREATOR.md), especially WP6 and WP8.
+This is the directory-scope plan for `mase-server`. Feature-specific server plans may exist beside it while active, and should be referenced here when their work affects the server-wide architecture. Completed feature work such as admin reset is captured in this umbrella plan and [README.md](README.md). The creator-side feature plan for package export is [../mase-creator/MASE-CREATOR.md](../mase-creator/MASE-CREATOR.md), especially WP6 and WP8.
 
 ## Purpose / Big Picture
 
@@ -27,7 +27,7 @@ With no arguments, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defau
 ## Progress
 
 - [x] (2026-05-17 15:41+02:00) Investigated creator WP6/WP8 notes, existing server docs, startup configuration, data loading, rule loading, Docker entry points, and example-agent coupling.
-- [x] (2026-05-17 15:41+02:00) Created this `mase-server` directory-scope ExecPlan and cross-linked the feature-specific creator and admin reset plans.
+- [x] (2026-05-17 15:41+02:00) Created this `mase-server` directory-scope ExecPlan and cross-linked related feature planning.
 - [x] (2026-05-17 16:51+02:00) Clarified the rule package contract: every `.rq` file under `rules/` is active and loaded recursively; `rules-disabled/` is ignored and reserved for deactivated or work-in-progress rules.
 - [x] (2026-05-17 17:19+02:00) Defined and documented package mode in [README.md](README.md): `--scenario <folder>`, `MASE_SCENARIO_DIR`, recursive active `rules/`, ignored `rules-disabled/`, and built-in [scenarios](scenarios).
 - [x] (2026-05-17 17:19+02:00) Added `ScenarioPackage` and `ScenarioPackageResolver` for package-local `scenario.properties`, manifest, data validation, recursive active rules, validation assets, and agents directory detection.
@@ -41,6 +41,7 @@ With no arguments, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defau
 - [x] (2026-05-17) After user confirmation that package mode works, removed legacy startup parsing, root-level runtime assets, and shared resource-rule loading.
 - [x] (2026-05-17) Moved scenario-specific Java agents into package-owned source trees and updated package manifests, package README files, and Gradle JavaExec tasks.
 - [x] (2026-05-17) Revalidated package-only server build, tests, and distribution after the agent move and cleanup.
+- [x] (2026-05-17) Retired the completed admin reset feature plan after confirming the endpoint, reset service, mutation coordination, replay-buffer cleanup, viewer reset flow, and reset tests are in place.
 - [ ] Update creator WP6 package export expectations to match the final server package contract.
 - [ ] Investigate whether active rule sorting should normalize separators and case for byte-for-byte stable rule traces across Windows, macOS, and Linux.
 - [ ] Investigate [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) layout selection: compare the generic layout and CCRS layout, then decide whether the CCRS layout can safely cover all scenarios so the type-based split can be removed.
@@ -72,8 +73,8 @@ With no arguments, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defau
 
 ## Decision Log
 
-- Decision: Treat this file as the `mase-server` umbrella plan, not as a replacement for feature-specific plans.
-  Rationale: Scenario packaging, admin reset, transaction tracing, agent launch behavior, and viewer integration are related but not the same deliverable. A server-scope plan gives future sessions one entry point and can point to narrower plans for implementation detail.
+- Decision: Treat this file as the `mase-server` umbrella plan, not as a replacement for active feature-specific plans.
+  Rationale: Scenario packaging, completed admin reset, transaction tracing, agent launch behavior, and viewer integration are related but not the same deliverable. A server-scope plan gives future sessions one entry point and can point to active narrower plans for implementation detail.
   Date/Author: 2026-05-17 / Codex
 
 - Decision: All `.rq` files under `rules/` are active and loaded recursively; `rules-disabled/` is the standard non-loaded holding area.
@@ -105,6 +106,8 @@ With no arguments, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defau
 `mase-server` is now package-only for scenario startup. `ServerConfiguration` loads the selected package's `scenario.properties`, `Configurator` rejects legacy task-name arguments with a clear message, package-local rules are loaded from filesystem paths, and the distribution copies package folders rather than split runtime asset trees.
 
 The server ships built-in package copies for SmallMaze, MidMaze, BigMaze, MaseCreator, and CCRS. `mase.server.protocol = ldp` was removed end to end after the audit showed it had no runtime effect. Scenario-specific Java agents now live under the scenario packages and can be run through package-specific Gradle JavaExec tasks.
+
+The admin reset feature is complete and no longer needs a separate active plan. `POST /admin/maze/reset` clears and reloads the active scenario dataset, runs startup rules, serializes reset against agent POST and SPARQL mutations, clears stale WebSocket replay messages, returns a fresh admin snapshot, and is documented in [README.md](README.md).
 
 ## Current Scenario Contract
 

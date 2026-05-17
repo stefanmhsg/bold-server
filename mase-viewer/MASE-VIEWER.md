@@ -31,8 +31,8 @@ Future work should preserve that boundary. Users should be able to watch long-ru
 - Observation: Event-history offloading helps only when the live UI stops retaining and rendering unbounded arrays.
   Evidence: [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts) keeps bounded hot arrays, while [src/lib/eventArchive.ts](src/lib/eventArchive.ts) stores accepted events in IndexedDB for later paging and export.
 
-- Observation: Reset is both a server operation and a viewer state transition.
-  Evidence: [../mase-server/PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md) defines the server reset endpoint and replay-buffer behavior, while [src/routes/+page.svelte](src/routes/+page.svelte) handles export/discard/cancel, page invalidation, inspector closure, and canvas remounting.
+- Observation: Reset is both a completed server operation and a viewer state transition.
+  Evidence: [../mase-server/README.md](../mase-server/README.md) documents the completed server reset endpoint and replay-buffer behavior, while [src/routes/+page.svelte](src/routes/+page.svelte) handles export/discard/cancel, page invalidation, inspector closure, and canvas remounting.
 
 - Observation: Browser code cannot silently write exported logs into the repository or Docker container filesystem.
   Evidence: [src/lib/eventArchive.ts](src/lib/eventArchive.ts) uses browser-initiated file save where available and falls back to a normal browser download.
@@ -243,7 +243,7 @@ When changing log retention, update Clear Tables, Reset Store log deletion behav
 
 Do not assume `TRANSACTION` events are enabled. The server can run trace mode `off`, `summary`, or `full`. Do not assume full transaction detail exists, because summary mode intentionally omits request bodies and triple-level diffs.
 
-Before changing reset controls or automatic reset handling, read [../mase-server/PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). Viewer reset behavior depends on the server endpoint, stale replay cleanup, and reset notification contract.
+Before changing reset controls or automatic reset handling, read the completed server reset contract in [../mase-server/README.md](../mase-server/README.md), [MazeResetService.java](../mase-server/src/main/java/org/maze/application/MazeResetService.java), and [MazeBroadcaster.java](../mase-server/src/main/java/org/maze/api/websocket/MazeBroadcaster.java). Viewer reset behavior depends on the server endpoint, stale replay cleanup, and reset notification contract.
 
 ## Interfaces and Dependencies
 
@@ -251,7 +251,7 @@ The viewer depends on `GET /admin/maze` returning a `MazeAdminSnapshot` with lay
 
 The viewer depends on browser-facing WebSocket events from `PUBLIC_MASE_SERVER_WS_URL` or its derived default. Existing event types consumed by [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts) are `AGENT_MOVED`, `UI_UPSERT`, `UI_DELETE`, and `TRANSACTION`.
 
-The reset UI depends on [../mase-server/PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). The server plan defines the `POST /admin/maze/reset` response, WebSocket replay-buffer cleanup behavior, and reset notification. The viewer should use that endpoint only after the user chooses Export logs or Discard logs.
+The reset UI depends on the completed server admin reset contract. `POST /admin/maze/reset` returns a fresh admin snapshot, the server clears stale WebSocket replay messages, and the server broadcasts an `ADMIN_RESET` notification. The viewer should use that endpoint only after the user chooses Export logs or Discard logs.
 
 [src/lib/eventArchive.ts](src/lib/eventArchive.ts) exposes stable archive operations for appending events, paging recent or older events by type, counting events, clearing the archive, and exporting NDJSON. The current implementation uses IndexedDB, but the interface should not prevent later server-backed storage.
 

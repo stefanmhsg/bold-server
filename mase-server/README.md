@@ -69,7 +69,7 @@ curl -X POST http://localhost:8080/admin/maze/reset
 
 The endpoint clears the repository, reloads the configured TriG dataset, runs the same startup rules as server boot, clears stale WebSocket replay messages, and returns a fresh admin maze snapshot as JSON. The reset is serialized against normal agent POST mutations and SPARQL updates so other writes cannot interleave with the clear/reload transaction.
 
-Viewer-side data invalidation is intentionally handled separately. See [PLAN_ADMIN_RESET.md](PLAN_ADMIN_RESET.md) and [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md) for the reset/viewer dependency and future UI considerations.
+Viewer-side reset invalidation and log export/discard behavior are implemented in `mase-viewer`: the UI asks whether to export or discard logs before calling this endpoint, then refreshes viewer state. See [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md) for the durable viewer notes. The completed admin reset feature plan has been retired.
 
 ### Example Agent
 
