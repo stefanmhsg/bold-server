@@ -37,6 +37,7 @@ The first command is the current compatibility path. The second command is the n
 - [x] (2026-05-17 17:19+02:00) Chose the first scenario-owned agent shape: package-local `agents/README.md`, package-local `scenario.properties` launch defaults, and manifest metadata describe independent Java process launches; no dynamic Java loading.
 - [x] (2026-05-17 18:06+02:00) Checked active rule discovery for cross-platform concerns against the implementation and official Java file-system API docs.
 - [x] (2026-05-17 18:31+02:00) Simplified the scenario contract by removing package-local `.env.example` files and moving scenario-owned launch defaults into `scenario.properties`.
+- [x] (2026-05-17) Added canonical RDF resource IRI resolution for Linked Data dereferencing so browser-facing hosts such as `localhost` can still look up graphs loaded under the stable `MASE_SERVER_BASE_URI`.
 - [ ] Update creator WP6 package export expectations to match the server package contract once the server loader is implemented.
 - [ ] Investigate whether active rule sorting should normalize separators and case for byte-for-byte stable rule traces across Windows, macOS, and Linux.
 - [ ] Investigate [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) layout selection: compare the generic layout and CCRS layout, then decide whether the CCRS layout can safely cover all scenarios so the type-based split can be removed.
@@ -86,6 +87,9 @@ The first command is the current compatibility path. The second command is the n
 - Observation: Maze layout selection is controlled by RDF data, not by package properties. The service checks whether `<http://127.0.1.1:8080/maze>` has RDF type `maze:CcrsMaze`; changing `mase.scenario.id` or other `scenario.properties` values will not affect the layout algorithm.
   Evidence: [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) calls `isCcrsMaze(conn)` before choosing `calculateCcrsLayout` or `calculateLayout`, and `getMazeScenarioName()` also derives the visible scenario name from RDF types.
 
+- Observation: Public transport hosts and RDF graph identity must be decoupled for Docker.
+  Evidence: Viewer requests to `http://localhost:8080/cells/...` reached the server, but repository lookup 404ed because the dataset was loaded under `http://127.0.1.1:8080/cells/...`. [ResourceIriResolver.java](src/main/java/org/maze/infrastructure/web/ResourceIriResolver.java) maps Linked Data `/maze`, `/cells/...`, and `/agents/...` request paths back to the canonical RDF base before graph lookup.
+
 - Observation: The worktree contains reset-related implementation files even though `PLAN_ADMIN_RESET.md` still lists reset implementation tasks as pending.
   Evidence: `git status --short` shows uncommitted changes and untracked `MazeResetService.java`, `MazeMutationCoordinator.java`, and `MazeResetServiceTest.java`.
 
@@ -125,6 +129,10 @@ The first command is the current compatibility path. The second command is the n
 
 - Decision: Do not remove legacy `sim-*` files, root `data/`, resource rules, or legacy startup forms until package mode has been manually tested and the user has confirmed equivalent behavior for the scenarios they rely on.
   Rationale: Package mode is now implemented, but legacy removal changes operational workflows and rollback options. Keeping cleanup as a gated follow-up avoids deleting compatibility paths before real runs prove that package mode covers the needed behavior.
+  Date/Author: 2026-05-17 / Codex
+
+- Decision: Keep `MASE_SERVER_BASE_URI` as the canonical RDF identity base and allow browser-facing HTTP hosts to vary.
+  Rationale: RDF graph names, rules, and scenario data need one stable identity base, while Docker and local browsers may need different transport hosts. Canonicalizing Linked Data request paths on the server avoids tying graph lookup to `localhost`, container service names, or platform-specific host resolution.
   Date/Author: 2026-05-17 / Codex
 
 ## Outcomes & Retrospective
@@ -518,3 +526,5 @@ Revision note, 2026-05-17: Implemented package mode in `mase-server`, added buil
 Revision note, 2026-05-17: Added cross-platform rule-discovery findings from official Java file-system docs, added the maze layout consolidation investigation, made agent migration from the legacy examples package explicit, and gated scenario-package-only cleanup on user-confirmed package behavior.
 
 Revision note, 2026-05-17: Simplified the scenario contract by removing `.env.example` from packages, moved CCRS agent launch defaults into [scenario.properties](scenarios/ccrs/scenario.properties), added a Gradle bridge from those properties to legacy agent environment variables, and added vocabulary expansion plus dereferenceable serving tasks for [maze.ttl](docs/maze.ttl).
+
+Revision note, 2026-05-17: Added canonical RDF resource IRI resolution for Linked Data dereferencing. Browser-facing requests to hosts such as `localhost` are now mapped to the stable `MASE_SERVER_BASE_URI` graph identity before repository lookup, and Docker CCRS startup sets that canonical base explicitly.

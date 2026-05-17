@@ -1,12 +1,26 @@
 <script lang="ts">
     import type { TransactionEvent, TransactionTriple } from '$lib/mazeState.svelte';
 
-    let { events, filterText = '', hasMore = false, isLoadingMore = false, onLoadMore } = $props<{
+    let {
+        events,
+        filterText = '',
+        hasMore = false,
+        isLoadingMore = false,
+        onLoadMore,
+        totalCount = 0,
+        hotCount = 0,
+        coldCount = 0,
+        archiveRunId = ''
+    } = $props<{
         events: TransactionEvent[];
         filterText?: string;
         hasMore?: boolean;
         isLoadingMore?: boolean;
         onLoadMore?: () => void | Promise<void>;
+        totalCount?: number;
+        hotCount?: number;
+        coldCount?: number;
+        archiveRunId?: string;
     }>();
 
     let expandedRowKey = $state<string | null>(null);
@@ -25,6 +39,22 @@
             return agent.includes(normalizedFilterText) || graph.includes(normalizedFilterText);
         });
     });
+
+    const coldEventKeys = $derived.by(() => {
+        const keys = new Set<string>();
+        if (coldCount <= 0) {
+            return keys;
+        }
+
+        for (const event of events.slice(-coldCount)) {
+            keys.add(transactionEventKey(event));
+        }
+
+        return keys;
+    });
+
+    const visibleHotCount = $derived(Math.max(0, hotCount));
+    const visibleColdCount = $derived(Math.max(0, coldCount));
 
     function summarizeRules(event: TransactionEvent): string {
         if (event.traceMode === 'summary') {
@@ -131,8 +161,16 @@
     }
 </script>
 
-<div class="h-[300px] min-h-[180px] max-h-[70vh] w-full min-w-0 resize-y overflow-hidden rounded-lg border">
-    <div class="h-full overflow-y-auto overflow-x-hidden" onscroll={handleScroll}>
+<div class="flex h-[300px] min-h-[180px] max-h-[70vh] w-full min-w-0 resize-y flex-col overflow-hidden rounded-lg border">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        <span>Loaded: {events.length} / {totalCount}</span>
+        <span>Hot: {visibleHotCount}</span>
+        <span>Archived rows: {visibleColdCount}</span>
+        {#if archiveRunId}
+            <span class="max-w-full truncate font-mono" title={archiveRunId}>Run: {archiveRunId}</span>
+        {/if}
+    </div>
+    <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" onscroll={handleScroll}>
         <table class="w-full text-left">
             <thead class="bg-gray-100 border-b sticky top-0">
                 <tr>
@@ -146,12 +184,17 @@
             <tbody>
             {#each filteredEvents as event (transactionEventKey(event))}
                 <tr
-                    class="border-b hover:bg-gray-50 cursor-pointer"
+                    class={coldEventKeys.has(transactionEventKey(event)) ? 'cursor-pointer border-b border-l-4 border-l-blue-300 bg-blue-50/40 hover:bg-blue-50' : 'cursor-pointer border-b hover:bg-gray-50'}
                     ondblclick={() => toggleExpanded(event)}
                     title={`Double-click for transaction ${traceLabel(event)} details`}
                 >
                     <td class="p-2 text-base whitespace-nowrap text-gray-500">
-                        {new Date(event.timestamp).toLocaleTimeString()}
+                        <div class="flex flex-wrap items-center gap-1">
+                            <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
+                            {#if coldEventKeys.has(transactionEventKey(event))}
+                                <span class="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">Archived</span>
+                            {/if}
+                        </div>
                     </td>
                     <td class="p-2 text-base font-medium">{event.trigger}</td>
                     <td class="p-2 text-base">{event.agent?.split('/').pop() ?? '-'}</td>

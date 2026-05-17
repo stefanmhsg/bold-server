@@ -55,6 +55,8 @@ http://127.0.1.1:8080/maze
 
 Server runtime settings that belong to a simulation run are configured in the selected legacy `sim-*.properties` file or in a package-local `scenario.properties` file.
 
+`MASE_SERVER_BASE_URI` is the canonical RDF resource base used when loading relative TriG IRIs and when resolving Linked Data graph names. It defaults to `http://127.0.1.1:8080/`. Browser-facing URLs may still be `http://localhost:8080` or another host-reachable address; the server maps `/maze`, `/cells/...`, and `/agents/...` requests back to the canonical RDF base before repository lookup. This keeps RDF graph identity stable across local and Dockerized runs while clients use a reachable transport URL.
+
 ```properties
 # Transaction trace mode: off, summary headers/rule count, or full per-triple debug diffs
 mase.transaction.trace = summary

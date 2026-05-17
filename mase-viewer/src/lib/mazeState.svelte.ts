@@ -84,10 +84,13 @@ export class MazeStore {
     archiveCount = $state(0);
     archiveTypeCounts = $state<ArchiveEventTypeCounts>(emptyArchiveEventTypeCounts());
     archiveError = $state<string | null>(null);
+    archiveRunId = $state(eventArchive.getCurrentRunId());
     agentEventsHasMore = $state(false);
     transactionEventsHasMore = $state(false);
     isLoadingAgentEvents = $state(false);
     isLoadingTransactionEvents = $state(false);
+    agentColdRowsLoaded = $state(0);
+    transactionColdRowsLoaded = $state(0);
     socket: WebSocket | null = null;
     private pendingEvents: MazeEvent[] = [];
     private flushHandle: number | null = null;
@@ -188,6 +191,8 @@ export class MazeStore {
         this.transactionArchiveCursor = null;
         this.agentColdBrowsingActive = false;
         this.transactionColdBrowsingActive = false;
+        this.agentColdRowsLoaded = 0;
+        this.transactionColdRowsLoaded = 0;
         this.updateHasMoreFromCounts();
     }
 
@@ -221,6 +226,7 @@ export class MazeStore {
         this.pendingEvents = [];
         await this.clearArchiveAndTables();
         this.currentRunId = eventArchive.startNewRun();
+        this.archiveRunId = this.currentRunId;
         this.suppressResetTransactionsUntil = Date.now() + REPLAY_DEDUPE_WINDOW_MS;
         this.seedReplayDedupeSignatures();
     }
@@ -233,7 +239,7 @@ export class MazeStore {
         this.isLoadingAgentEvents = true;
         try {
             await this.waitForArchiveWrites();
-            await this.loadMoreEvents<AgentMovedEvent>(
+            const appended = await this.loadMoreEvents<AgentMovedEvent>(
                 'AGENT_MOVED',
                 () => this.agentArchiveCursor,
                 (cursor) => this.agentArchiveCursor = cursor,
@@ -243,6 +249,7 @@ export class MazeStore {
                 (events) => this.agentEvents = events,
                 searchText
             );
+            this.agentColdRowsLoaded += appended;
             this.agentColdBrowsingActive = true;
         } catch (error) {
             this.archiveError = error instanceof Error ? error.message : String(error);
@@ -260,7 +267,7 @@ export class MazeStore {
         this.isLoadingTransactionEvents = true;
         try {
             await this.waitForArchiveWrites();
-            await this.loadMoreEvents<TransactionEvent>(
+            const appended = await this.loadMoreEvents<TransactionEvent>(
                 'TRANSACTION',
                 () => this.transactionArchiveCursor,
                 (cursor) => this.transactionArchiveCursor = cursor,
@@ -270,6 +277,7 @@ export class MazeStore {
                 (events) => this.transactionEvents = events,
                 searchText
             );
+            this.transactionColdRowsLoaded += appended;
             this.transactionColdBrowsingActive = true;
         } catch (error) {
             this.archiveError = error instanceof Error ? error.message : String(error);
@@ -301,7 +309,7 @@ export class MazeStore {
         getEvents: () => T[],
         setEvents: (events: T[]) => void,
         searchText: string
-    ): Promise<void> {
+    ): Promise<number> {
         let appended = 0;
 
         while (getHasMore() && appended === 0) {
@@ -323,6 +331,8 @@ export class MazeStore {
             appended = merged.length - current.length;
             setEvents(merged);
         }
+
+        return appended;
     }
 
     private appendUniqueEvents<T extends MazeEvent>(current: T[], incoming: T[]): T[] {

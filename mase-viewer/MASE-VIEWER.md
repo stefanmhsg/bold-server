@@ -16,9 +16,9 @@ Future work should preserve that boundary. Users should be able to watch long-ru
 
 ## Progress
 
-- [ ] Add a dedicated archive browser state in the UI: event-type filters, run/session scope, visible loaded/available counts, and a clearer distinction between hot rows and cold rows appended from IndexedDB.
-- [ ] Add focused checks for archive/export behavior: event-type filtered NDJSON export, Clear Tables preserving IndexedDB data, Reset Store discard/export clearing the right state, and 15-second success banner behavior.
-- [ ] Decide remote/Docker graph URI handling for Cell and Agent Inspectors, because inspector fetches still use server-authored resource URLs directly.
+- [ ] Finish the dedicated archive browser state in the UI. Completed: run id display, loaded/available counts per table, hot versus archived row counters, and visible archived-row labels. Remaining: event-type filters beyond export, richer run/session scope, and any deeper archive search controls.
+- [ ] Add focused checks for archive/export behavior: event-type filtered NDJSON export, Clear Tables preserving IndexedDB data, Reset Store discard/export clearing the right state, continuous pending spinner behavior, and 15-second success banner behavior.
+- [ ] Validate remote/Docker graph URI handling for Cell and Agent Inspectors. Completed: viewer rewrites local, private, or container-internal MASE `/cells/...` and `/agents/...` resource URLs to the configured browser-facing server base before fetching. Remaining: manual validation in Docker and any non-local deployment shape.
 - [ ] Define the server/scenario metadata contract for optimal routes parsed from creator `#Correct plan` comments, then replace [src/lib/optimalRoutes.ts](src/lib/optimalRoutes.ts) when the server exposes that data.
 - [ ] Add completed-agent summaries derived from archived movement events without deleting transaction history.
 - [ ] Revisit table virtualization only after manual runs show that repeated Load More creates a real rendering problem.
@@ -39,6 +39,9 @@ Future work should preserve that boundary. Users should be able to watch long-ru
 
 - Observation: Dockerized viewer deployments need separate internal and browser-facing server URLs.
   Evidence: [src/routes/+page.server.ts](src/routes/+page.server.ts) can fetch the initial snapshot through an internal URL, while the browser uses public HTTP and WebSocket URLs returned to [src/routes/+page.svelte](src/routes/+page.svelte).
+
+- Observation: Inspector dereferencing needs browser-facing URLs even when RDF resource URIs are authored with local or container-internal hosts.
+  Evidence: [src/routes/+page.svelte](src/routes/+page.svelte) resolves `/cells/...` and `/agents/...` resource URLs through the configured public server base when the resource host looks internal.
 
 - Observation: Creator-generated TriG files already carry parseable optimal route comments.
   Evidence: [MazeTrigSerializer.java](../mase-creator/app/src/main/java/org/mase/creator/trig/MazeTrigSerializer.java) writes a `#Correct plan` section, and [MazeTrigParser.java](../mase-creator/app/src/main/java/org/mase/creator/trig/MazeTrigParser.java) parses that section back into `MazeModel.optimalRoute()`.
@@ -86,9 +89,9 @@ Future work should preserve that boundary. Users should be able to watch long-ru
 
 ## Outcomes & Retrospective
 
-The viewer baseline now includes bounded hot arrays, IndexedDB archival, NDJSON export with event-type selection, archive counts, search-aware archived Load More, runtime server URL configuration, reset invalidation, export spinners, and 15-second success confirmations.
+The viewer baseline now includes bounded hot arrays, IndexedDB archival, NDJSON export with event-type selection, archive counts, search-aware archived Load More, loaded/available row metadata, archived-row labels, runtime server URL configuration, reset invalidation, export/reset pending spinners, and 15-second success confirmations.
 
-The main remaining gaps are a clearer archive browsing UI, focused checks around export/reset behavior, inspector URL handling for non-local deployments, server-owned optimal route metadata, and completed-agent summaries. Table virtualization remains conditional; it should be added only if large visible tables become a measured problem after repeated archive loading.
+The main remaining gaps are richer archive browsing controls, focused checks around export/reset behavior, Docker/remote validation for inspector URL rewriting, server-owned optimal route metadata, and completed-agent summaries. Table virtualization remains conditional; it should be added only if large visible tables become a measured problem after repeated archive loading.
 
 ## Context and Orientation
 
@@ -126,7 +129,7 @@ The server event types currently understood by the viewer are:
 - `UI_DELETE`: remove a UI overlay node and optionally export as a stored event.
 - `TRANSACTION`: append to the Cell Updates data path.
 
-The current log model has two layers. The hot layer is the latest 50 rows each for Agent Movements and Cell Updates, held in Svelte state for fast live diagnosis. The cold layer is an IndexedDB archive written by [src/lib/eventArchive.ts](src/lib/eventArchive.ts), which supports archive counts, 100-row paging, search-aware loading, clearing, and NDJSON export by selected event type.
+The current log model has two layers. The hot layer is the latest 50 rows each for Agent Movements and Cell Updates, held in Svelte state for fast live diagnosis. The cold layer is an IndexedDB archive written by [src/lib/eventArchive.ts](src/lib/eventArchive.ts), which supports archive counts, 100-row paging, search-aware loading, visible loaded/available metadata, archived-row labels, clearing, and NDJSON export by selected event type.
 
 Reset Store is explicit. Cancel does nothing. Export logs writes selected NDJSON event types before reset. Discard logs skips export. After Export or Discard, the viewer calls the configured reset endpoint, clears hot and IndexedDB logs, starts a new archive run, invalidates page data, remounts the canvas, closes selected inspectors, clears the filter, and shows a temporary success or failure message with a close button.
 
@@ -146,7 +149,7 @@ Improve archive browsing first. Extend [src/routes/+page.svelte](src/routes/+pag
 
 Add focused tests or checks around the retention contract. The highest-value checks are that event-type filtered export writes only selected event types, Clear Tables preserves IndexedDB data, Reset Store export/discard clears the expected state, and the 15-second banner auto-closes while remaining manually dismissible.
 
-Resolve inspector URL handling for remote and Docker deployments. The viewer needs a clean way to convert server-authored graph/resource URLs into browser-reachable URLs, or the server needs to emit browser-facing URLs directly. Do not hard-code local host assumptions into inspector components.
+Validate inspector URL handling for remote and Docker deployments. The viewer rewrites local, private, or container-internal MASE cell and agent resource URLs to the configured browser-facing server base before fetching. If future deployments expose non-local canonical graph URIs that still need rewriting, prefer a server-emitted browser-facing dereference URL over broader client-side guessing.
 
 Move optimal route ownership toward the server scenario metadata path. The creator already writes and parses `#Correct plan` comments in TriG files. The viewer should consume this data from a server-admin snapshot or scenario metadata endpoint, then retire [src/lib/optimalRoutes.ts](src/lib/optimalRoutes.ts).
 

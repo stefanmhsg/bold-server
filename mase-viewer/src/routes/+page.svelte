@@ -32,6 +32,7 @@
     let eventFilterText = $state('');
     let isResetting = $state(false);
     let isExportingLogs = $state(false);
+    let pendingOperationText = $state<string | null>(null);
     let resetDialogOpen = $state(false);
     let exportDialogOpen = $state(false);
     let canvasRevision = $state(0);
@@ -128,6 +129,44 @@
         return mazeState.archiveTypeCounts[type] ?? 0;
     }
 
+    function visibleHotRows(totalRows: number, coldRows: number): number {
+        return Math.max(0, totalRows - coldRows);
+    }
+
+    function formatArchiveRunId(runId: string): string {
+        return runId.replace(/^run-/, '');
+    }
+
+    function resolveServerResourceUrl(resourceUri: string): string {
+        try {
+            const publicBase = new URL(data.serverConfig.httpBaseUrl);
+            const resource = new URL(resourceUri, publicBase);
+
+            if (resource.origin !== publicBase.origin && isMazeDereferencePath(resource.pathname) && isLikelyInternalHost(resource.hostname)) {
+                return new URL(`${resource.pathname}${resource.search}${resource.hash}`, publicBase).toString();
+            }
+
+            return resource.toString();
+        } catch {
+            return resourceUri;
+        }
+    }
+
+    function isMazeDereferencePath(pathname: string): boolean {
+        return pathname.startsWith('/cells/') || pathname.startsWith('/agents/');
+    }
+
+    function isLikelyInternalHost(hostname: string): boolean {
+        const host = hostname.toLowerCase();
+        return host === 'localhost'
+            || host === '0.0.0.0'
+            || host.startsWith('127.')
+            || host.startsWith('10.')
+            || host.startsWith('192.168.')
+            || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+            || !host.includes('.');
+    }
+
     function selectedEventTypesForExport(): ArchiveEventType[] {
         return [...selectedExportTypes];
     }
@@ -140,9 +179,18 @@
     }
 
     async function handleAdminReset(action: 'export' | 'discard') {
-        if (isResetting) return;
+        if (isResetting || isExportingLogs) return;
+
+        const eventTypes = action === 'export' ? selectedEventTypesForExport() : [];
+        if (action === 'export' && eventTypes.length === 0) {
+            showResetMessage({ type: 'error', text: 'Select at least one event type before exporting logs.' }, false);
+            return;
+        }
 
         isResetting = true;
+        pendingOperationText = action === 'export'
+            ? 'Preparing and saving selected log export...'
+            : 'Resetting store and refreshing viewer...';
         clearResetMessage();
 
         try {
@@ -150,12 +198,6 @@
             let exportFileName: string | undefined;
 
             if (action === 'export') {
-                const eventTypes = selectedEventTypesForExport();
-                if (eventTypes.length === 0) {
-                    showResetMessage({ type: 'error', text: 'Select at least one event type before exporting logs.' }, false);
-                    return;
-                }
-
                 isExportingLogs = true;
                 const exportResult = await mazeState.exportLogsNdjson(eventTypes);
                 isExportingLogs = false;
@@ -174,6 +216,7 @@
 
                 exportedCount = exportResult.count;
                 exportFileName = exportResult.fileName;
+                pendingOperationText = 'Resetting store and refreshing viewer...';
             }
 
             const response = await fetch(data.serverConfig.adminResetUrl, {
@@ -207,6 +250,7 @@
                 text: `Reset failed: ${e instanceof Error ? e.message : String(e)}`
             }, false);
         } finally {
+            pendingOperationText = null;
             isExportingLogs = false;
             isResetting = false;
         }
@@ -236,7 +280,6 @@
     async function handleExportLogs() {
         if (isExportingLogs || isResetting) return;
 
-        isExportingLogs = true;
         clearResetMessage();
 
         try {
@@ -246,6 +289,8 @@
                 return;
             }
 
+            isExportingLogs = true;
+            pendingOperationText = 'Preparing and saving selected log export...';
             const exportResult = await mazeState.exportLogsNdjson(eventTypes);
 
             if (exportResult.status === 'canceled') {
@@ -277,6 +322,7 @@
                 text: `Log export failed: ${e instanceof Error ? e.message : String(e)}`
             }, false);
         } finally {
+            pendingOperationText = null;
             isExportingLogs = false;
         }
     }
@@ -332,9 +378,7 @@
         selectedCellData = null;
 
         try {
-            // The cellId is the full URI (e.g. http://127.0.1.1:8080/cells/5)
-            // We fetch it directly, requesting Turtle format
-            const response = await fetch(cellId, {
+            const response = await fetch(resolveServerResourceUrl(cellId), {
                 headers: {
                     'Accept': 'text/turtle'
                 }
@@ -361,9 +405,7 @@
         postMessage = null;
 
         try {
-            // The agentUri is the full URI (e.g. http://127.0.1.1:8080/agents/mybot)
-            // We fetch it directly, requesting Turtle format
-            const response = await fetch(agentUri, {
+            const response = await fetch(resolveServerResourceUrl(agentUri), {
                 headers: {
                     'Accept': 'text/turtle'
                 }
@@ -389,7 +431,7 @@
         postMessage = null;
 
         try {
-            const response = await fetch(selectedAgentId, {
+            const response = await fetch(resolveServerResourceUrl(selectedAgentId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/turtle',
@@ -436,10 +478,10 @@
                     title="Reset RDF store"
                     disabled={isResetting || isExportingLogs}
                 >
-                    {#if isExportingLogs}
+                    {#if isResetting || isExportingLogs}
                         <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
                     {/if}
-                    {isResetting ? 'Resetting...' : isExportingLogs ? 'Exporting...' : 'Reset Store'}
+                    {isResetting ? 'Working...' : isExportingLogs ? 'Exporting...' : 'Reset Store'}
                 </button>
                 <button
                     onclick={() => showOptimalRoute.update((v) => !v)}
@@ -531,6 +573,7 @@
 
         <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
             <span class="font-medium text-gray-600">Archive: {mazeState.archiveCount}</span>
+            <span class="font-mono" title={mazeState.archiveRunId}>Run: {formatArchiveRunId(mazeState.archiveRunId)}</span>
             {#each ARCHIVE_EVENT_TYPES as type}
                 <span>{EVENT_TYPE_LABELS[type]}: {eventTypeCount(type)}</span>
             {/each}
@@ -572,6 +615,10 @@
                 hasMore={mazeState.agentEventsHasMore}
                 isLoadingMore={mazeState.isLoadingAgentEvents}
                 onLoadMore={() => mazeState.loadMoreAgentEvents(eventFilterText)}
+                totalCount={eventTypeCount('AGENT_MOVED')}
+                hotCount={visibleHotRows(mazeState.agentEvents.length, mazeState.agentColdRowsLoaded)}
+                coldCount={mazeState.agentColdRowsLoaded}
+                archiveRunId={formatArchiveRunId(mazeState.archiveRunId)}
             />
         </div>
 
@@ -583,6 +630,10 @@
                 hasMore={mazeState.transactionEventsHasMore}
                 isLoadingMore={mazeState.isLoadingTransactionEvents}
                 onLoadMore={() => mazeState.loadMoreTransactionEvents(eventFilterText)}
+                totalCount={eventTypeCount('TRANSACTION')}
+                hotCount={visibleHotRows(mazeState.transactionEvents.length, mazeState.transactionColdRowsLoaded)}
+                coldCount={mazeState.transactionColdRowsLoaded}
+                archiveRunId={formatArchiveRunId(mazeState.archiveRunId)}
             />
         </div>
 
@@ -696,10 +747,10 @@
                         </label>
                     {/each}
                 </div>
-                {#if isExportingLogs}
+                {#if pendingOperationText}
                     <div class="mt-3 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-sm text-blue-700">
                         <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
-                        <span>Preparing NDJSON export...</span>
+                        <span>{pendingOperationText}</span>
                     </div>
                 {/if}
             </div>
@@ -719,7 +770,7 @@
                     onclick={() => handleAdminReset('discard')}
                     disabled={isResetting || isExportingLogs}
                 >
-                    Discard Logs
+                    {isResetting && !isExportingLogs ? 'Working...' : 'Discard Logs'}
                 </button>
                 <button
                     type="button"
@@ -727,10 +778,10 @@
                     onclick={() => handleAdminReset('export')}
                     disabled={isResetting || isExportingLogs || !canExportSelectedTypes}
                 >
-                    {#if isExportingLogs}
+                    {#if isResetting || isExportingLogs}
                         <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
                     {/if}
-                    {isExportingLogs ? 'Exporting...' : 'Export Logs'}
+                    {isExportingLogs ? 'Exporting...' : isResetting ? 'Working...' : 'Export Logs'}
                 </button>
             </div>
         </div>
@@ -782,10 +833,10 @@
                         </label>
                     {/each}
                 </div>
-                {#if isExportingLogs}
+                {#if pendingOperationText}
                     <div class="mt-3 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-sm text-blue-700">
                         <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
-                        <span>Preparing NDJSON export...</span>
+                        <span>{pendingOperationText}</span>
                     </div>
                 {/if}
             </div>

@@ -27,6 +27,7 @@ import org.maze.application.PostHandler;
 import org.maze.domain.model.AccessResult;
 import org.maze.domain.model.PostResult;
 import org.maze.domain.utils.AgentAuthUtil;
+import org.maze.infrastructure.web.ResourceIriResolver;
 import org.maze.infrastructure.web.WebServerFactory;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -83,7 +84,7 @@ public class LinkedDataDereferenceResource {
     public Response getGraph(@Context UriInfo uriinfo,
                              @Context HttpHeaders headers,
                              @HeaderParam("Authorization") String authorization) {
-        String requestedCellUri = uriinfo.getAbsolutePath().toString();
+        String requestedCellUri = canonicalResourceIri(uriinfo.getAbsolutePath().toString());
         
         // Extract agent name and validate access
         String agentName = AgentAuthUtil.extractAgentName(authorization, requestedCellUri);
@@ -111,8 +112,8 @@ public class LinkedDataDereferenceResource {
             .orElse(MediaType.valueOf("text/turtle"));
         
         RDFFormat fmt = mediaTypeToRDFFormat(acceptedType);
-        log.info("LD GET request for graph ({}): {}", acceptedType, uriinfo.getAbsolutePath());
-        StreamingOutput out = streamGraph(uriinfo, headers, fmt);
+        log.info("LD GET request for graph ({}): {} -> {}", acceptedType, uriinfo.getAbsolutePath(), requestedCellUri);
+        StreamingOutput out = streamGraph(requestedCellUri, headers, fmt);
         return Response.ok(out, acceptedType).build();
     }
 
@@ -132,7 +133,7 @@ public class LinkedDataDereferenceResource {
                               @Context HttpHeaders headers,
                               @Context UriInfo uriinfo, 
                               String body) {
-        String graphIRI = uriinfo.getAbsolutePath().toString();
+        String graphIRI = canonicalResourceIri(uriinfo.getAbsolutePath().toString());
         String agentName = AgentAuthUtil.extractAgentName(authorization, graphIRI);
         
         if (agentName != null && agentName.contains(" ")) {
@@ -193,6 +194,16 @@ public class LinkedDataDereferenceResource {
             WebServerFactory.SAIL_REPOSITORY_SERVLET_ATTRIBUTE);
     }
 
+    private ResourceIriResolver getResourceIriResolver() {
+        return (ResourceIriResolver) servletContext.getAttribute(
+            WebServerFactory.RESOURCE_IRI_RESOLVER_SERVLET_ATTRIBUTE);
+    }
+
+    private String canonicalResourceIri(String requestUri) {
+        ResourceIriResolver resolver = getResourceIriResolver();
+        return resolver != null ? resolver.canonicalize(requestUri) : requestUri;
+    }
+
     /**
      * Convert JAX-RS MediaType to RDF4J RDFFormat using Rio's built-in mapping.
      */
@@ -205,13 +216,13 @@ public class LinkedDataDereferenceResource {
     /**
      * Create a StreamingOutput that exports an RDF graph.
      */
-    private StreamingOutput streamGraph(UriInfo uriinfo, HttpHeaders headers, RDFFormat outputFormat) {
+    private StreamingOutput streamGraph(String graphIri, HttpHeaders headers, RDFFormat outputFormat) {
         SailRepository repo = getRepository();
         SailRepositoryConnection connection = repo.getConnection();
 
         try {
             ValueFactory vf = connection.getValueFactory();
-            IRI graphName = vf.createIRI(uriinfo.getAbsolutePath().toString());
+            IRI graphName = vf.createIRI(graphIri);
 
             log.info("LD resolved graph IRI: {}", graphName);
 
@@ -244,7 +255,7 @@ public class LinkedDataDereferenceResource {
             throw e;
         } catch (RuntimeException e) {
             try { connection.close(); } catch (Exception ignore) {}
-            log.error("LD error while dereferencing {}", uriinfo.getAbsolutePath(), e);
+            log.error("LD error while dereferencing {}", graphIri, e);
             throw e;
         }
     }

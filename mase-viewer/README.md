@@ -43,7 +43,7 @@ docker run -p 3000:3000 \
   mase-viewer
 ```
 
-`MASE_SERVER_INTERNAL_HTTP_URL` is used by the viewer server process to fetch `/admin/maze`. `PUBLIC_MASE_SERVER_HTTP_URL` and `PUBLIC_MASE_SERVER_WS_URL` are returned to the browser for reset requests and live WebSocket events.
+`MASE_SERVER_INTERNAL_HTTP_URL` is used by the viewer server process to fetch `/admin/maze`. `PUBLIC_MASE_SERVER_HTTP_URL` and `PUBLIC_MASE_SERVER_WS_URL` are returned to the browser for reset requests, live WebSocket events, and Cell/Agent Inspector dereferencing when RDF resource URIs point at local or container-internal hosts.
 
 
 
@@ -57,6 +57,7 @@ docker run -p 3000:3000 \
 - Monitor Transaction/Cell Updates in real time when server transaction tracing is enabled (transaction id, time, trigger, agent, graph, status, and executed rule count).
 - Double-click a Transaction/Cell Updates row to expand details when trace events are available. Summary mode shows transaction id, timing, status, graph, agent, and rule count. Full mode also shows request body, merge added/removed triples, and per-rule added/removed triples.
 - Export archived logs as NDJSON, with event-type checkboxes for Agent Movements, Cell Updates, UI Upserts, and UI Deletes.
+- See the current archive run id, loaded/available row counts, and which table rows were appended from the archived log.
 - Reset the server store after choosing whether to export selected log event types, discard logs, or cancel.
 - Save exports to a browser-selected file. For a repository-local target, choose `mase-viewer/log` in the save dialog once; supported browsers remember that location for later exports.
 - Read triples in grouped context form for clarity:

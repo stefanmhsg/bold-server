@@ -40,6 +40,7 @@ public class WebServerFactory {
     public static final String POST_HANDLER_SERVLET_ATTRIBUTE = "POST_HANDLER_SERVLET_ATTRIBUTE";
     public static final String SPARQL_SERVICE_SERVLET_ATTRIBUTE = "SPARQL_SERVICE_SERVLET_ATTRIBUTE";
     public static final String MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE = "MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE";
+    public static final String RESOURCE_IRI_RESOLVER_SERVLET_ATTRIBUTE = "RESOURCE_IRI_RESOLVER_SERVLET_ATTRIBUTE";
     
     /**
      * Create and configure a web server.
@@ -93,6 +94,7 @@ public class WebServerFactory {
                                        URI rdfBaseUri) {
         // Initialize services - SparqlService must be created first
         MazeMutationCoordinator mutationCoordinator = new MazeMutationCoordinator();
+        ResourceIriResolver resourceIriResolver = ResourceIriResolver.fromRdfBaseUri(rdfBaseUri);
         SparqlService sparqlService = new SparqlService(repository, mutationCoordinator);
         AccessValidator accessValidator = new AccessValidator(repository, sparqlService);
         PostHandler postHandler = new PostHandler(
@@ -117,6 +119,8 @@ public class WebServerFactory {
         context.setAttribute(POST_HANDLER_SERVLET_ATTRIBUTE, postHandler);
         context.setAttribute(SPARQL_SERVICE_SERVLET_ATTRIBUTE, sparqlService);
         context.setAttribute(MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE, resetService);
+        context.setAttribute(RESOURCE_IRI_RESOLVER_SERVLET_ATTRIBUTE, resourceIriResolver);
+        log.info("Canonical RDF resource base URI: {}", resourceIriResolver.canonicalBaseUri());
         
         // Configure JAX-RS resources
         ResourceConfig ldConfig = new ResourceConfig();

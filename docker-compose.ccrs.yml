@@ -6,6 +6,7 @@ services:
     container_name: mase-server-ccrs
     environment:
       TASKNAME: sim-CcrsMaze
+      MASE_SERVER_BASE_URI: http://127.0.1.1:8080/
     ports:
       - "8080:8080"
       - "8095:8095"
