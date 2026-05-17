@@ -63,6 +63,7 @@ public class KeyHolderAgent {
     private static final String AGENT_NAME = "key-holder-agent-3";
     private static final String TARGET_COORDINATE = "42/43"; // 42/43 for CCRS-Scenario. 15/7 for paper
     private static final int DEFAULT_A2A_PORT = 8095;
+    private static final String DEFAULT_A2A_BIND_HOST = "127.0.0.1";
     private static final int MAX_STEPS = 2_000;
     private static final String CELLS_SEGMENT = "/cells/";
     private static final String RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -104,6 +105,9 @@ public class KeyHolderAgent {
             .build();
     private final Map<String, String> keyringByType = new java.util.HashMap<>();
     private final String agentName = AGENT_NAME;
+    private final int a2aPort = resolvePreferredPort();
+    private final String a2aBindHost = resolveA2ABindHost();
+    private final String a2aBaseUrl = resolveA2ABaseUrl(a2aPort);
 
     private final ExecutorService a2aExecutor = Executors.newFixedThreadPool(4);
 
@@ -112,11 +116,12 @@ public class KeyHolderAgent {
     }
 
     public void start() throws Exception {
-        int port = requirePreferredPort(resolvePreferredPort());
-        RestHandler restHandler = createRestHandler(port);
-        HttpServer server = createA2AHttpServer(port, restHandler);
+        int port = requirePreferredPort(a2aBindHost, a2aPort);
+        RestHandler restHandler = createRestHandler(a2aBaseUrl);
+        HttpServer server = createA2AHttpServer(a2aBindHost, port, restHandler);
         server.start();
-        logA2A("Server started on http://127.0.0.1:" + port + " as " + agentName);
+        logA2A("Server started on " + a2aBindHost + ":" + port + " as " + agentName);
+        logA2A("Advertised base URL: " + a2aBaseUrl);
         logA2A("AgentCard endpoint: /.well-known/agent-card.json");
         logA2A("Message endpoints: /message/send and /message:send");
 
@@ -129,7 +134,7 @@ public class KeyHolderAgent {
         }
     }
 
-        private RestHandler createRestHandler(int port) {
+    private RestHandler createRestHandler(String a2aBaseUrl) {
         AgentExecutor agentExecutor = new BlueKeyAgentExecutor();
         TaskStore taskStore = new InMemoryTaskStore();
         QueueManager queueManager = new InMemoryQueueManager((TaskStateProvider) taskStore);
@@ -144,10 +149,10 @@ public class KeyHolderAgent {
             pushNotificationSender,
             a2aExecutor);
 
-        return new RestHandler(createAgentCard(port), requestHandler, a2aExecutor);
-        }
+        return new RestHandler(createAgentCard(a2aBaseUrl), requestHandler, a2aExecutor);
+    }
 
-        private AgentCard createAgentCard(int port) {
+    private AgentCard createAgentCard(String a2aBaseUrl) {
         AgentCapabilities capabilities = new AgentCapabilities.Builder()
             .streaming(false)
             .pushNotifications(false)
@@ -164,7 +169,6 @@ public class KeyHolderAgent {
             .security(List.of())
             .build();
 
-        String a2aBaseUrl = "http://127.0.0.1:" + port;
         String sendUrl = a2aBaseUrl + "/message/send";
 
         return new AgentCard.Builder()
@@ -181,10 +185,10 @@ public class KeyHolderAgent {
             ))
             .preferredTransport(TransportProtocol.HTTP_JSON.asString())
             .build();
-        }
+    }
 
-    private HttpServer createA2AHttpServer(int port, RestHandler restHandler) throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+    private HttpServer createA2AHttpServer(String bindHost, int port, RestHandler restHandler) throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(bindHost, port), 0);
         server.setExecutor(Executors.newCachedThreadPool());
 
         server.createContext("/.well-known/agent-card.json", exchange -> {
@@ -272,13 +276,29 @@ public class KeyHolderAgent {
         }
     }
 
-    private int requirePreferredPort(int preferredPort) throws IOException {
+    private String resolveA2ABindHost() {
+        String envValue = System.getenv("MASE_KEYHOLDER_BIND_HOST");
+        if (envValue == null || envValue.isBlank()) {
+            return DEFAULT_A2A_BIND_HOST;
+        }
+        return envValue.trim();
+    }
+
+    private String resolveA2ABaseUrl(int port) {
+        String envValue = System.getenv("MASE_KEYHOLDER_PUBLIC_BASE_URL");
+        if (envValue == null || envValue.isBlank()) {
+            return "http://127.0.0.1:" + port;
+        }
+        return envValue.trim().replaceAll("/+$", "");
+    }
+
+    private int requirePreferredPort(String bindHost, int preferredPort) throws IOException {
         try (java.net.ServerSocket socket = new java.net.ServerSocket()) {
             socket.setReuseAddress(false);
-            socket.bind(new InetSocketAddress("127.0.0.1", preferredPort));
+            socket.bind(new InetSocketAddress(bindHost, preferredPort));
             return preferredPort;
         } catch (IOException ex) {
-            throw new IOException("Preferred A2A port already in use: " + preferredPort, ex);
+            throw new IOException("Preferred A2A port already in use: " + bindHost + ":" + preferredPort, ex);
         }
     }
 
@@ -645,10 +665,10 @@ public class KeyHolderAgent {
             @prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
 
             <%s>
-              a2a:agentCard <http://127.0.0.1:%d/.well-known/agent-card.json> ;
+              a2a:agentCard <%s/.well-known/agent-card.json> ;
               a2a:providesType dyn:BlueKey ;
               a2a:providesProperty dyn:keyValue .
-            """.formatted(agentUri, DEFAULT_A2A_PORT);
+            """.formatted(agentUri, a2aBaseUrl);
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(agentUri))
                 .timeout(Duration.ofSeconds(10))

@@ -41,6 +41,9 @@ services:
     build:
       context: ./mase-server
       dockerfile: Dockerfile
+    environment:
+      MASE_KEYHOLDER_BIND_HOST: 0.0.0.0
+      MASE_KEYHOLDER_PUBLIC_BASE_URL: http://127.0.0.1:8095
     depends_on:
       - mase-server
       - ccrs-agent
