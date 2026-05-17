@@ -20,7 +20,8 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
 - [x] (2026-05-17 13:40Z) Added WebSocket replay-buffer clearing and a post-reset `ADMIN_RESET` notification.
 - [x] (2026-05-17 13:40Z) Added focused reset tests for successful restore, rollback on parse failure, and waiting for an in-flight POST mutation.
 - [x] (2026-05-17 13:40Z) Documented the endpoint in `mase-server/README.md`.
-- [x] (2026-05-17 13:40Z) Kept `mase-viewer` invalidation deferred; no viewer implementation was changed.
+- [x] (2026-05-17 13:40Z) Kept `mase-viewer` invalidation deferred; no viewer cleanup, remount, or refresh behavior was changed.
+- [x] (2026-05-17) Added a trigger-only viewer button in [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md)'s scope that calls `POST /admin/maze/reset`.
 
 ## Surprises & Discoveries
 
@@ -41,6 +42,9 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
 
 - Observation: `DataLoader` needed an explicit empty-match failure for reset safety.
   Evidence: `DataLoader.loadData(RepositoryConnection, ...)` now throws when the configured dataset pattern matches no files, so reset cannot silently clear the repository and commit an empty store.
+
+- Observation: The viewer can now initiate the endpoint, but it still does not consume the returned snapshot for state refresh.
+  Evidence: [mase-viewer/src/routes/+page.svelte](../mase-viewer/src/routes/+page.svelte) posts to `http://localhost:8080/admin/maze/reset` and shows request feedback without invalidating SvelteKit data, clearing logs, remounting the canvas, or closing inspectors.
 
 ## Decision Log
 
@@ -64,13 +68,17 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
   Rationale: The caller immediately receives the authoritative post-reset layout, UI snapshot, and scenario name, and clients that do not want the payload can ignore it.
   Date/Author: 2026-05-17 / Codex
 
+- Decision: Permit a trigger-only viewer button before full invalidation behavior is designed.
+  Rationale: The admin endpoint is useful to invoke from the browser now. The returned snapshot and `ADMIN_RESET` notification are still part of the server contract, while viewer cleanup and refresh behavior remain owned by [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md).
+  Date/Author: 2026-05-17 / Codex
+
 - Decision: Use a fair `ReentrantReadWriteLock` as the reset mutation coordinator.
   Rationale: Normal POST and SPARQL update mutations can still proceed concurrently where existing per-resource rules allow it, while reset uses the exclusive lock to prevent any clear/reload interleaving.
   Date/Author: 2026-05-17 / Codex
 
 ## Outcomes & Retrospective
 
-The server reset endpoint has been implemented and validated. No viewer invalidation or remount behavior was implemented; that remains intentionally deferred to the viewer plan.
+The server reset endpoint has been implemented and validated. The viewer now has a trigger-only button that calls the endpoint. No viewer invalidation, log cleanup, snapshot refresh, or canvas remount behavior was implemented; that remains intentionally deferred to the viewer plan.
 
 ## Context and Orientation
 
@@ -220,6 +228,13 @@ The safest simple viewer behavior may be a full page reload after a successful r
 
 See [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md) for the frontend side of this dependency. That file also records why reset behavior intersects with event hot windows, cold archives, replay de-duplication, and inspector state.
 
+Current viewer trigger:
+
+    mase-viewer/src/routes/+page.svelte
+    Reset Store -> POST http://localhost:8080/admin/maze/reset
+
+This trigger intentionally ignores the returned admin snapshot for now.
+
 ## Interfaces and Dependencies
 
 At the end of implementation, `mase-server/src/main/java/org/maze/application/MazeResetService.java` should provide one public reset method that performs the full clear, reload, startup rule execution, WebSocket replay cleanup, and result creation. The exact result type may be a small DTO or `MazeAdminSnapshotDto`, but the endpoint must return JSON.
@@ -241,3 +256,5 @@ Revision note, 2026-05-17: Initiated this plan from the reset endpoint analysis.
 Revision note, 2026-05-17: Added the cross-plan dependency with [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md). The server reset plan now explicitly owns the reset endpoint and notification contract, while the viewer plan owns later invalidation, remounting, and log/archive behavior.
 
 Revision note, 2026-05-17: Implemented the reset endpoint and updated progress, discoveries, decisions, outcomes, and validation evidence. The implementation keeps viewer invalidation deferred.
+
+Revision note, 2026-05-17: Added a trigger-only viewer reset button and documented that it initiates the server endpoint without client-side invalidation, log cleanup, or snapshot refresh.
