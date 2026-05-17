@@ -58,6 +58,7 @@ docker run -p 3000:3000 \
 - Double-click a Transaction/Cell Updates row to expand details when trace events are available. Summary mode shows transaction id, timing, status, graph, agent, and rule count. Full mode also shows request body, merge added/removed triples, and per-rule added/removed triples.
 - Export archived logs as NDJSON, with event-type checkboxes for Agent Movements, Cell Updates, UI Upserts, and UI Deletes.
 - Reset the server store after choosing whether to export selected log event types, discard logs, or cancel.
+- Save exports to a browser-selected file. For a repository-local target, choose `mase-viewer/log` in the save dialog once; supported browsers remember that location for later exports.
 - Read triples in grouped context form for clarity:
 	- `<context = graph_uri> :`
 	- `<s> <p> <o>`

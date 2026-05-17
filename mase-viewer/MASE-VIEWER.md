@@ -34,6 +34,13 @@ Future work on log retention, event archival, reset behavior, and scenario metad
 - [x] (2026-05-17) Cleaned up exit-cell canvas resource handling by releasing completed-agent color assignments.
 - [x] (2026-05-17) Investigated creator-generated `#Correct plan` comments as a source for future server-owned optimal route metadata.
 - [x] (2026-05-17) Reworked the backlog so completed hot-log, export, and reset items no longer appear as future work.
+- [x] (2026-05-17) Added export processing spinners and changed success message auto-dismiss to 15 seconds.
+- [ ] Add a dedicated archive browser state in the UI: event-type filters, run/session scope, visible loaded/available counts, and a clearer distinction between hot rows and cold rows appended from IndexedDB.
+- [ ] Add focused checks for archive/export behavior: event-type filtered NDJSON export, Clear Tables preserving IndexedDB data, Reset Store discard/export clearing the right state, and 15-second success banner behavior.
+- [ ] Decide remote/Docker graph URI handling for Cell and Agent Inspectors, because inspector fetches still use server-authored resource URLs directly.
+- [ ] Define the server/scenario metadata contract for optimal routes parsed from creator `#Correct plan` comments, then replace [src/lib/optimalRoutes.ts](src/lib/optimalRoutes.ts) when the server exposes that data.
+- [ ] Add completed-agent summaries derived from archived movement events without deleting transaction history.
+- [ ] Revisit table virtualization only after manual runs show that repeated Load More creates a real rendering problem.
 
 ## Surprises & Discoveries
 
@@ -133,7 +140,7 @@ Future work on log retention, event archival, reset behavior, and scenario metad
 
 This file has been converted from freestyle living notes into an ExecPlan-style viewer planning document. The viewer now includes an export/discard/cancel reset flow backed by an IndexedDB archive.
 
-The current implementation has bounded hot arrays, IndexedDB archival, NDJSON export with event-type selection, archive counts, search-aware archived Load More, runtime server URL configuration, and reset invalidation. Remaining work is now focused on richer archive browsing, scenario metadata ownership, and longer-term event-source architecture.
+The current implementation has bounded hot arrays, IndexedDB archival, NDJSON export with event-type selection, archive counts, search-aware archived Load More, runtime server URL configuration, reset invalidation, export spinners, and 15-second success confirmations. The next useful work is a clearer archive browsing UI and focused checks around export/reset behavior. Server-owned scenario metadata and long-running event-source architecture remain separate follow-up tracks.
 
 ## Context and Orientation
 
@@ -261,6 +268,8 @@ For archive browsing, build on [src/lib/eventArchive.ts](src/lib/eventArchive.ts
 
 For reset/export behavior, keep Reset Store explicit. Cancel does nothing. Export logs writes selected NDJSON event types before reset; Discard logs skips export. After either Export or Discard, reset clears hot and IndexedDB logs, starts a new archive run, invalidates page data, remounts the canvas, closes selected inspectors, clears the filter, and shows a temporary success or failure message with a close button. The separate Export Logs button exports selected event types without resetting, and Clear Tables clears visible rows without deleting archived logs.
 
+For validation, prioritize focused checks before adding more features. The highest-value checks are around [src/lib/eventArchive.ts](src/lib/eventArchive.ts), [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts), [src/lib/mazeServerConfig.ts](src/lib/mazeServerConfig.ts), and the reset/export state transitions in [src/routes/+page.svelte](src/routes/+page.svelte). They should prove the data-retention contract, not only DOM details.
+
 For exit-cell lifecycle behavior, do not delete archived transaction context. The canvas may release marker and color resources when an agent exits. A future store-level completed-agent summary can use the already archived movement events rather than moving or deleting rows at exit time.
 
 For optimal route metadata, coordinate with the server scenario-package work. The creator's `#Correct plan` comment section is parseable, but a browser should receive route metadata from an admin/scenario endpoint or the existing admin snapshot rather than opening TriG files itself.
@@ -300,7 +309,7 @@ For canvas changes, verify that maze cells, walls, labels, UI overlays, cell bac
 
 For reset invalidation, acceptance depends on the server reset contract in [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). Once the server can atomically reset the RDF store and clear stale WebSocket replay events, the viewer must prove that a reset does not leave old agent markers, old UI overlays, stale selected inspector data, or stale hot logs attached to the new experiment view unless those old logs are intentionally archived and labeled as a previous run.
 
-For the reset dialog, acceptance is: clicking Reset Store opens Export logs / Discard logs / Cancel. Cancel performs no reset. Export writes NDJSON for the selected event types or reports cancellation/failure without resetting. Export and Discard call `POST /admin/maze/reset`; on success, hot logs, IndexedDB logs, selected inspectors, filter text, and canvas runtime state are cleared, page data is invalidated, and the success message disappears automatically or can be closed.
+For the reset dialog, acceptance is: clicking Reset Store opens Export logs / Discard logs / Cancel. Cancel performs no reset. Export writes NDJSON for the selected event types or reports cancellation/failure without resetting. Export and Discard call `POST /admin/maze/reset`; on success, hot logs, IndexedDB logs, selected inspectors, filter text, and canvas runtime state are cleared, page data is invalidated, and the success message remains visible for 15 seconds unless manually closed.
 
 ## Idempotence and Recovery
 
@@ -331,17 +340,17 @@ Suggested hot/cold model:
 
 `Clear Tables` clears visible rows only. Reset Store with Discard Logs clears both hot arrays and the IndexedDB archive. Export Logs writes selected archive event types without resetting.
 
-Export target note: [log/.gitignore](log/.gitignore) keeps a repository-local `log` folder available for users who want to select `mase-viewer/log` in browsers that support directory save. Browsers without that API use the normal downloads folder. Dockerized deployments use the same browser-side export path; no container write access is required.
+Export target note: [log/README.md](log/README.md) keeps a repository-local `log` folder available for users who want to select `mase-viewer/log` in browsers that support file save. The folder intentionally avoids hidden dotfiles because directory-grant pickers can reject folders that contain system or hidden files. Browser save dialogs cannot be forced to open an arbitrary repository path, but the export picker uses a stable id so supported browsers remember the last selected folder. Browsers without the File System Access API use the normal downloads folder. Dockerized deployments use the same browser-side export path; no container write access is required.
 
 Validation note, 2026-05-17: `git diff --check` reported no whitespace errors. npm-based viewer checks were intentionally not run because manual hot reload testing is being handled by the user.
 
 ### Future Feature Backlog
 
-Near-term work includes richer archive browsing controls, lightweight tests or component checks around log pruning/export behavior, and deciding whether repeated Load More needs table virtualization.
+Near-term work is the unchecked `Progress` list: archive browsing UI, focused export/reset/config checks, inspector URL strategy, server-owned optimal-route metadata, completed-agent summaries, and virtualization only if large visible tables prove problematic.
 
-Medium-term work includes RDF-backed agent location rendering investigation, completed-agent summary views derived from archived movement events, and storing transaction summary rows separately from full transaction details if full traces remain heavy.
+Medium-term work includes RDF-backed agent location rendering investigation and storing transaction summary rows separately from full transaction details if full traces remain heavy.
 
-Long-term work includes a server-supported event history or trace endpoint if long-running audit trails become core, moving optimal route metadata out of frontend source after the server exposes scenario route metadata, and adding performance benchmarks for high-volume movement and transaction streams.
+Long-term work includes a server-supported event history or trace endpoint if long-running audit trails become core and adding performance benchmarks for high-volume movement and transaction streams.
 
 ### Workpackage: Agent Location Rendering from Cell Containment Triples
 
@@ -392,3 +401,7 @@ Revision note, 2026-05-17: Planned the IndexedDB/NDJSON log archive and reset di
 Revision note, 2026-05-17: Split table clearing from log deletion, added independent Export Logs, and added 100-row archived log paging with scroll continuation for both visible event tables.
 
 Revision note, 2026-05-17: Applied plan hygiene for the next viewer focus. Completed items were moved out of backlog language, event-type export filtering and runtime server URL configuration were recorded, exit-cell cleanup was narrowed to canvas resources, and optimal-route parsing was assigned to future server/scenario metadata work.
+
+Revision note, 2026-05-17: Changed log export from directory-grant selection to file-save selection with a stable picker id, and replaced the old per-folder ignore file with [log/README.md](log/README.md) plus root ignore rules so browser directory restrictions do not reject `mase-viewer/log`.
+
+Revision note, 2026-05-17: Applied plan hygiene after the export spinner and 15-second banner change. The plan now has an explicit unchecked next-TODO list and the backlog points to that list instead of repeating stale completed work.

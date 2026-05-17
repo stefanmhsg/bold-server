@@ -55,11 +55,17 @@ export function emptyArchiveEventTypeCounts(): ArchiveEventTypeCounts {
     };
 }
 
-type DirectoryPicker = (options?: { mode?: 'read' | 'readwrite' }) => Promise<DirectoryHandle>;
+type FilePickerStartIn = 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos';
 
-interface DirectoryHandle {
-    getFileHandle(name: string, options?: { create?: boolean }): Promise<FileHandle>;
-}
+type SaveFilePicker = (options?: {
+    id?: string;
+    suggestedName?: string;
+    startIn?: FilePickerStartIn;
+    types?: Array<{
+        description: string;
+        accept: Record<string, string[]>;
+    }>;
+}) => Promise<FileHandle>;
 
 interface FileHandle {
     createWritable(): Promise<WritableFile>;
@@ -403,12 +409,22 @@ class EventArchive {
     }
 
     private async saveBlob(blob: Blob, fileName: string): Promise<Exclude<ArchiveExportStatus, 'empty' | 'unavailable'>> {
-        const windowWithPicker = window as Window & { showDirectoryPicker?: DirectoryPicker };
+        const windowWithPicker = window as Window & { showSaveFilePicker?: SaveFilePicker };
 
-        if (windowWithPicker.showDirectoryPicker) {
+        if (windowWithPicker.showSaveFilePicker) {
             try {
-                const directory = await windowWithPicker.showDirectoryPicker({ mode: 'readwrite' });
-                const file = await directory.getFileHandle(fileName, { create: true });
+                const file = await windowWithPicker.showSaveFilePicker({
+                    id: 'mase-viewer-log-export',
+                    suggestedName: fileName,
+                    startIn: 'documents',
+                    types: [{
+                        description: 'NDJSON log file',
+                        accept: {
+                            'application/x-ndjson': ['.ndjson'],
+                            'application/json': ['.json']
+                        }
+                    }]
+                });
                 const writable = await file.createWritable();
                 await writable.write(blob);
                 await writable.close();
@@ -418,7 +434,7 @@ class EventArchive {
                     return 'canceled';
                 }
 
-                console.warn('Directory export failed, falling back to browser download', error);
+                console.warn('File picker export failed, falling back to browser download', error);
             }
         }
 

@@ -15,6 +15,7 @@
         UI_UPSERT: 'UI Upserts',
         UI_DELETE: 'UI Deletes'
     };
+    const SUCCESS_MESSAGE_AUTO_DISMISS_MS = 15000;
 
     let { data } = $props<{ data: PageData }>();
 
@@ -63,7 +64,7 @@
             resetMessageTimer = setTimeout(() => {
                 resetMessage = null;
                 resetMessageTimer = null;
-            }, 5000);
+            }, SUCCESS_MESSAGE_AUTO_DISMISS_MS);
         }
     }
 
@@ -430,11 +431,14 @@
             <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <button
                     onclick={openResetDialog}
-                    class="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    class="inline-flex items-center justify-center gap-2 rounded border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                     type="button"
                     title="Reset RDF store"
                     disabled={isResetting || isExportingLogs}
                 >
+                    {#if isExportingLogs}
+                        <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                    {/if}
                     {isResetting ? 'Resetting...' : isExportingLogs ? 'Exporting...' : 'Reset Store'}
                 </button>
                 <button
@@ -548,10 +552,13 @@
             </button>
             <button
                 type="button"
-                class="px-3 py-2 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                class="inline-flex items-center justify-center gap-2 rounded border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                 onclick={openExportDialog}
                 disabled={isExportingLogs || isResetting}
             >
+                {#if isExportingLogs}
+                    <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                {/if}
                 {isExportingLogs ? 'Exporting...' : 'Export Logs'}
             </button>
         </div>
@@ -689,6 +696,12 @@
                         </label>
                     {/each}
                 </div>
+                {#if isExportingLogs}
+                    <div class="mt-3 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-sm text-blue-700">
+                        <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                        <span>Preparing NDJSON export...</span>
+                    </div>
+                {/if}
             </div>
 
             <div class="flex flex-wrap justify-end gap-2">
@@ -710,10 +723,13 @@
                 </button>
                 <button
                     type="button"
-                    class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    class="inline-flex items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                     onclick={() => handleAdminReset('export')}
                     disabled={isResetting || isExportingLogs || !canExportSelectedTypes}
                 >
+                    {#if isExportingLogs}
+                        <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                    {/if}
                     {isExportingLogs ? 'Exporting...' : 'Export Logs'}
                 </button>
             </div>
@@ -766,6 +782,12 @@
                         </label>
                     {/each}
                 </div>
+                {#if isExportingLogs}
+                    <div class="mt-3 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-sm text-blue-700">
+                        <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                        <span>Preparing NDJSON export...</span>
+                    </div>
+                {/if}
             </div>
 
             <div class="flex flex-wrap justify-end gap-2">
@@ -779,10 +801,13 @@
                 </button>
                 <button
                     type="button"
-                    class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    class="inline-flex items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                     onclick={handleExportLogs}
                     disabled={isExportingLogs || !canExportSelectedTypes}
                 >
+                    {#if isExportingLogs}
+                        <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                    {/if}
                     {isExportingLogs ? 'Exporting...' : 'Export Logs'}
                 </button>
             </div>

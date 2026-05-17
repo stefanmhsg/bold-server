@@ -1,10 +1,11 @@
-import { env } from '$env/dynamic/private';
+import { env as privateEnv } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 import { resolveMazeServerRuntimeConfig } from '$lib/mazeServerConfig';
 import type { MazeAdminSnapshot } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ fetch }) => {
-    const serverConfig = resolveMazeServerRuntimeConfig(env);
+    const serverConfig = resolveMazeServerRuntimeConfig({ ...publicEnv, ...privateEnv });
 
     try {
         const response = await fetch(`${serverConfig.internalHttpBaseUrl}/admin/maze`);
