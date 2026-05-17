@@ -60,7 +60,7 @@ public class KeyHolderAgent {
 
     private static final String BASE_URI = "http://127.0.1.1:8080";
     private static final String MAZE_URI = BASE_URI + "/maze";
-    private static final String AGENT_NAME = "key-holder-agent-3";
+    private static final String AGENT_NAME = "key-holder-agent-1";
     private static final String TARGET_COORDINATE = "42/43"; // 42/43 for CCRS-Scenario. 15/7 for paper
     private static final int DEFAULT_A2A_PORT = 8095;
     private static final String DEFAULT_A2A_BIND_HOST = "127.0.0.1";

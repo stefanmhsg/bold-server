@@ -22,6 +22,7 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
 - [x] (2026-05-17 13:40Z) Documented the endpoint in `mase-server/README.md`.
 - [x] (2026-05-17 13:40Z) Kept `mase-viewer` invalidation deferred; no viewer cleanup, remount, or refresh behavior was changed.
 - [x] (2026-05-17) Added a trigger-only viewer button in [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md)'s scope that calls `POST /admin/maze/reset`.
+- [x] (2026-05-17) Updated the viewer reset flow so Export logs and Discard logs trigger the endpoint and then fully reset client state.
 
 ## Surprises & Discoveries
 
@@ -45,6 +46,9 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
 
 - Observation: The viewer can now initiate the endpoint, but it still does not consume the returned snapshot for state refresh.
   Evidence: [mase-viewer/src/routes/+page.svelte](../mase-viewer/src/routes/+page.svelte) posts to `http://localhost:8080/admin/maze/reset` and shows request feedback without invalidating SvelteKit data, clearing logs, remounting the canvas, or closing inspectors.
+
+- Observation: The next viewer reset flow keeps export local to the browser.
+  Evidence: Browser code can save NDJSON through a user-selected folder or normal download, which works the same when [mase-viewer/Dockerfile](../mase-viewer/Dockerfile) serves the app from a container because the file write happens on the browser side.
 
 ## Decision Log
 
@@ -72,13 +76,17 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
   Rationale: The admin endpoint is useful to invoke from the browser now. The returned snapshot and `ADMIN_RESET` notification are still part of the server contract, while viewer cleanup and refresh behavior remain owned by [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md).
   Date/Author: 2026-05-17 / Codex
 
+- Decision: Let the viewer own log export/discard before calling reset.
+  Rationale: The server reset endpoint should remain focused on RDF store reset. Browser-side NDJSON export avoids adding server filesystem concerns or Docker volume requirements to `mase-server`.
+  Date/Author: 2026-05-17 / Codex
+
 - Decision: Use a fair `ReentrantReadWriteLock` as the reset mutation coordinator.
   Rationale: Normal POST and SPARQL update mutations can still proceed concurrently where existing per-resource rules allow it, while reset uses the exclusive lock to prevent any clear/reload interleaving.
   Date/Author: 2026-05-17 / Codex
 
 ## Outcomes & Retrospective
 
-The server reset endpoint has been implemented and validated. The viewer now has a trigger-only button that calls the endpoint. No viewer invalidation, log cleanup, snapshot refresh, or canvas remount behavior was implemented; that remains intentionally deferred to the viewer plan.
+The server reset endpoint has been implemented and validated. The viewer reset UX now uses an Export logs / Discard logs / Cancel flow; server endpoint behavior remains unchanged.
 
 ## Context and Orientation
 
@@ -228,12 +236,13 @@ The safest simple viewer behavior may be a full page reload after a successful r
 
 See [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md) for the frontend side of this dependency. That file also records why reset behavior intersects with event hot windows, cold archives, replay de-duplication, and inspector state.
 
-Current viewer trigger:
+Current viewer reset flow:
 
     mase-viewer/src/routes/+page.svelte
-    Reset Store -> POST http://localhost:8080/admin/maze/reset
+    Reset Store -> Export logs / Discard logs / Cancel
+    Export logs or Discard logs -> POST http://localhost:8080/admin/maze/reset
 
-This trigger intentionally ignores the returned admin snapshot for now.
+The viewer exports or discards logs before invoking reset. After a successful reset response, the viewer invalidates `/admin/maze` data, remounts the canvas, closes inspectors, clears hot/archive logs, and shows a temporary dismissible result message. The server endpoint itself does not write exported log files.
 
 ## Interfaces and Dependencies
 
@@ -258,3 +267,5 @@ Revision note, 2026-05-17: Added the cross-plan dependency with [MASE-VIEWER.md]
 Revision note, 2026-05-17: Implemented the reset endpoint and updated progress, discoveries, decisions, outcomes, and validation evidence. The implementation keeps viewer invalidation deferred.
 
 Revision note, 2026-05-17: Added a trigger-only viewer reset button and documented that it initiates the server endpoint without client-side invalidation, log cleanup, or snapshot refresh.
+
+Revision note, 2026-05-17: Added the viewer-side reset/export follow-up. The server reset API remains unchanged; NDJSON export is handled by the browser so Docker deployments do not need writable server volumes for viewer logs.

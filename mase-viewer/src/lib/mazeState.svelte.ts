@@ -1,3 +1,5 @@
+import { eventArchive, type ArchiveExportResult } from './eventArchive';
+
 export interface BaseEvent {
     type: string;
     timestamp: number;
@@ -60,9 +62,9 @@ export interface TransactionEvent extends BaseEvent {
 export type MazeEvent = AgentMovedEvent | UiUpsertEvent | UiDeleteEvent | TransactionEvent;
 export type RuntimeCanvasEvent = AgentMovedEvent | UiUpsertEvent | UiDeleteEvent;
 
-const AGENT_EVENT_STORAGE_KEY = 'maze-viewer.agent-events.v1';
-const TRANSACTION_EVENT_STORAGE_KEY = 'maze-viewer.transaction-events.v1';
-const PERSIST_DEBOUNCE_MS = 250;
+const HOT_AGENT_EVENT_LIMIT = 50;
+const HOT_TRANSACTION_EVENT_LIMIT = 50;
+const HOT_UI_EVENT_LIMIT = 50;
 const REPLAY_DEDUPE_WINDOW_MS = 3000;
 const REPLAY_DEDUPE_MAX_SIGNATURES = 2000;
 
@@ -72,16 +74,20 @@ export class MazeStore {
     uiDeleteEvents = $state<UiDeleteEvent[]>([]);
     transactionEvents = $state<TransactionEvent[]>([]);
     status = $state<string>("disconnected");
+    archiveCount = $state(0);
+    archiveError = $state<string | null>(null);
     socket: WebSocket | null = null;
     private pendingEvents: MazeEvent[] = [];
     private flushHandle: number | null = null;
-    private persistHandle: number | null = null;
     private runtimeCanvasListeners = new Set<(event: RuntimeCanvasEvent) => void>();
     private replayDedupeUntil = 0;
     private replaySeenSignatures = new Set<string>();
+    private currentRunId = eventArchive.getCurrentRunId();
+    private archiveWrite: Promise<void> = Promise.resolve();
+    private suppressResetTransactionsUntil = 0;
 
     constructor() {
-        this.hydratePersistedLogs();
+        void this.hydrateArchivedLogs();
     }
 
     subscribeRuntimeCanvasEvents(listener: (event: RuntimeCanvasEvent) => void): () => void {
@@ -102,29 +108,25 @@ export class MazeStore {
         }
     }
 
-    private hydratePersistedLogs(): void {
+    private async hydrateArchivedLogs(): Promise<void> {
         if (typeof window === 'undefined') {
             return;
         }
 
         try {
-            const agentRaw = window.sessionStorage.getItem(AGENT_EVENT_STORAGE_KEY);
-            if (agentRaw) {
-                const parsed = JSON.parse(agentRaw);
-                if (Array.isArray(parsed)) {
-                    this.agentEvents = parsed as AgentMovedEvent[];
-                }
-            }
+            const [agentEvents, transactionEvents, count] = await Promise.all([
+                eventArchive.getRecentEventsByType<AgentMovedEvent>('AGENT_MOVED', HOT_AGENT_EVENT_LIMIT),
+                eventArchive.getRecentEventsByType<TransactionEvent>('TRANSACTION', HOT_TRANSACTION_EVENT_LIMIT),
+                eventArchive.count()
+            ]);
 
-            const transactionRaw = window.sessionStorage.getItem(TRANSACTION_EVENT_STORAGE_KEY);
-            if (transactionRaw) {
-                const parsed = JSON.parse(transactionRaw);
-                if (Array.isArray(parsed)) {
-                    this.transactionEvents = parsed as TransactionEvent[];
-                }
-            }
+            this.agentEvents = agentEvents;
+            this.transactionEvents = transactionEvents;
+            this.archiveCount = count;
+            this.archiveError = null;
         } catch (error) {
-            console.warn('Failed to restore persisted logs', error);
+            this.archiveError = error instanceof Error ? error.message : String(error);
+            console.warn('Failed to restore archived logs', error);
         }
 
         this.seedReplayDedupeSignatures();
@@ -156,43 +158,50 @@ export class MazeStore {
         return this.signatureForPayload(payload);
     }
 
-    clearLogs(): void {
+    async clearLogs(): Promise<void> {
         this.agentEvents = [];
+        this.uiEvents = [];
+        this.uiDeleteEvents = [];
         this.transactionEvents = [];
         this.replaySeenSignatures.clear();
 
-        if (typeof window !== 'undefined') {
-            window.sessionStorage.removeItem(AGENT_EVENT_STORAGE_KEY);
-            window.sessionStorage.removeItem(TRANSACTION_EVENT_STORAGE_KEY);
-        }
-    }
-
-    private schedulePersistLogs(): void {
-        if (typeof window === 'undefined') {
-            return;
-        }
-
-        if (this.persistHandle !== null) {
-            window.clearTimeout(this.persistHandle);
-        }
-
-        this.persistHandle = window.setTimeout(() => {
-            this.persistHandle = null;
-            this.persistLogs();
-        }, PERSIST_DEBOUNCE_MS);
-    }
-
-    private persistLogs(): void {
-        if (typeof window === 'undefined') {
-            return;
-        }
-
         try {
-            window.sessionStorage.setItem(AGENT_EVENT_STORAGE_KEY, JSON.stringify(this.agentEvents));
-            window.sessionStorage.setItem(TRANSACTION_EVENT_STORAGE_KEY, JSON.stringify(this.transactionEvents));
+            await this.waitForArchiveWrites();
+            await eventArchive.clear();
+            this.archiveCount = 0;
+            this.archiveError = null;
         } catch (error) {
-            console.warn('Failed to persist logs', error);
+            this.archiveError = error instanceof Error ? error.message : String(error);
+            console.warn('Failed to clear archived logs', error);
         }
+    }
+
+    async exportLogsNdjson(): Promise<ArchiveExportResult> {
+        this.flushQueuedEventsNow();
+        await this.waitForArchiveWrites();
+        return eventArchive.exportNdjson();
+    }
+
+    async resetForNewRun(): Promise<void> {
+        this.flushQueuedEventsNow();
+        this.pendingEvents = [];
+        await this.clearLogs();
+        this.currentRunId = eventArchive.startNewRun();
+        this.suppressResetTransactionsUntil = Date.now() + REPLAY_DEDUPE_WINDOW_MS;
+        this.seedReplayDedupeSignatures();
+    }
+
+    private waitForArchiveWrites(): Promise<void> {
+        return this.archiveWrite;
+    }
+
+    private flushQueuedEventsNow(): void {
+        if (this.flushHandle !== null) {
+            cancelAnimationFrame(this.flushHandle);
+            this.flushHandle = null;
+        }
+
+        this.flushPendingEvents();
     }
 
     private queueEvent(event: MazeEvent): void {
@@ -218,24 +227,37 @@ export class MazeStore {
         for (const mazeEvent of batch) {
             switch (mazeEvent.type) {
                 case 'AGENT_MOVED':
-                    this.agentEvents.push(mazeEvent);
+                    this.agentEvents = [...this.agentEvents, mazeEvent].slice(-HOT_AGENT_EVENT_LIMIT);
                     this.emitRuntimeCanvasEvent(mazeEvent);
                     break;
                 case 'UI_UPSERT':
-                    this.uiEvents.push(mazeEvent);
+                    this.uiEvents = [...this.uiEvents, mazeEvent].slice(-HOT_UI_EVENT_LIMIT);
                     this.emitRuntimeCanvasEvent(mazeEvent);
                     break;
                 case 'UI_DELETE':
-                    this.uiDeleteEvents.push(mazeEvent);
+                    this.uiDeleteEvents = [...this.uiDeleteEvents, mazeEvent].slice(-HOT_UI_EVENT_LIMIT);
                     this.emitRuntimeCanvasEvent(mazeEvent);
                     break;
                 case 'TRANSACTION':
-                    this.transactionEvents.push(mazeEvent);
+                    this.transactionEvents = [...this.transactionEvents, mazeEvent].slice(-HOT_TRANSACTION_EVENT_LIMIT);
                     break;
             }
         }
 
-        this.schedulePersistLogs();
+        this.archiveEvents(batch);
+    }
+
+    private archiveEvents(events: MazeEvent[]): void {
+        this.archiveWrite = this.archiveWrite
+            .then(() => eventArchive.appendEvents(events, this.currentRunId))
+            .then((archivedCount) => {
+                this.archiveCount += archivedCount;
+                this.archiveError = null;
+            })
+            .catch((error) => {
+                this.archiveError = error instanceof Error ? error.message : String(error);
+                console.warn('Failed to archive events', error);
+            });
     }
 
     connect() {
@@ -259,7 +281,15 @@ export class MazeStore {
                     return;
                 }
 
+                if (data.type === "ADMIN_RESET") {
+                    return;
+                }
+
                 if (!isMazeEventPayload(data)) {
+                    return;
+                }
+
+                if (this.shouldSuppressResetTransaction(data)) {
                     return;
                 }
 
@@ -287,12 +317,7 @@ export class MazeStore {
                 cancelAnimationFrame(this.flushHandle);
                 this.flushHandle = null;
             }
-            if (this.persistHandle !== null) {
-                window.clearTimeout(this.persistHandle);
-                this.persistHandle = null;
-            }
             this.flushPendingEvents();
-            this.persistLogs();
             this.status = "disconnected";
             this.socket = null;
         };
@@ -301,6 +326,12 @@ export class MazeStore {
             console.error("WebSocket error", error);
             this.status = "error";
         };
+    }
+
+    private shouldSuppressResetTransaction(payload: Omit<MazeEvent, 'timestamp'>): boolean {
+        return Date.now() <= this.suppressResetTransactionsUntil
+            && payload.type === 'TRANSACTION'
+            && payload.trigger === 'RESET';
     }
 }
 

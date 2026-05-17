@@ -1,6 +1,7 @@
 <script lang="ts">
     import { mazeState } from '$lib/mazeState.svelte';
-    import { onMount } from 'svelte';
+    import { invalidateAll } from '$app/navigation';
+    import { onDestroy, onMount } from 'svelte';
     import type { PageData } from './$types';
     import MazeCanvas from '$lib/components/MazeCanvas.svelte';
     import AgentEventLog from '$lib/components/AgentEventLog.svelte';
@@ -23,19 +24,88 @@
     let postMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
     let eventFilterText = $state('');
     let isResetting = $state(false);
+    let isExportingLogs = $state(false);
+    let resetDialogOpen = $state(false);
+    let canvasRevision = $state(0);
     let resetMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
+    let resetMessageTimer: ReturnType<typeof setTimeout> | null = null;
 
     onMount(() => {
         mazeState.connect();
     });
 
-    async function handleAdminReset() {
+    onDestroy(() => {
+        if (resetMessageTimer) {
+            clearTimeout(resetMessageTimer);
+        }
+    });
+
+    function showResetMessage(message: { type: 'success' | 'error', text: string }, autoDismiss = message.type === 'success') {
+        resetMessage = message;
+
+        if (resetMessageTimer) {
+            clearTimeout(resetMessageTimer);
+            resetMessageTimer = null;
+        }
+
+        if (autoDismiss) {
+            resetMessageTimer = setTimeout(() => {
+                resetMessage = null;
+                resetMessageTimer = null;
+            }, 5000);
+        }
+    }
+
+    function clearResetMessage() {
+        resetMessage = null;
+        if (resetMessageTimer) {
+            clearTimeout(resetMessageTimer);
+            resetMessageTimer = null;
+        }
+    }
+
+    function openResetDialog() {
+        if (isResetting || isExportingLogs) return;
+        clearResetMessage();
+        resetDialogOpen = true;
+    }
+
+    function closeResetDialog() {
+        if (isResetting || isExportingLogs) return;
+        resetDialogOpen = false;
+    }
+
+    async function handleAdminReset(action: 'export' | 'discard') {
         if (isResetting) return;
 
         isResetting = true;
-        resetMessage = null;
+        clearResetMessage();
 
         try {
+            let exportedCount: number | null = null;
+            let exportFileName: string | undefined;
+
+            if (action === 'export') {
+                isExportingLogs = true;
+                const exportResult = await mazeState.exportLogsNdjson();
+                isExportingLogs = false;
+
+                if (exportResult.status === 'canceled') {
+                    resetDialogOpen = false;
+                    showResetMessage({ type: 'error', text: 'Reset canceled. Log export was canceled.' }, false);
+                    return;
+                }
+
+                if (exportResult.status === 'unavailable') {
+                    resetDialogOpen = false;
+                    showResetMessage({ type: 'error', text: exportResult.message ?? 'Reset canceled. Log export is unavailable.' }, false);
+                    return;
+                }
+
+                exportedCount = exportResult.count;
+                exportFileName = exportResult.fileName;
+            }
+
             const response = await fetch(ADMIN_RESET_URL, {
                 method: 'POST',
                 headers: {
@@ -44,22 +114,56 @@
             });
 
             if (response.ok) {
-                resetMessage = { type: 'success', text: 'Reset completed.' };
+                await resetViewerState();
+                resetDialogOpen = false;
+
+                if (action === 'export' && exportedCount !== null) {
+                    const exportSummary = exportedCount > 0
+                        ? ` Exported ${exportedCount} log events${exportFileName ? ` to ${exportFileName}` : ''}.`
+                        : ' No logs were available to export.';
+                    showResetMessage({ type: 'success', text: `Reset completed.${exportSummary}` });
+                } else {
+                    showResetMessage({ type: 'success', text: 'Reset completed. Logs discarded.' });
+                }
             } else {
                 const errorText = await response.text();
-                resetMessage = {
+                resetDialogOpen = false;
+                showResetMessage({
                     type: 'error',
                     text: `Reset failed (${response.status}): ${errorText || response.statusText}`
-                };
+                }, false);
             }
         } catch (e) {
-            resetMessage = {
+            resetDialogOpen = false;
+            showResetMessage({
                 type: 'error',
                 text: `Reset failed: ${e instanceof Error ? e.message : String(e)}`
-            };
+            }, false);
         } finally {
+            isExportingLogs = false;
             isResetting = false;
         }
+    }
+
+    async function resetViewerState() {
+        selectedCellData = null;
+        selectedCellId = null;
+        isLoadingCell = false;
+        selectedAgentData = null;
+        selectedAgentId = null;
+        isLoadingAgent = false;
+        turtleInput = '';
+        isPosting = false;
+        postMessage = null;
+        eventFilterText = '';
+
+        await mazeState.resetForNewRun();
+        await invalidateAll();
+        canvasRevision += 1;
+    }
+
+    async function handleClearLogs() {
+        await mazeState.clearLogs();
     }
 
     /**
@@ -211,13 +315,13 @@
             </div>
             <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <button
-                    onclick={handleAdminReset}
+                    onclick={openResetDialog}
                     class="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                     type="button"
                     title="Reset RDF store"
-                    disabled={isResetting}
+                    disabled={isResetting || isExportingLogs}
                 >
-                    {isResetting ? 'Resetting...' : 'Reset Store'}
+                    {isResetting ? 'Resetting...' : isExportingLogs ? 'Exporting...' : 'Reset Store'}
                 </button>
                 <button
                     onclick={() => showOptimalRoute.update((v) => !v)}
@@ -230,14 +334,24 @@
         </div>
 
         {#if resetMessage}
-            <div class={resetMessage.type === 'success' ? 'rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700' : 'rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 break-words'}>
-                {resetMessage.text}
+            <div class={resetMessage.type === 'success' ? 'flex items-start justify-between gap-3 rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700' : 'flex items-start justify-between gap-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 break-words'}>
+                <span>{resetMessage.text}</span>
+                <button
+                    type="button"
+                    class="shrink-0 rounded px-1 text-current hover:bg-white/60"
+                    title="Close message"
+                    onclick={clearResetMessage}
+                >
+                    x
+                </button>
             </div>
         {/if}
         
         {#if data.maze}
             <div class="h-[600px] min-w-0 max-w-full resize overflow-hidden rounded border-2 border-gray-300 bg-white">
-                <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} scenarioName={data.scenarioName} onCellSelect={handleCellSelect} />
+                {#key canvasRevision}
+                    <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} scenarioName={data.scenarioName} onCellSelect={handleCellSelect} />
+                {/key}
             </div>
         {:else}
             <div class="p-8 bg-gray-100 rounded text-center text-gray-500">
@@ -304,7 +418,7 @@
             <button
                 type="button"
                 class="px-3 py-2 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50"
-                onclick={() => mazeState.clearLogs()}
+                onclick={handleClearLogs}
             >
                 Clear Logs
             </button>
@@ -383,3 +497,41 @@
         {/if}
     </div>
 </div>
+
+{#if resetDialogOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div class="w-full max-w-md rounded border border-gray-200 bg-white p-4 shadow-xl">
+            <div class="mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Reset Store</h2>
+                <p class="mt-1 text-sm text-gray-600">Export current logs before resetting?</p>
+            </div>
+
+            <div class="flex flex-wrap justify-end gap-2">
+                <button
+                    type="button"
+                    class="rounded border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    onclick={closeResetDialog}
+                    disabled={isResetting || isExportingLogs}
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    onclick={() => handleAdminReset('discard')}
+                    disabled={isResetting || isExportingLogs}
+                >
+                    Discard Logs
+                </button>
+                <button
+                    type="button"
+                    class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    onclick={() => handleAdminReset('export')}
+                    disabled={isResetting || isExportingLogs}
+                >
+                    {isExportingLogs ? 'Exporting...' : 'Export Logs'}
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}

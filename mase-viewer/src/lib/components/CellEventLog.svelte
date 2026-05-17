@@ -3,7 +3,7 @@
 
     let { events, filterText = '' } = $props<{ events: TransactionEvent[]; filterText?: string }>();
 
-    let expandedRow = $state<number | null>(null);
+    let expandedRowKey = $state<string | null>(null);
 
     const normalizedFilterText = $derived(filterText.trim().toLowerCase());
 
@@ -41,12 +41,26 @@
         return parts.slice(-2).join('/') || graph;
     }
 
-    function toggleExpanded(index: number): void {
-        expandedRow = expandedRow === index ? null : index;
+    function transactionEventKey(event: TransactionEvent): string {
+        return [
+            event.transactionId ?? 'no-tx',
+            event.timestamp,
+            event.startedAt,
+            event.finishedAt,
+            event.trigger,
+            event.status,
+            event.agent ?? '',
+            event.graph ?? ''
+        ].join('|');
     }
 
-    function isExpanded(index: number): boolean {
-        return expandedRow === index;
+    function toggleExpanded(event: TransactionEvent): void {
+        const key = transactionEventKey(event);
+        expandedRowKey = expandedRowKey === key ? null : key;
+    }
+
+    function isExpanded(event: TransactionEvent): boolean {
+        return expandedRowKey === transactionEventKey(event);
     }
 
     function formatDuration(event: TransactionEvent): string {
@@ -99,10 +113,10 @@
                 </tr>
             </thead>
             <tbody>
-            {#each filteredEvents as event, index}
+            {#each filteredEvents as event (transactionEventKey(event))}
                 <tr
                     class="border-b hover:bg-gray-50 cursor-pointer"
-                    ondblclick={() => toggleExpanded(index)}
+                    ondblclick={() => toggleExpanded(event)}
                     title={`Double-click for transaction ${traceLabel(event)} details`}
                 >
                     <td class="p-2 text-base whitespace-nowrap text-gray-500">
@@ -118,7 +132,7 @@
                     </td>
                 </tr>
 
-                {#if isExpanded(index)}
+                {#if isExpanded(event)}
                     <tr class="border-b bg-gray-50">
                         <td colspan="5" class="p-3">
                             <div class="space-y-3">
