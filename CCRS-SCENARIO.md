@@ -4,51 +4,74 @@
 
 Please note that everything related to "CCRS" is tailored to my master's thesis and is thus not fully explained here.
 
-Nevertheless, I invite you to run the scenario `sim-CcrsMaze` as a demonstration of what is possible with the MASE project.
+Nevertheless, I invite you to run the `ccrs` scenario as a demonstration of what is possible with the MASE project.
 
 ---
 
-Data: [CcrsMaze.trig](mase-server/data/CcrsMaze.trig)
+Data: [CcrsMazeV1.trig](mase-server/scenarios/ccrs/data/CcrsMazeV1.trig) and [CcrsMazeV2.trig](mase-server/scenarios/ccrs/data/CcrsMazeV2.trig)
 
-Infrastructure Agents: [CcrsAgent.java](mase-server/src/main/java/org/maze/examples/CcrsAgent.java)
+Infrastructure agents:
 
-## Run with Docker Compose
+- [CcrsAgent.java](mase-server/scenarios/ccrs/agents/src/main/java/org/maze/scenarios/ccrs/agents/CcrsAgent.java)
+- [KeyHolderAgent.java](mase-server/scenarios/ccrs/agents/src/main/java/org/maze/scenarios/ccrs/agents/KeyHolderAgent.java)
 
-Start the CCRS scenario stack from the repository root:
+## Run with Docker
 
-```shell
-docker compose -f docker-compose.ccrs.yml up --build
-```
+Run these commands from the repository root.
 
-This starts:
+### 1. Start the Viewer
 
-- `mase-server` with `TASKNAME=sim-CcrsMaze`
-- `ccrs-agent` after a short server startup delay, with Docker-safe request timing
-- `keyholder-agent` roughly one minute after the CCRS infrastructure agents start
-
-The Keyholder A2A endpoint is exposed on http://127.0.0.1:8095.
-
-Start the viewer only when needed:
+Start the Docker viewer first:
 
 ```shell
 docker compose -f docker-compose.ccrs.yml --profile viewer up --build -d mase-viewer
 ```
 
-The viewer is available on http://localhost:3000 and can be left running while the CCRS server and setup agents are reset.
+Because [docker-compose.ccrs.yml](docker-compose.ccrs.yml) declares `mase-viewer` as depending on `mase-server`, this also starts the CCRS server. The viewer is available at http://localhost:3000 and the server is available at http://localhost:8080.
 
-To reset the scenario after one experiment-agent run, stop and remove the stack, then start it again:
+Keep the viewer running between scenario runs. It is the fastest way to reset the running server and inspect the next run.
+
+### 2. Start the CCRS Agent Stack
+
+Start the one-shot CCRS infrastructure agents:
 
 ```shell
-docker compose -f docker-compose.ccrs.yml rm -sf mase-server ccrs-agent keyholder-agent
-docker compose -f docker-compose.ccrs.yml up --build -d mase-server ccrs-agent keyholder-agent
+docker compose -f docker-compose.ccrs.yml up --build -d ccrs-agent keyholder-agent
 ```
+
+This uses the already running server and starts:
+
+- `ccrs-agent` after a short server startup delay, with Docker-safe request timing
+- `keyholder-agent` roughly one minute after the CCRS infrastructure agents start
+
+The Keyholder A2A endpoint is exposed on http://127.0.0.1:8095.
+
+### 3. Reset and Rerun Without Rebuilding
+
+After an experiment-agent run, reset the scenario in the viewer. Use the viewer reset action and choose either to export or discard the current logs before confirming the reset.
+
+The reset endpoint reloads the active CCRS scenario data and rules inside the running `mase-server` container. The viewer and server stay up.
+
+Then recreate only the one-shot agent containers, without rebuilding the image:
+
+```shell
+docker compose -f docker-compose.ccrs.yml up -d --no-build --force-recreate ccrs-agent keyholder-agent
+```
+
+Use this loop for repeated CCRS runs:
+
+1. Reset the scenario via the viewer.
+2. Run `docker compose -f docker-compose.ccrs.yml up -d --no-build --force-recreate ccrs-agent keyholder-agent`.
+3. Leave `mase-viewer` and `mase-server` running.
+
+Rebuild only when Java code, Dockerfiles, dependencies, or the viewer build changed.
 
 The startup delays can be adjusted with environment variables:
 
 ```shell
 $env:CCRS_AGENT_START_DELAY = "15"
 $env:KEYHOLDER_AGENT_START_DELAY = "75"
-docker compose -f docker-compose.ccrs.yml up --build
+docker compose -f docker-compose.ccrs.yml up -d --no-build --force-recreate ccrs-agent keyholder-agent
 ```
 
 The CCRS infrastructure agent keeps the Gradle defaults of 3 seconds between spawned agents and 10 seconds per HTTP request unless overridden. The Docker Compose CCRS file uses more conservative defaults because the server and agents share Docker Desktop resources:
@@ -56,7 +79,7 @@ The CCRS infrastructure agent keeps the Gradle defaults of 3 seconds between spa
 ```shell
 $env:CCRS_AGENT_DISPATCH_INTERVAL_MS = "5000"
 $env:CCRS_AGENT_REQUEST_TIMEOUT_SECONDS = "60"
-docker compose -f docker-compose.ccrs.yml up --build
+docker compose -f docker-compose.ccrs.yml up -d --no-build --force-recreate ccrs-agent keyholder-agent
 ```
 
 ## Run with Gradle
@@ -65,14 +88,13 @@ docker compose -f docker-compose.ccrs.yml up --build
 
 ```shell
 cd .\mase-server\
-gradle runMase --args="sim-CcrsMaze"
+gradle runMase --args="--scenario scenarios/ccrs"
 ```
 
-Variants: in [sim-CcrsMaze.properties](mase-server/sim-CcrsMaze.properties) select the dataset version
+Variants: in [scenario.properties](mase-server/scenarios/ccrs/scenario.properties) select the dataset version.
 
-- sim-CcrsMazeV1: redkey removed, use with key-holder-agent
-
-- sim-CcrsMazeV2: redkey is placed in Cell
+- `CcrsMazeV1.trig`: red key removed, use with the keyholder agent
+- `CcrsMazeV2.trig`: red key is placed in the cell
 
 2. Start the Frontend:
 

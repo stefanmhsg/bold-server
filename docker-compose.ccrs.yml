@@ -39,7 +39,7 @@ services:
     network_mode: "service:mase-server"
     restart: "no"
     command: >
-      sh -lc "sleep ${CCRS_AGENT_START_DELAY:-15};
+      sh -lc "sleep ${CCRS_AGENT_START_DELAY:-1};
       java -cp '/opt/mase/install/mase-server/lib/*' org.maze.scenarios.ccrs.agents.CcrsAgent"
 
   keyholder-agent:

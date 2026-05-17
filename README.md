@@ -72,7 +72,6 @@ A scenario is selected by its directory. The server loads [scenario.properties](
 - `mase.init.dataset` points to the scenario-local RDF data file.
 - Every `.rq` file under `rules/` is active and loaded recursively.
 - Files under `rules-disabled/` are ignored and can hold deactivated or work-in-progress rules.
-- Optional behavior is enabled by including scenario-local rule files under `rules/`.
 - Transaction trace broadcasting is configured with `mase.transaction.trace`. Shipped scenarios use `summary`, which emits lightweight transaction headers without per-triple logging.
 
 ### Transaction Trace Modes
@@ -83,9 +82,7 @@ A scenario is selected by its directory. The server loads [scenario.properties](
 - `summary`: broadcast committed/rolled-back transaction headers with transaction id, time, trigger, agent, graph, status, error, and number of executed rules. This is the default middle ground for multi-agent runs.
 - `full`: additionally include request bodies, merge triples, and per-rule RDF diffs. Use this for debugging only because it snapshots repository state around rule execution.
 
-The maze dataset is an RDF file that defines the maze structure and the initial state of the environment. Rules are SPARQL Update queries that run after initialization and during each HTTP POST handled by the MASE server. They customize the environment and evolve it in response to agent operations. For example, scenario-local stigmergy rules can add traffic markers to maze cells.
-
-In scenario mode, rules are defined inside the selected scenario. Shared behavior such as movement, unlocking, UI materialization, and optional rulesets must be bundled into that scenario.
+The maze dataset is an RDF file that defines the maze structure and the initial state of the environment. Rules are SPARQL Update queries that run after initialization and during each HTTP POST handled by the MASE server. They customize the environment and evolve it in response to agent operations. For example, stigmergy rules can add traffic markers to maze cells.
 
 ## Navigating MASE
 
@@ -105,7 +102,7 @@ MASE navigation is controlled by HTTP semantics plus RDF validation logic.
 
 1. Agent `bob` sends `GET: http://127.0.1.1:8080/maze` with header `Authorization: bob` to discover the maze entrance cell (e.g., `/cells/0/0`).
 
-2. Bob sends `POST: http://127.0.1.1:8080/cells/0/0` with header `Authorization: bob` and body `<http://127.0.1.1:8080/agents/bob> <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#entersFrom> <http://127.0.1.1:8080/maze> .` to enter the maze. The scenario-local movement rules materialize the movement by adding a containment triple for the agent in the target cell's graph and removing any previous containment triple. See the selected scenario's `rules/global/` directory for movement rules.
+2. Bob sends `POST: http://127.0.1.1:8080/cells/0/0` with header `Authorization: bob` and body `<http://127.0.1.1:8080/agents/bob> <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#entersFrom> <http://127.0.1.1:8080/maze> .` to enter the maze. The scenario-local movement rules materialize the movement by adding a containment triple for the agent in the target cell's graph and removing any previous containment triple. See the selected scenario's `rules/` directory for movement rules.
 
 3. Bob is now allowed to `GET` and `POST` on `/cells/0/0`. Remember that Bob can only perceive the current cell and can only request a move to an adjacent cell. If Bob tries to move to a non-adjacent cell or tries to `GET` or `POST` on a different cell, the request will be rejected by the server.
 
