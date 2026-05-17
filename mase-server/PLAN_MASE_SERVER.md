@@ -34,8 +34,16 @@ The first command is the current compatibility path. The second command is the n
 - [x] (2026-05-17 17:19+02:00) Refactored `MazeRuleLoader` and `MazeRuleService` so package mode loads explicit filesystem `.rq` files from the selected scenario package.
 - [x] (2026-05-17 17:19+02:00) Added built-in scenario packages for SmallMaze, MidMaze, BigMaze, MaseCreator, and CCRS while leaving legacy files in place.
 - [x] (2026-05-17 17:19+02:00) Added package-mode tests for resolver errors, recursive rules, disabled rules, package configuration, built-in SmallMaze startup, and CCRS rule ordering.
-- [x] (2026-05-17 17:19+02:00) Chose the first scenario-owned agent shape: package-local `agents/README.md`, `.env.example`, and manifest metadata describe independent Java process launches; no dynamic Java loading.
+- [x] (2026-05-17 17:19+02:00) Chose the first scenario-owned agent shape: package-local `agents/README.md`, package-local `scenario.properties` launch defaults, and manifest metadata describe independent Java process launches; no dynamic Java loading.
+- [x] (2026-05-17 18:06+02:00) Checked active rule discovery for cross-platform concerns against the implementation and official Java file-system API docs.
+- [x] (2026-05-17 18:31+02:00) Simplified the scenario contract by removing package-local `.env.example` files and moving scenario-owned launch defaults into `scenario.properties`.
 - [ ] Update creator WP6 package export expectations to match the server package contract once the server loader is implemented.
+- [ ] Investigate whether active rule sorting should normalize separators and case for byte-for-byte stable rule traces across Windows, macOS, and Linux.
+- [ ] Investigate [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) layout selection: compare the generic layout and CCRS layout, then decide whether the CCRS layout can safely cover all scenarios so the type-based split can be removed.
+- [ ] Migrate scenario-specific agent implementations and launch definitions away from the legacy [examples package](src/main/java/org/maze/examples) into scenario-package-owned artifacts or a clearly shared agent module.
+- [ ] After the user has tested package mode and confirmed behavior, remove or retire legacy scenario assets and startup paths toward a scenario-package-only server.
+- [ ] Expand [maze.ttl](docs/maze.ttl) so the checked-in vocabulary covers the domain, dynamic maze, UI, event, error, scenario package, and A2A-related terms that now appear in code, rules, and data.
+- [ ] Serve [maze.ttl](docs/maze.ttl) as a dereferenceable vocabulary from the server with RDF content negotiation.
 
 ## Surprises & Discoveries
 
@@ -65,6 +73,18 @@ The first command is the current compatibility path. The second command is the n
 
 - Observation: Example agents are independent Java processes already, but their source and Gradle tasks are still compiled inside `mase-server` and several agents contain scenario-specific constants.
   Evidence: [build.gradle](build.gradle) defines `runCcrsAgent`, `runKeyHolderAgent`, and `runA2AKeySeekerAgent`; [CcrsAgent.java](src/main/java/org/maze/examples/CcrsAgent.java) and [KeyHolderAgent.java](src/main/java/org/maze/examples/KeyHolderAgent.java) contain hard-coded base URIs, guided coordinates, key values, target coordinates, and A2A defaults.
+
+- Observation: The existing `.env.example` files added clutter without giving the server a stronger contract. The only non-empty built-in file held CCRS agent launch defaults, while the server already has a package-local `scenario.properties` file and `ServerConfiguration.getRawProperties()` can expose extra keys without breaking startup.
+  Evidence: [scenario.properties](scenarios/ccrs/scenario.properties) now carries CCRS agent launch defaults; [build.gradle](build.gradle) maps those package-local keys into environment variables for the existing CCRS JavaExec tasks.
+
+- Observation: Active package rule discovery is mostly insulated from Java glob separator differences because package mode derives an active root and walks it with `Files.walk`, then filters by the `.rq` extension. It does not pass `rules/**/*.rq` directly to `FileSystem.getPathMatcher`.
+  Evidence: [ScenarioPackageResolver.java](src/main/java/org/maze/infrastructure/scenario/ScenarioPackageResolver.java) resolves the active root and calls `discoverFilesByExtension`; [MazeRuleLoader.java](src/main/java/org/maze/infrastructure/storage/MazeRuleLoader.java) also uses `Files.walk` for package rules. The Oracle Java 21 `FileSystem.getPathMatcher` docs describe glob matching against the `Path` string representation and show different Unix and Windows separator examples.
+
+- Observation: Package rule membership is robust across Windows, macOS, and Linux for normal directories, but exact ordering and duplicate-name behavior still need a portability pass if rule trace order must be byte-for-byte stable across platforms. Sorting currently uses `Path::toString`, which can expose platform separators; case-insensitive filesystems such as common Windows and macOS volumes can also reject or merge names that Linux treats as distinct. Apple documents APFS as available in case-sensitive and case-insensitive variants on macOS, with case-insensitive as the default.
+  Evidence: [ScenarioPackageResolver.java](src/main/java/org/maze/infrastructure/scenario/ScenarioPackageResolver.java) and [MazeRuleLoader.java](src/main/java/org/maze/infrastructure/storage/MazeRuleLoader.java) sort paths with `Comparator.comparing(Path::toString)`, while package rule names are later normalized with `replace('\\', '/')` when loading.
+
+- Observation: Maze layout selection is controlled by RDF data, not by package properties. The service checks whether `<http://127.0.1.1:8080/maze>` has RDF type `maze:CcrsMaze`; changing `mase.scenario.id` or other `scenario.properties` values will not affect the layout algorithm.
+  Evidence: [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) calls `isCcrsMaze(conn)` before choosing `calculateCcrsLayout` or `calculateLayout`, and `getMazeScenarioName()` also derives the visible scenario name from RDF types.
 
 - Observation: The worktree contains reset-related implementation files even though `PLAN_ADMIN_RESET.md` still lists reset implementation tasks as pending.
   Evidence: `git status --short` shows uncommitted changes and untracked `MazeResetService.java`, `MazeMutationCoordinator.java`, and `MazeResetServiceTest.java`.
@@ -96,11 +116,15 @@ The first command is the current compatibility path. The second command is the n
   Date/Author: 2026-05-17 / Codex
 
 - Decision: Treat scenario-owned Java agents as package-adjacent executable artifacts in the first server milestone, not as Java classes dynamically compiled or loaded by the server at runtime.
-  Rationale: The server should not compile arbitrary scenario Java during startup. Agents can already run as separate Java processes through Gradle tasks, direct `java -cp`, or Docker services. The first package contract should make agent launch reproducible while keeping the server runtime focused on loading RDF, rules, and HTTP behavior.
+  Rationale: The server should not compile arbitrary scenario Java during startup. Agents can already run as separate Java processes through Gradle tasks, direct `java -cp`, or Docker services. The first package contract should make agent launch reproducible while keeping the server runtime focused on loading RDF, rules, and HTTP behavior. Scenario-owned launch defaults belong in `scenario.properties`, not a separate `.env.example` file.
   Date/Author: 2026-05-17 / Codex
 
 - Decision: Package mode is selected with `--scenario <folder>` or `MASE_SCENARIO_DIR`, and additional legacy ruleset arguments are rejected in package mode.
   Rationale: This preserves the existing `sim-*` command surface while keeping package mode self-contained. Loading extra legacy rulesets beside a package would reintroduce hidden shared behavior.
+  Date/Author: 2026-05-17 / Codex
+
+- Decision: Do not remove legacy `sim-*` files, root `data/`, resource rules, or legacy startup forms until package mode has been manually tested and the user has confirmed equivalent behavior for the scenarios they rely on.
+  Rationale: Package mode is now implemented, but legacy removal changes operational workflows and rollback options. Keeping cleanup as a gated follow-up avoids deleting compatibility paths before real runs prove that package mode covers the needed behavior.
   Date/Author: 2026-05-17 / Codex
 
 ## Outcomes & Retrospective
@@ -151,7 +175,6 @@ The target package layout should be explicit and local. The recommended first fo
         README.md
         run.ps1
         run.sh
-      .env.example
 
 In package mode, paths in `scenario.properties` are resolved relative to the package root. For example:
 
@@ -159,11 +182,14 @@ In package mode, paths in `scenario.properties` are resolved relative to the pac
     mase.init.dataset = data/CcrsMazeV1.trig
     mase.rules.path = rules/**/*.rq
     mase.rules.execution.order = normalize_maze_locks*, ccrs*, unlock*, cleanup*, move*
+    # Transaction trace mode: off, summary headers/rule count, or full per-triple debug diffs
     mase.transaction.trace = summary
 
 The `rules/` directory is the active rule tree. Every `.rq` file below `rules/` is loaded recursively, whether it is directly in `rules/` or in any nested subdirectory. Subdirectories inside `rules/` are only for organization, not activation control. A package may keep draft, alternative, deactivated, or work-in-progress rules in `rules-disabled/`; package mode must ignore that directory by default. If a user wants to reactivate a disabled rule, they move or copy it back under `rules/`.
 
 The `manifest.json` should not be required to start the server in the first milestone. It should carry package metadata, creator/export provenance, generated-file lists, warnings, and optional agent descriptors. This keeps runtime startup robust even when a human hand-edits a package.
+
+Scenario-local runtime and agent launch parameters belong in `scenario.properties`. A scenario package should not include `.env.example` just to hold default values; if legacy agent classes still read environment variables, the launch layer should translate package properties into those variables.
 
 The existing reset feature affects this plan. `MazeResetService`, if present, resets the in-memory repository from the configured dataset pattern and then runs startup rules. In package mode it must use the scenario package's resolved dataset paths and package-local `MazeRuleService`. See [PLAN_ADMIN_RESET.md](PLAN_ADMIN_RESET.md) for reset-specific behavior and keep that plan updated if reset contracts change.
 
@@ -180,6 +206,10 @@ Milestone 4 migrates built-in scenarios into package folders. Create package cop
 Milestone 5 defines scenario-owned agent execution. Start pragmatically: each scenario package may include `agents/README.md`, `run.ps1`, `run.sh`, and optional manifest entries that document Java main classes, environment variables, delays, and Docker Compose service snippets. Do not make the server compile or load Java agents dynamically. This milestone is complete when CCRS package docs can start the server, infrastructure agents, keyholder A2A agent, and key seeker agent as independent Java processes without editing server source.
 
 Milestone 6 aligns creator export with the server package contract. Update [../mase-creator/MASE-CREATOR.md](../mase-creator/MASE-CREATOR.md) WP6 details only after the server package loader contract is validated. The creator's "Create Scenario Package" action should emit a folder that `mase-server` package mode can run directly. This milestone is complete when a generated package can be copied into `mase-server/scenarios/`, started with `--scenario`, reset through the admin reset endpoint, and validated with a package smoke test.
+
+Milestone 7 is the post-package cleanup and consolidation stage. It starts only after package mode has been tested with the built-in scenarios, reset flows, viewer expectations, and agent launch flows, and after the user confirms the behavior. This milestone investigates replacing the layout type split with one general layout algorithm, migrates scenario-specific agents out of [examples package](src/main/java/org/maze/examples), and retires legacy `sim-*`, root data, and resource-rule paths if no longer needed.
+
+Milestone 8 formalizes and serves the vocabulary. Expand [maze.ttl](docs/maze.ttl) so it describes the terms actually used by the server, package contract, rules, viewer events, UI model, errors, and A2A-related agent metadata. Then expose it from the running server as a dereferenceable vocabulary with Turtle as the primary representation and content negotiation for other RDF formats if practical. This milestone is complete when a client can request the vocabulary IRI and receive RDF that matches the checked-in source file.
 
 ## Plan of Work
 
@@ -198,6 +228,12 @@ Update [MazeResetService.java](src/main/java/org/maze/application/MazeResetServi
 Create package copies for at least SmallMaze and CcrsMaze before migrating every built-in scenario. SmallMaze is the low-risk smoke test. CcrsMaze exercises disconnected CCRS layout, dynamic locks, cleanup rules, infrastructure agents, and A2A keyholder behavior. Built-in package copies now exist for all legacy scenarios. For CcrsMaze, the current direct `Global` rules needed by `sim-CcrsMaze` are duplicated into the CCRS package with CCRS-specific rules in the same package. Package mode does not rely on `src/main/resources/rules/Global`.
 
 Finally, document the contract in [README.md](README.md) and update creator-side WP6 after the server implementation validates the real package shape. The README now shows legacy and package commands, path-resolution rules, Docker usage, and rule activation semantics.
+
+For the next pass, evaluate [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) separately from package loading. The current CCRS switch is data-driven because it reads the RDF type from the loaded TriG data. The investigation should compare the pros and cons of `calculateLayout` and `calculateCcrsLayout`, including disconnected components, one-way links, incoming references, position collisions, ordinary grid mazes, and viewer expectations. If the CCRS layout handles every accepted case, replace the split with one layout path and cover that change with layout tests.
+
+For agent migration, treat the current [examples package](src/main/java/org/maze/examples) as legacy scenario source. Keep reusable HTTP/A2A client code in a shared place only if it is genuinely scenario-neutral, but move CCRS-specific constants, launch scripts, and runnable scenario agent definitions into the CCRS package contract or a dedicated package-owned agent module.
+
+For vocabulary work, audit [MazeVocab.java](src/main/java/org/maze/domain/vocab/MazeVocab.java), RDF datasets, rule files, WebSocket event DTOs, RDF error responses, and scenario package metadata. Use that audit to expand [maze.ttl](docs/maze.ttl), then add a small web resource that serves the vocabulary dereferenceably instead of leaving it as a static documentation-only artifact.
 
 ## Concrete Steps
 
@@ -272,6 +308,36 @@ Work from the repository root unless a command says otherwise.
 
    Expected result is `BUILD SUCCESSFUL`. Package-mode tests should fail before the package loader exists and pass after implementation.
 
+10. Investigate layout algorithm consolidation:
+
+        rg -n "isCcrsMaze|calculateCcrsLayout|calculateLayout|getMazeScenarioName" mase-server/src/main/java/org/maze/application/MazeLayoutService.java mase-server/src/test/java
+
+    Add or update focused layout tests that cover a normal grid maze, a CCRS maze with disconnected components, a maze with incoming-only references, and a case with possible coordinate collision. Accept one general layout algorithm only if those tests and the viewer snapshots still match expected behavior.
+
+11. Plan agent migration out of the legacy examples package:
+
+        rg -n "run.*Agent|org.maze.examples|BASE_URI|TARGET_COORDINATE|guided" mase-server/build.gradle mase-server/src/main/java/org/maze/examples mase-server/scenarios
+
+    Identify which code is reusable agent infrastructure and which code is scenario-specific launch behavior. Move only after the scenario package agent contract is clear enough to run and rerun agents without editing server source.
+
+12. Gate legacy cleanup behind user-confirmed package runs:
+
+        rg -n "sim-\\*|sim-SmallMaze|sim-CcrsMaze|src/main/resources/rules|mase-server/data" mase-server/README.md mase-server/PLAN_MASE_SERVER.md mase-server/src/main/java mase-server/src/test/java
+
+    Do not delete compatibility paths until package-mode runs, reset behavior, viewer snapshots, and agent launch flows have been tested and accepted for the scenarios the user cares about.
+
+13. Expand the vocabulary source:
+
+        rg -n "MazeVocab|MAZE_NS|DYNMAZE_NS|UI_NS|MASE_NS|a2a:|ui:|dyn:|stig:" mase-server/src mase-server/scenarios mase-server/docs
+
+    Update [maze.ttl](docs/maze.ttl) with the terms discovered in code, rules, and data. Include classes and properties for cells, directions, contained agents, movement events, package/scenario metadata, UI elements, transaction/error terms, and A2A keyholder metadata where they are part of the public RDF surface.
+
+14. Serve the vocabulary dereferenceably:
+
+        rg -n "ResourceConfig|LinkedDataDereferenceResource|Produces|text/turtle|RDFValueFormats" mase-server/src/main/java
+
+    Add a route for the vocabulary IRI or a stable local vocabulary endpoint that returns [maze.ttl](docs/maze.ttl) as `text/turtle`, with content negotiation for other RDF serializations if the existing RDF format helpers make that cheap.
+
 ## Validation and Acceptance
 
 The server package feature is accepted when a new scenario can be added as a folder under `mase-server/scenarios/` and started without editing Java code, root-level `sim-*.properties`, root-level `data/`, or `src/main/resources/rules`. The server must load the package-local `scenario.properties`, data files, and rule files. It must report missing package files with messages that include the scenario root and the missing relative path.
@@ -299,6 +365,14 @@ Protocol cleanup is accepted when the audit either documents a real runtime beha
 Reset compatibility is accepted when `POST /admin/maze/reset` reloads the selected package-local data and package-local rules without switching back to legacy paths.
 
 Agent packaging is accepted for the first phase when scenario docs and scripts can run agents as separate Java processes against the selected server. Full dynamic Java agent loading from scenario folders is not required and should not be implemented in the server runtime until there is a concrete security and build model.
+
+Scenario contract simplification is accepted when package-local runtime and agent launch defaults are in `scenario.properties`, package examples do not include `.env.example` files just to hold defaults, and existing Gradle agent tasks can still receive the values needed by the legacy Java agent implementations.
+
+Vocabulary work is accepted when [maze.ttl](docs/maze.ttl) includes the public RDF terms currently emitted or consumed by server code, scenario rules, package metadata, viewer events, and RDF error responses, and when the running server can dereference the vocabulary with an RDF response.
+
+Layout consolidation is accepted only if focused tests show that one algorithm preserves current behavior for ordinary mazes and CCRS mazes, including disconnected components and incoming references. If the CCRS algorithm becomes the only layout path, the RDF type should no longer decide layout behavior.
+
+Legacy cleanup is accepted only after package mode has been manually tested, reset and viewer behavior have been checked, scenario agents can be run and rerun through the package contract, and the user confirms that the legacy `sim-*` path is no longer needed as a compatibility fallback.
 
 ## Idempotence and Recovery
 
@@ -340,12 +414,33 @@ Current example-agent constraints:
     CcrsAgent.java uses BASE_URI = "http://127.0.1.1:8080" and hard-coded guided coordinate lists
     KeyHolderAgent.java uses BASE_URI = "http://127.0.1.1:8080", TARGET_COORDINATE = "42/43", and an A2A port default of 8095
 
+Current scenario-owned launch defaults:
+
+    scenarios/ccrs/scenario.properties
+    CCRS_AGENT_DISPATCH_INTERVAL_MS = 5000
+    CCRS_AGENT_REQUEST_TIMEOUT_SECONDS = 60
+    MASE_KEYHOLDER_PORT = 8095
+    MASE_KEYHOLDER_BIND_HOST = 0.0.0.0
+    MASE_KEYHOLDER_PUBLIC_BASE_URL = http://127.0.0.1:8095
+    KEYHOLDER_BASE_URL = http://127.0.0.1:8095
+
 Feasibility summary:
 
     Feasible: data paths, reset dataset reload, package metadata, package-local docs, Docker env selection.
     Moderate refactor: configuration source, package-relative path resolution, rule discovery and rule loading.
     Completed cleanup: mase.server.protocol had no runtime behavior and was removed from code, properties, docs, and package examples.
     Larger design choice: scenario-owned Java agents. Keep them out of server dynamic loading initially; run them as independent Java processes with package-local scripts and metadata.
+
+Cross-platform rule discovery note:
+
+    Official Java docs confirm that Path is system-dependent and FileSystem glob matching works on the Path string representation. The active package rule loader avoids the riskiest part of that API by walking the active rules directory and filtering `.rq` files. Keep slash-normalized rule names for diagnostics, and consider slash-normalized sorting if exact cross-platform trace order matters.
+
+External references checked:
+
+    Oracle Java 21 FileSystem.getPathMatcher docs: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/FileSystem.html#getPathMatcher(java.lang.String)
+    Oracle Java 21 Files.walk docs: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/Files.html#walk(java.nio.file.Path,java.nio.file.FileVisitOption...)
+    Oracle Java 21 Path docs: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/Path.html
+    Apple APFS FAQ: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/APFS_Guide/FAQ/FAQ.html
 
 Validation evidence from 2026-05-17:
 
@@ -419,3 +514,7 @@ Revision note, 2026-05-17: Added the requested `mase.server.protocol = ldp` audi
 Revision note, 2026-05-17: Tightened the rule contract per user direction: every `.rq` file under `rules/` is loaded recursively, regardless of subdirectory structure, and `rules-disabled/` is the explicit deactivation and work-in-progress area.
 
 Revision note, 2026-05-17: Implemented package mode in `mase-server`, added built-in package copies, removed dead `mase.server.protocol` runtime configuration, documented package commands in [README.md](README.md), and recorded successful compile/test/installDist validation.
+
+Revision note, 2026-05-17: Added cross-platform rule-discovery findings from official Java file-system docs, added the maze layout consolidation investigation, made agent migration from the legacy examples package explicit, and gated scenario-package-only cleanup on user-confirmed package behavior.
+
+Revision note, 2026-05-17: Simplified the scenario contract by removing `.env.example` from packages, moved CCRS agent launch defaults into [scenario.properties](scenarios/ccrs/scenario.properties), added a Gradle bridge from those properties to legacy agent environment variables, and added vocabulary expansion plus dereferenceable serving tasks for [maze.ttl](docs/maze.ttl).

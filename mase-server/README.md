@@ -34,6 +34,10 @@ gradle runMase
 
 In package mode the server reads `scenario.properties`, RDF data, and SPARQL rules relative to the selected scenario directory. Every `.rq` file below the package's `rules/` directory is active and loaded recursively. Files below `rules-disabled/` are ignored and can be used for deactivated or work-in-progress rules.
 
+Scenario-local runtime settings and agent launch defaults belong in `scenario.properties`. Scenario packages should not need a separate `.env.example` file just to hold those parameters.
+
+The current CCRS agent Gradle tasks read launch defaults from the selected package's `scenario.properties` and pass them to the legacy Java agent classes as environment variables. Use `-PmaseScenario=scenarios/ccrs` to point those tasks at a different package; shell environment variables still override package defaults.
+
 Built-in package examples live under [scenarios](scenarios).
 
 
@@ -52,6 +56,7 @@ http://127.0.1.1:8080/maze
 Server runtime settings that belong to a simulation run are configured in the selected legacy `sim-*.properties` file or in a package-local `scenario.properties` file.
 
 ```properties
+# Transaction trace mode: off, summary headers/rule count, or full per-triple debug diffs
 mase.transaction.trace = summary
 ```
 

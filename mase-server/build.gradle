@@ -71,6 +71,36 @@ distributions {
     }
 }
 
+def scenarioAgentEnvironmentKeys = [
+    'CCRS_AGENT_DISPATCH_INTERVAL_MS',
+    'CCRS_AGENT_REQUEST_TIMEOUT_SECONDS',
+    'MASE_KEYHOLDER_PORT',
+    'MASE_KEYHOLDER_BIND_HOST',
+    'MASE_KEYHOLDER_PUBLIC_BASE_URL',
+    'KEYHOLDER_BASE_URL'
+]
+
+def configureScenarioAgentEnvironment = { JavaExec javaExecTask, String defaultScenarioPath ->
+    javaExecTask.doFirst {
+        def scenarioPath = project.findProperty('maseScenario') ?: defaultScenarioPath
+        def propertiesFile = file("${scenarioPath}/scenario.properties")
+        if (!propertiesFile.isFile()) {
+            return
+        }
+
+        def properties = new Properties()
+        propertiesFile.withInputStream { properties.load(it) }
+
+        scenarioAgentEnvironmentKeys.each { key ->
+            def value = properties.getProperty(key)
+            def inherited = System.getenv(key)
+            if (value != null && !value.trim().isEmpty() && (inherited == null || inherited.trim().isEmpty())) {
+                javaExecTask.environment key, value.trim()
+            }
+        }
+    }
+}
+
 tasks.register('runMase', JavaExec) {
     group = 'application'
     description = 'Run the application.'
@@ -93,6 +123,7 @@ tasks.register('runCcrsAgent', JavaExec) {
     description = 'Run sample ccrs agent against a running server.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set('org.maze.examples.CcrsAgent')
+    configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/ccrs')
     dependsOn 'classes'
 }
 
@@ -101,6 +132,7 @@ tasks.register('runKeyHolderAgent', JavaExec) {
     description = 'Run key holder agent with A2A endpoint and maze holding behavior.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set('org.maze.examples.KeyHolderAgent')
+    configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/ccrs')
     dependsOn 'classes'
 }
 
@@ -109,6 +141,7 @@ tasks.register('runA2AKeySeekerAgent', JavaExec) {
     description = 'Run A2A key seeker agent that requests key from key holder and stops at cell 36/36.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set('org.maze.examples.A2AKeySeekerAgent')
+    configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/ccrs')
     dependsOn 'classes'
 }
 
