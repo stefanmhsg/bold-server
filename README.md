@@ -1,33 +1,79 @@
 # Linked Data MASE - A Maze-Based Multi-Agent Systems Environment for Testing and Visualizing Hypermedia Agents
 
-Run [MASE server](mase-server/README.md) and [MASE viewer](mase-viewer/README.md) together with Docker Compose to run simulations of interactive maze scenarios accessible to agents via HTTP GET and POST and get a corresponding front end for visualization purpose.
+Run [MASE server](mase-server/README.md) and [MASE viewer](mase-viewer/README.md) together to simulate interactive maze scenarios that agents access through HTTP GET and POST.
+
+The current run model is scenario-based. Built-in scenarios live in [mase-server/scenarios](mase-server/scenarios); each scenario directory bundles its runtime properties, RDF data, SPARQL rules, disabled-rule holding area, validation assets, documentation, and agent notes. Docker and Gradle runs select a scenario with `--scenario <folder>` or `MASE_SCENARIO_DIR`.
 
 ## Prerequisites
 - Docker Desktop (or Docker Engine with Compose)
+- Java 21 for local Gradle runs
+- Node.js 20 for running the viewer outside Docker
 
-## Quick Start
+## Available Scenarios
+
+- [smallmaze](mase-server/scenarios/smallmaze): compact maze for quick local runs and the sample DFS agent.
+- [midmaze](mase-server/scenarios/midmaze): larger maze with the same scenario contract.
+- [bigmaze](mase-server/scenarios/bigmaze): large maze dataset.
+- [masecreator](mase-server/scenarios/masecreator): scenario generated from the creator workflow.
+- [ccrs](mase-server/scenarios/ccrs): CCRS demonstration scenario with scenario-local agent notes.
+
+## Quick Start with Docker Compose
+
+From the repository root:
+
 ```powershell
 docker compose -f docker-compose.starter.yml up --build
 ```
 
-- Server (entry point): http://127.0.1.1:8080/maze
-- Viewer: http://127.0.1.1:3000/ or http://localhost:3000
+This starts the [smallmaze](mase-server/scenarios/smallmaze) scenario and the viewer. The Compose file passes `--scenario scenarios/smallmaze` to the server container.
 
-## Start & Choose a maze scenario
-Default scenario is `sim-SmallMaze`.
+- Server entry point: http://localhost:8080/maze
+- Viewer: http://localhost:3000
+
+## Run a Scenario with Docker
+
+Build the server image and pass the scenario path as the container command:
 
 ```powershell
-$env:TASKNAME="sim-MidMaze"
-docker compose -f docker-compose.starter.yml up --build
+cd .\mase-server
+docker build -t mase-server .
+docker run --rm -p 8080:8080 mase-server bin/mase-server --scenario scenarios/midmaze
 ```
 
-For each scenario, a `.properties` file is available (e.g., [sim-SmallMaze.properties](mase-server/sim-SmallMaze.properties)) that defines the maze dataset and the execution order in which the rules (SPARQL Queries, see below) are applied. 
+Replace `scenarios/midmaze` with any scenario directory that exists inside the image, such as `scenarios/smallmaze`, `scenarios/bigmaze`, `scenarios/masecreator`, or `scenarios/ccrs`.
 
-- Scenario properties are the only supported place for server runtime settings that belong to a simulation run.
-- Rules may be applicable to every maze or only to a specific maze scenario (e.g., `SmallMaze`).
-- Rules that apply to a specific maze scenario are always activated (e.g., the unlocking mechanism), while globally applicable rules are optional (e.g., `Stigmergy`).
-- To define which rules that are globally applicable should be activated, pass their names as a second value in `TASKNAME` (e.g., `sim-SmallMaze Stigmergy` to apply the `Stigmergy` ruleset to the `sim-SmallMaze` scenario).
-- Transaction trace broadcasting is configured in the selected scenario file with `mase.transaction.trace`. Shipped scenarios use `summary`, which emits lightweight transaction headers without per-triple logging.
+## Run a Scenario with Gradle
+
+Start the server from the scenario path:
+
+```powershell
+cd .\mase-server
+gradle runMase --args="--scenario scenarios/smallmaze"
+```
+
+The built-in server and agent tasks are registered in [mase-server/build.gradle](mase-server/build.gradle), so `gradle <task>` works from [mase-server](mase-server) when Gradle is installed. If you rely on the wrapper, replace `gradle` with `.\gradlew.bat` on Windows or `./gradlew` on macOS/Linux.
+
+Run the viewer separately when you are not using Docker Compose:
+
+```powershell
+# new terminal
+cd .\mase-viewer
+npm install
+npm run dev
+```
+
+The server runs at `http://localhost:8080`. The viewer development server defaults to `http://localhost:5173/`; the Docker viewer runs at `http://localhost:3000/`. In both modes the viewer targets `http://localhost:8080` for API calls and `ws://localhost:8080/ws` for live updates unless configured otherwise.
+
+## Scenario Runtime Contract
+
+A scenario is selected by its directory. The server loads [scenario.properties](mase-server/scenarios/smallmaze/scenario.properties) from the selected scenario and resolves scenario-local paths relative to that directory.
+
+- `scenario.properties` defines the dataset, transaction trace mode, rule execution order, and scenario-owned launch defaults.
+- `mase.init.dataset` points to the scenario-local RDF data file.
+- Every `.rq` file under `rules/` is active and loaded recursively.
+- Files under `rules-disabled/` are ignored and can hold deactivated or work-in-progress rules.
+- Optional behavior is enabled by including scenario-local rule files under `rules/`.
+- Transaction trace broadcasting is configured with `mase.transaction.trace`. Shipped scenarios use `summary`, which emits lightweight transaction headers without per-triple logging.
 
 ### Transaction Trace Modes
 
@@ -37,28 +83,18 @@ For each scenario, a `.properties` file is available (e.g., [sim-SmallMaze.prope
 - `summary`: broadcast committed/rolled-back transaction headers with transaction id, time, trigger, agent, graph, status, error, and number of executed rules. This is the default middle ground for multi-agent runs.
 - `full`: additionally include request bodies, merge triples, and per-rule RDF diffs. Use this for debugging only because it snapshots repository state around rule execution.
 
-The maze dataset is an RDF file that defines the maze structure and the initial state of the environment.
+The maze dataset is an RDF file that defines the maze structure and the initial state of the environment. Rules are SPARQL Update queries that run after initialization and during each HTTP POST handled by the MASE server. They customize the environment and evolve it in response to agent operations. For example, scenario-local stigmergy rules can add traffic markers to maze cells.
 
-## Start & Choose a maze scenario + rules
-Pass both values in `TASKNAME` (equivalent to Gradle `--args="sim-SmallMaze Stigmergy"`).
-
-```powershell
-$env:TASKNAME="sim-SmallMaze Stigmergy"
-docker compose -f docker-compose.starter.yml up --build
-```
-
-Rules are SPARQL Queries that are executed after initilaization and during the processing of each HTTP GET and POST request to the MASE-server by an agent. This can be used to customize the environment and to evolve it in response to the effects of agents' operations. For example, the `Stigmergy` ruleset adds stigmergic markers to the maze cells counting the traffic of agents. The ruleset is applied to the `sim-SmallMaze` scenario in the example above, but it can be applied to any maze scenario by passing `Stigmergy` as a second value in `TASKNAME`.
-
-Rules are defined in `mase-server/src/main/resources/rules/` and are either globally applicable (e.g., `Stigmergy`) or only to a specific maze scenario (e.g., `SmallMaze`).
+In scenario mode, rules are defined inside the selected scenario. Shared behavior such as movement, unlocking, UI materialization, and optional rulesets must be bundled into that scenario.
 
 ## Navigating MASE
 
 MASE navigation is controlled by HTTP semantics plus RDF validation logic.
 
-- **Authorization header activates access control:** send `Authorization: <agentName>` (or `Authorization: Agent <agentName>`) so requests are validated against the agent’s current maze location.
+- **Authorization header activates access control:** send `Authorization: <agentName>` (or `Authorization: Agent <agentName>`) so requests are validated against the agent's current maze location.
 - **No header = unrestricted access (debug mode):** if no `Authorization` header is provided, all resources remain accessible to support runtime debugging and inspection.
 - **First entry rule:** an agent without a known location must enter by POSTing to the maze entrance cell (the `xhv:start` target) with exactly one `dynmaze:entersFrom` triple that points to `/maze`.
-- **Adjacency constraints for movement:** movement POSTs are detected by `dynmaze:entersFrom`; MASE enforces exactly one source cell, requires that source to match the agent’s actual current cell, and allows movement only when an RDF edge (`maze:north|south|east|west|exit`) exists from source to target.
+- **Adjacency constraints for movement:** movement POSTs are detected by `dynmaze:entersFrom`; MASE enforces exactly one source cell, requires that source to match the agent's actual current cell, and allows movement only when an RDF edge (`maze:north|south|east|west|exit`) exists from source to target.
 - **Local perception and action:** authenticated agents can only `GET` and non-movement `POST` on their current cell.
 - **Agent named graph creation:** on first valid maze entry, MASE creates a named graph for the agent IRI and inserts an `a maze:Agent` triple.
 - **Transactional request pipeline:** MASE parses RDF payloads, then validates access, merges triples, executes rules, and checks core movement postconditions inside one repository transaction.
@@ -69,29 +105,29 @@ MASE navigation is controlled by HTTP semantics plus RDF validation logic.
 
 1. Agent `bob` sends `GET: http://127.0.1.1:8080/maze` with header `Authorization: bob` to discover the maze entrance cell (e.g., `/cells/0/0`).
 
-2. Bob sends `POST: http://127.0.1.1:8080/cells/0/0` with header `Authorization: bob` and body `<http://127.0.1.1:8080/agents/bob> <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#entersFrom> <http://127.0.1.1:8080/maze> .` to enter the maze. The global movement rules materialize the movement by adding a containment triple for the agent in the target cell’s graph and removing any previous containment triple. See [move_start.rq](mase-server/src/main/resources/rules/Global/move_start.rq) and [move.rq](mase-server/src/main/resources/rules/Global/move.rq) for details.
+2. Bob sends `POST: http://127.0.1.1:8080/cells/0/0` with header `Authorization: bob` and body `<http://127.0.1.1:8080/agents/bob> <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#entersFrom> <http://127.0.1.1:8080/maze> .` to enter the maze. The scenario-local movement rules materialize the movement by adding a containment triple for the agent in the target cell's graph and removing any previous containment triple. See the selected scenario's `rules/global/` directory for movement rules.
 
 3. Bob is now allowed to `GET` and `POST` on `/cells/0/0`. Remember that Bob can only perceive the current cell and can only request a move to an adjacent cell. If Bob tries to move to a non-adjacent cell or tries to `GET` or `POST` on a different cell, the request will be rejected by the server.
 
-4. If the current cell is locked and Bob has previously observed a key of the required type, it can `POST` to that current cell a triple like `<http://127.0.1.1:8080/cells/0/1> <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#keyValue> "redkey" .` to unlock it. Non-movement POSTs are local interactions and are rejected if sent to a cell other than the agent's current cell. The ruleset materializing the unlocking is defined in the maze-specific rules file (e.g., [unlock-redkey.rq](mase-server/src/main/resources/rules/SmallMaze/unlock-redkey.rq)).
+4. If the current cell is locked and Bob has previously observed a key of the required type, it can `POST` to that current cell a triple like `<http://127.0.1.1:8080/cells/0/1> <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#keyValue> "redkey" .` to unlock it. Non-movement POSTs are local interactions and are rejected if sent to a cell other than the agent's current cell. The ruleset materializing the unlocking is defined in the selected scenario's rules directory, for example [unlock-redkey.rq](mase-server/scenarios/smallmaze/rules/scenario/unlock-redkey.rq).
 
 5. Consider the maze solved when Bob moved to the exit cell (`/cells/999`) via the `maze:exit` edge.
 
-## Example Agent
+## Scenario Agents
 
-Run sample dfs agent (name: `bob`) against a running server:
-```shell script
-gradle runBobAgent
-```
+Scenarios can include agent source and launch notes under their `agents/` directory. Start the server first, then follow the scenario-specific agent documentation:
 
-Run the same agent with Docker (server must already be running):
+- [SmallMaze agents README.md](mase-server/scenarios/smallmaze/agents/README.md)
+- [CCRS agents README.md](mase-server/scenarios/ccrs/agents/README.md)
+
+Run the built-in SmallMaze sample agent against a running SmallMaze server:
+
 ```powershell
-docker compose -f docker-compose.starter.yml exec mase-server sh -lc "java -cp '/opt/mase/install/mase-server/lib/*' org.maze.examples.SampleDfsAgentBob"
+cd .\mase-server
+gradle runSmallMazeBobAgent
 ```
 
-The sample agent always sends `Authorization: bob`, starts with `GET /maze`, enters the discovered start cell with `dyn:entersFrom`, then navigates in depth-first-search ordered by `west, north, east, south`. If the current cell is locked and `dyn:needsAction` requires a key type that was previously observed via `GET`, it posts `dyn:keyValue` to unlock and re-checks the cell. It finishes when it reaches `/cells/999` via `maze:exit`.
-
-Detailed example-agent documentation: [mase-server/src/main/java/org/maze/examples/README.md](mase-server/src/main/java/org/maze/examples/README.md)
+The sample SmallMaze DFS agent sends `Authorization: bob`, starts with `GET /maze`, enters the discovered start cell with `dyn:entersFrom`, then navigates in depth-first-search order. If the current cell is locked and `dyn:needsAction` requires a key type that was previously observed via `GET`, it posts `dyn:keyValue` to unlock and re-checks the cell.
 
 ## Overview of the MASE scenarios
 
@@ -131,7 +167,7 @@ Detailed example-agent documentation: [mase-server/src/main/java/org/maze/exampl
 }
 ```
 
-In particular the datasets ([SmallMase](mase-server/data/SmallMaze.trig), [MidMaze](mase-server/data/MidMaze.trig), [BigMaze](mase-server/data/BigMaze.trig)) and key-lock mechanism (e.g., [unlock-redkey.rq](mase-server/src/main/resources/rules/SmallMaze/unlock-redkey.rq)).
+In particular the scenario datasets ([SmallMaze.trig](mase-server/scenarios/smallmaze/data/SmallMaze.trig), [MidMaze.trig](mase-server/scenarios/midmaze/data/MidMaze.trig), [BigMaze.trig](mase-server/scenarios/bigmaze/data/BigMaze.trig)) and key-lock mechanism (e.g., [unlock-redkey.rq](mase-server/scenarios/smallmaze/rules/scenario/unlock-redkey.rq)).
 
 ---
 - https://github.com/bold-benchmark/bold-server
@@ -153,7 +189,7 @@ In particular the datasets ([SmallMase](mase-server/data/SmallMaze.trig), [MidMa
 }
 ```
 
-In particular as a reference for [Configurator.java](mase-server/src/main/java/org/maze/Configurator.java) with `.properties` files (e.g., [sim-SmallMaze.properties](mase-server/sim-SmallMaze.properties)) and [LinkedDataDereferenceResource.java](mase-server/src/main/java/org/maze/api/ld/LinkedDataDereferenceResource.java)
+In particular as a reference for [Configurator.java](mase-server/src/main/java/org/maze/Configurator.java), scenario-local [scenario.properties](mase-server/scenarios/smallmaze/scenario.properties), and [LinkedDataDereferenceResource.java](mase-server/src/main/java/org/maze/api/ld/LinkedDataDereferenceResource.java).
 
 ---
 - https://github.com/amee-project/maze-server

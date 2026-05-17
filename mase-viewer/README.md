@@ -13,6 +13,8 @@ npm run dev
 npm run dev -- --open
 ```
 
+The development server runs at http://localhost:5173/ by default.
+
 #### Docker
 ```sh
 # build the viewer
@@ -20,7 +22,7 @@ docker build . -t mase-viewer
 # run the viewer
 docker run -p 3000:3000 -it mase-viewer
 ```
-The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or the port you specified).
+The Docker app runs at http://localhost:3000/ (or the port you specified).
 
 ## MASE Server Configuration
 

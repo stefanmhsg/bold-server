@@ -6,29 +6,31 @@ This is the server for the Linked Data Multi-Agent System Environment (MASE) pla
 
 ### Gradle
 
-Run the default packaged scenario (`scenarios/smallmaze`):
+Run the default scenario (`scenarios/smallmaze`):
 ```shell script
 gradle runMase
 ```
 
-Run a specific scenario package:
+Run a specific scenario:
 ```shell script
 gradle runMase --args="--scenario scenarios/midmaze"
 ```
 
-The selected package can also be configured through an environment variable when no command-line argument is supplied:
+The selected scenario can also be configured through an environment variable when no command-line argument is supplied:
 ```shell script
 $env:MASE_SCENARIO_DIR = "scenarios/ccrs"
 gradle runMase
 ```
 
-The server reads `scenario.properties`, RDF data, and SPARQL rules relative to the selected scenario directory. Every `.rq` file below the package's `rules/` directory is active and loaded recursively. Files below `rules-disabled/` are ignored and can be used for deactivated or work-in-progress rules.
+The built-in server and agent tasks are registered in [build.gradle](build.gradle), so `gradle <task>` works from this directory when Gradle is installed. If you rely on the wrapper, replace `gradle` with `.\gradlew.bat` on Windows or `./gradlew` on macOS/Linux.
 
-Scenario-local runtime settings and agent launch defaults belong in `scenario.properties`. Scenario packages should not need a separate `.env.example` file just to hold those parameters.
+The server reads `scenario.properties`, RDF data, and SPARQL rules relative to the selected scenario directory. Every `.rq` file below the scenario's `rules/` directory is active and loaded recursively. Files below `rules-disabled/` are ignored and can be used for deactivated or work-in-progress rules.
 
-The current CCRS agent Gradle tasks read launch defaults from the selected package's `scenario.properties` and pass them to the package-owned Java agent classes as environment variables. Use `-PmaseScenario=scenarios/ccrs` to point those tasks at a different package; shell environment variables still override package defaults.
+Scenario-local runtime settings and agent launch defaults belong in `scenario.properties`. Scenarios should not need a separate `.env.example` file just to hold those parameters.
 
-Built-in package examples live under [scenarios](scenarios).
+The current CCRS agent Gradle tasks read launch defaults from the selected scenario's `scenario.properties` and pass them to the scenario-owned Java agent classes as environment variables. Use `-PmaseScenario=scenarios/ccrs` to point those tasks at a different scenario; shell environment variables still override scenario defaults.
+
+Built-in scenarios live under [scenarios](scenarios).
 
 
 ### Docker
@@ -42,7 +44,7 @@ http://127.0.1.1:8080/maze
 
 ### Scenario Runtime Settings
 
-Server runtime settings that belong to a simulation run are configured in the selected package-local `scenario.properties` file.
+Server runtime settings that belong to a simulation run are configured in the selected scenario-local `scenario.properties` file.
 
 `MASE_SERVER_BASE_URI` is the canonical RDF resource base used when loading relative TriG IRIs and when resolving Linked Data graph names. It defaults to `http://127.0.1.1:8080/`. Browser-facing URLs may still be `http://localhost:8080` or another host-reachable address; the server maps `/maze`, `/cells/...`, and `/agents/...` requests back to the canonical RDF base before repository lookup. This keeps RDF graph identity stable across local and Dockerized runs while clients use a reachable transport URL.
 
@@ -59,7 +61,7 @@ mase.transaction.trace = summary
 
 ### Admin Reset Endpoint
 
-The admin API can reset the in-memory RDF4J store back to the dataset configured by `mase.init.dataset` in the active package-local `scenario.properties` file:
+The admin API can reset the in-memory RDF4J store back to the dataset configured by `mase.init.dataset` in the active scenario-local `scenario.properties` file:
 
 ```shell script
 curl -X POST http://localhost:8080/admin/maze/reset
@@ -71,14 +73,14 @@ Viewer-side data invalidation is intentionally handled separately. See [PLAN_ADM
 
 ### Example Agent
 
-Run the package-owned sample DFS agent (name: `bob`) against a running SmallMaze server:
+Run the scenario-owned sample DFS agent (name: `bob`) against a running SmallMaze server:
 ```shell script
 gradle runSmallMazeBobAgent
 ```
 
-Other packaged DFS agent tasks are `runMidMazeBobAgent`, `runBigMazeBobAgent`, and `runMaseCreatorBobAgent`. CCRS agent tasks are documented in [scenarios/ccrs/agents/README.md](scenarios/ccrs/agents/README.md).
+Other built-in DFS agent tasks are `runMidMazeBobAgent`, `runBigMazeBobAgent`, and `runMaseCreatorBobAgent`. CCRS agent tasks are documented in [scenarios/ccrs/agents/README.md](scenarios/ccrs/agents/README.md).
 
-Detailed package-agent documentation starts at [scenarios/smallmaze/agents/README.md](scenarios/smallmaze/agents/README.md).
+Detailed scenario-agent documentation starts at [scenarios/smallmaze/agents/README.md](scenarios/smallmaze/agents/README.md).
 
 API response behavior is documented in [src/main/java/org/maze/api/README.md](src/main/java/org/maze/api/README.md).
 

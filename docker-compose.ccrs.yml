@@ -4,8 +4,8 @@ services:
       context: ./mase-server
       dockerfile: Dockerfile
     container_name: mase-server-ccrs
+    command: ["bin/mase-server", "--scenario", "scenarios/ccrs"]
     environment:
-      TASKNAME: sim-CcrsMaze
       MASE_SERVER_BASE_URI: http://127.0.1.1:8080/
     ports:
       - "8080:8080"
@@ -40,7 +40,7 @@ services:
     restart: "no"
     command: >
       sh -lc "sleep ${CCRS_AGENT_START_DELAY:-15};
-      java -cp '/opt/mase/install/mase-server/lib/*' org.maze.examples.CcrsAgent"
+      java -cp '/opt/mase/install/mase-server/lib/*' org.maze.scenarios.ccrs.agents.CcrsAgent"
 
   keyholder-agent:
     build:
@@ -56,4 +56,4 @@ services:
     restart: "no"
     command: >
       sh -lc "sleep ${KEYHOLDER_AGENT_START_DELAY:-75};
-      java -cp '/opt/mase/install/mase-server/lib/*' org.maze.examples.KeyHolderAgent"
+      java -cp '/opt/mase/install/mase-server/lib/*' org.maze.scenarios.ccrs.agents.KeyHolderAgent"
