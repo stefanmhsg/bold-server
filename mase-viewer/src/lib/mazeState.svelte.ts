@@ -1,4 +1,10 @@
-import { eventArchive, type ArchiveExportResult } from './eventArchive';
+import {
+    eventArchive,
+    emptyArchiveEventTypeCounts,
+    type ArchiveEventType,
+    type ArchiveEventTypeCounts,
+    type ArchiveExportResult
+} from './eventArchive';
 
 export interface BaseEvent {
     type: string;
@@ -76,6 +82,7 @@ export class MazeStore {
     transactionEvents = $state<TransactionEvent[]>([]);
     status = $state<string>("disconnected");
     archiveCount = $state(0);
+    archiveTypeCounts = $state<ArchiveEventTypeCounts>(emptyArchiveEventTypeCounts());
     archiveError = $state<string | null>(null);
     agentEventsHasMore = $state(false);
     transactionEventsHasMore = $state(false);
@@ -123,10 +130,11 @@ export class MazeStore {
         }
 
         try {
-            const [agentPage, transactionPage, count] = await Promise.all([
+            const [agentPage, transactionPage, count, countsByType] = await Promise.all([
                 eventArchive.getEventsByType<AgentMovedEvent>('AGENT_MOVED', HOT_AGENT_EVENT_LIMIT),
                 eventArchive.getEventsByType<TransactionEvent>('TRANSACTION', HOT_TRANSACTION_EVENT_LIMIT),
-                eventArchive.count()
+                eventArchive.count(),
+                eventArchive.countByType()
             ]);
 
             this.agentEvents = agentPage.events;
@@ -136,6 +144,8 @@ export class MazeStore {
             this.agentEventsHasMore = agentPage.hasMore;
             this.transactionEventsHasMore = transactionPage.hasMore;
             this.archiveCount = count;
+            this.archiveTypeCounts = countsByType;
+            this.updateHasMoreFromCounts();
             this.archiveError = null;
         } catch (error) {
             this.archiveError = error instanceof Error ? error.message : String(error);
@@ -178,8 +188,7 @@ export class MazeStore {
         this.transactionArchiveCursor = null;
         this.agentColdBrowsingActive = false;
         this.transactionColdBrowsingActive = false;
-        this.agentEventsHasMore = this.archiveCount > 0;
-        this.transactionEventsHasMore = this.archiveCount > 0;
+        this.updateHasMoreFromCounts();
     }
 
     private async clearArchiveAndTables(): Promise<void> {
@@ -192,6 +201,8 @@ export class MazeStore {
             await this.waitForArchiveWrites();
             await eventArchive.clear();
             this.archiveCount = 0;
+            this.archiveTypeCounts = emptyArchiveEventTypeCounts();
+            this.updateHasMoreFromCounts();
             this.archiveError = null;
         } catch (error) {
             this.archiveError = error instanceof Error ? error.message : String(error);
@@ -199,10 +210,10 @@ export class MazeStore {
         }
     }
 
-    async exportLogsNdjson(): Promise<ArchiveExportResult> {
+    async exportLogsNdjson(eventTypes?: readonly ArchiveEventType[]): Promise<ArchiveExportResult> {
         this.flushQueuedEventsNow();
         await this.waitForArchiveWrites();
-        return eventArchive.exportNdjson();
+        return eventArchive.exportNdjson({ eventTypes });
     }
 
     async resetForNewRun(): Promise<void> {
@@ -214,7 +225,7 @@ export class MazeStore {
         this.seedReplayDedupeSignatures();
     }
 
-    async loadMoreAgentEvents(): Promise<void> {
+    async loadMoreAgentEvents(searchText = ''): Promise<void> {
         if (this.isLoadingAgentEvents || !this.agentEventsHasMore) {
             return;
         }
@@ -229,7 +240,8 @@ export class MazeStore {
                 () => this.agentEventsHasMore,
                 (hasMore) => this.agentEventsHasMore = hasMore,
                 () => this.agentEvents,
-                (events) => this.agentEvents = events
+                (events) => this.agentEvents = events,
+                searchText
             );
             this.agentColdBrowsingActive = true;
         } catch (error) {
@@ -240,7 +252,7 @@ export class MazeStore {
         }
     }
 
-    async loadMoreTransactionEvents(): Promise<void> {
+    async loadMoreTransactionEvents(searchText = ''): Promise<void> {
         if (this.isLoadingTransactionEvents || !this.transactionEventsHasMore) {
             return;
         }
@@ -255,7 +267,8 @@ export class MazeStore {
                 () => this.transactionEventsHasMore,
                 (hasMore) => this.transactionEventsHasMore = hasMore,
                 () => this.transactionEvents,
-                (events) => this.transactionEvents = events
+                (events) => this.transactionEvents = events,
+                searchText
             );
             this.transactionColdBrowsingActive = true;
         } catch (error) {
@@ -286,12 +299,18 @@ export class MazeStore {
         getHasMore: () => boolean,
         setHasMore: (hasMore: boolean) => void,
         getEvents: () => T[],
-        setEvents: (events: T[]) => void
+        setEvents: (events: T[]) => void,
+        searchText: string
     ): Promise<void> {
         let appended = 0;
 
         while (getHasMore() && appended === 0) {
-            const page = await eventArchive.getEventsByType<T>(type, COLD_EVENT_PAGE_SIZE, getCursor());
+            const page = await eventArchive.getEventsByType<T>(
+                type,
+                COLD_EVENT_PAGE_SIZE,
+                getCursor(),
+                { searchText }
+            );
             setCursor(page.nextCursor);
             setHasMore(page.hasMore);
 
@@ -393,6 +412,8 @@ export class MazeStore {
             .then(() => eventArchive.appendEvents(events, this.currentRunId))
             .then((archivedCount) => {
                 this.archiveCount += archivedCount;
+                this.archiveTypeCounts = this.addEventTypeCounts(this.archiveTypeCounts, events);
+                this.updateHasMoreFromCounts();
                 this.archiveError = null;
             })
             .catch((error) => {
@@ -401,11 +422,11 @@ export class MazeStore {
             });
     }
 
-    connect() {
+    connect(webSocketUrl = "ws://localhost:8080/ws") {
         if (this.socket) return;
 
         this.status = "connecting";
-        this.socket = new WebSocket("ws://localhost:8080/ws");
+        this.socket = new WebSocket(webSocketUrl);
 
         this.socket.onopen = () => {
             this.status = "connected";
@@ -473,6 +494,19 @@ export class MazeStore {
         return Date.now() <= this.suppressResetTransactionsUntil
             && payload.type === 'TRANSACTION'
             && payload.trigger === 'RESET';
+    }
+
+    private addEventTypeCounts(current: ArchiveEventTypeCounts, events: MazeEvent[]): ArchiveEventTypeCounts {
+        const next = { ...current };
+        for (const event of events) {
+            next[event.type as ArchiveEventType] += 1;
+        }
+        return next;
+    }
+
+    private updateHasMoreFromCounts(): void {
+        this.agentEventsHasMore = this.archiveTypeCounts.AGENT_MOVED > this.agentEvents.length;
+        this.transactionEventsHasMore = this.archiveTypeCounts.TRANSACTION > this.transactionEvents.length;
     }
 }
 

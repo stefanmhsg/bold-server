@@ -7,8 +7,14 @@
     import AgentEventLog from '$lib/components/AgentEventLog.svelte';
     import CellEventLog from '$lib/components/CellEventLog.svelte';
     import { showOptimalRoute } from '$lib/routeOverlayStore';
+    import { ARCHIVE_EVENT_TYPES, type ArchiveEventType } from '$lib/eventArchive';
 
-    const ADMIN_RESET_URL = 'http://localhost:8080/admin/maze/reset';
+    const EVENT_TYPE_LABELS: Record<ArchiveEventType, string> = {
+        AGENT_MOVED: 'Agent Movements',
+        TRANSACTION: 'Cell Updates',
+        UI_UPSERT: 'UI Upserts',
+        UI_DELETE: 'UI Deletes'
+    };
 
     let { data } = $props<{ data: PageData }>();
 
@@ -26,12 +32,17 @@
     let isResetting = $state(false);
     let isExportingLogs = $state(false);
     let resetDialogOpen = $state(false);
+    let exportDialogOpen = $state(false);
     let canvasRevision = $state(0);
     let resetMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
     let resetMessageTimer: ReturnType<typeof setTimeout> | null = null;
+    let exportTypeSelection = $state<Record<ArchiveEventType, boolean>>(createDefaultExportTypeSelection());
+
+    const selectedExportTypes = $derived.by(() => ARCHIVE_EVENT_TYPES.filter((type) => exportTypeSelection[type]));
+    const canExportSelectedTypes = $derived(selectedExportTypes.length > 0);
 
     onMount(() => {
-        mazeState.connect();
+        mazeState.connect(data.serverConfig.webSocketUrl);
     });
 
     onDestroy(() => {
@@ -75,6 +86,58 @@
         resetDialogOpen = false;
     }
 
+    function openExportDialog() {
+        if (isResetting || isExportingLogs) return;
+        clearResetMessage();
+        exportDialogOpen = true;
+    }
+
+    function closeExportDialog() {
+        if (isResetting || isExportingLogs) return;
+        exportDialogOpen = false;
+    }
+
+    function createDefaultExportTypeSelection(): Record<ArchiveEventType, boolean> {
+        return {
+            AGENT_MOVED: true,
+            TRANSACTION: true,
+            UI_UPSERT: true,
+            UI_DELETE: true
+        };
+    }
+
+    function setExportTypeSelection(type: ArchiveEventType, selected: boolean) {
+        exportTypeSelection = { ...exportTypeSelection, [type]: selected };
+    }
+
+    function selectAllExportTypes() {
+        exportTypeSelection = createDefaultExportTypeSelection();
+    }
+
+    function selectAgentFocusedExportTypes() {
+        exportTypeSelection = {
+            AGENT_MOVED: true,
+            TRANSACTION: true,
+            UI_UPSERT: false,
+            UI_DELETE: false
+        };
+    }
+
+    function eventTypeCount(type: ArchiveEventType): number {
+        return mazeState.archiveTypeCounts[type] ?? 0;
+    }
+
+    function selectedEventTypesForExport(): ArchiveEventType[] {
+        return [...selectedExportTypes];
+    }
+
+    function summarizeExportSelection(count: number, fileName?: string): string {
+        const selectedLabels = selectedExportTypes.map((type) => EVENT_TYPE_LABELS[type]).join(', ');
+        return count > 0
+            ? `Exported ${count} log events${fileName ? ` to ${fileName}` : ''}${selectedLabels ? ` (${selectedLabels})` : ''}.`
+            : 'No logs were available to export for the selected event types.';
+    }
+
     async function handleAdminReset(action: 'export' | 'discard') {
         if (isResetting) return;
 
@@ -86,8 +149,14 @@
             let exportFileName: string | undefined;
 
             if (action === 'export') {
+                const eventTypes = selectedEventTypesForExport();
+                if (eventTypes.length === 0) {
+                    showResetMessage({ type: 'error', text: 'Select at least one event type before exporting logs.' }, false);
+                    return;
+                }
+
                 isExportingLogs = true;
-                const exportResult = await mazeState.exportLogsNdjson();
+                const exportResult = await mazeState.exportLogsNdjson(eventTypes);
                 isExportingLogs = false;
 
                 if (exportResult.status === 'canceled') {
@@ -106,7 +175,7 @@
                 exportFileName = exportResult.fileName;
             }
 
-            const response = await fetch(ADMIN_RESET_URL, {
+            const response = await fetch(data.serverConfig.adminResetUrl, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json'
@@ -118,10 +187,7 @@
                 resetDialogOpen = false;
 
                 if (action === 'export' && exportedCount !== null) {
-                    const exportSummary = exportedCount > 0
-                        ? ` Exported ${exportedCount} log events${exportFileName ? ` to ${exportFileName}` : ''}.`
-                        : ' No logs were available to export.';
-                    showResetMessage({ type: 'success', text: `Reset completed.${exportSummary}` });
+                    showResetMessage({ type: 'success', text: `Reset completed. ${summarizeExportSelection(exportedCount, exportFileName)}` });
                 } else {
                     showResetMessage({ type: 'success', text: 'Reset completed. Logs discarded.' });
                 }
@@ -173,27 +239,37 @@
         clearResetMessage();
 
         try {
-            const exportResult = await mazeState.exportLogsNdjson();
+            const eventTypes = selectedEventTypesForExport();
+            if (eventTypes.length === 0) {
+                showResetMessage({ type: 'error', text: 'Select at least one event type before exporting logs.' }, false);
+                return;
+            }
+
+            const exportResult = await mazeState.exportLogsNdjson(eventTypes);
 
             if (exportResult.status === 'canceled') {
+                exportDialogOpen = false;
                 showResetMessage({ type: 'error', text: 'Log export canceled.' }, false);
                 return;
             }
 
             if (exportResult.status === 'unavailable') {
+                exportDialogOpen = false;
                 showResetMessage({ type: 'error', text: exportResult.message ?? 'Log export is unavailable.' }, false);
                 return;
             }
 
             if (exportResult.status === 'empty') {
-                showResetMessage({ type: 'success', text: 'No logs available to export.' });
+                exportDialogOpen = false;
+                showResetMessage({ type: 'success', text: 'No logs available to export for the selected event types.' });
                 return;
             }
 
             showResetMessage({
                 type: 'success',
-                text: `Exported ${exportResult.count} log events${exportResult.fileName ? ` to ${exportResult.fileName}` : ''}.`
+                text: summarizeExportSelection(exportResult.count, exportResult.fileName)
             });
+            exportDialogOpen = false;
         } catch (e) {
             showResetMessage({
                 type: 'error',
@@ -393,7 +469,10 @@
             </div>
         {:else}
             <div class="p-8 bg-gray-100 rounded text-center text-gray-500">
-                Loading maze layout... (Ensure server is running at localhost:8080)
+                Loading maze layout... (Ensure server is running at {data.serverConfig.httpBaseUrl})
+                {#if data.loadError}
+                    <div class="mt-2 text-sm text-red-600">{data.loadError}</div>
+                {/if}
             </div>
         {/if}
 
@@ -446,6 +525,13 @@
             </span>
         </div>
 
+        <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+            <span class="font-medium text-gray-600">Archive: {mazeState.archiveCount}</span>
+            {#each ARCHIVE_EVENT_TYPES as type}
+                <span>{EVENT_TYPE_LABELS[type]}: {eventTypeCount(type)}</span>
+            {/each}
+        </div>
+
         <div class="flex flex-col sm:flex-row gap-2">
             <input
                 bind:value={eventFilterText}
@@ -463,7 +549,7 @@
             <button
                 type="button"
                 class="px-3 py-2 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                onclick={handleExportLogs}
+                onclick={openExportDialog}
                 disabled={isExportingLogs || isResetting}
             >
                 {isExportingLogs ? 'Exporting...' : 'Export Logs'}
@@ -478,7 +564,7 @@
                 onAgentSelect={handleAgentSelect}
                 hasMore={mazeState.agentEventsHasMore}
                 isLoadingMore={mazeState.isLoadingAgentEvents}
-                onLoadMore={() => mazeState.loadMoreAgentEvents()}
+                onLoadMore={() => mazeState.loadMoreAgentEvents(eventFilterText)}
             />
         </div>
 
@@ -489,7 +575,7 @@
                 filterText={eventFilterText}
                 hasMore={mazeState.transactionEventsHasMore}
                 isLoadingMore={mazeState.isLoadingTransactionEvents}
-                onLoadMore={() => mazeState.loadMoreTransactionEvents()}
+                onLoadMore={() => mazeState.loadMoreTransactionEvents(eventFilterText)}
             />
         </div>
 
@@ -565,6 +651,46 @@
                 <p class="mt-1 text-sm text-gray-600">Export current logs before resetting?</p>
             </div>
 
+            <div class="mb-4 rounded border border-gray-200 bg-gray-50 p-3">
+                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-sm font-medium text-gray-700">Export Event Types</div>
+                    <div class="flex gap-2">
+                        <button
+                            type="button"
+                            class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                            onclick={selectAllExportTypes}
+                            disabled={isResetting || isExportingLogs}
+                        >
+                            All
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                            onclick={selectAgentFocusedExportTypes}
+                            disabled={isResetting || isExportingLogs}
+                        >
+                            Agent-focused
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {#each ARCHIVE_EVENT_TYPES as type}
+                        <label class="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm">
+                            <span class="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={exportTypeSelection[type]}
+                                    onchange={(event) => setExportTypeSelection(type, (event.currentTarget as HTMLInputElement).checked)}
+                                    disabled={isResetting || isExportingLogs}
+                                />
+                                <span>{EVENT_TYPE_LABELS[type]}</span>
+                            </span>
+                            <span class="text-xs text-gray-500">{eventTypeCount(type)}</span>
+                        </label>
+                    {/each}
+                </div>
+            </div>
+
             <div class="flex flex-wrap justify-end gap-2">
                 <button
                     type="button"
@@ -586,7 +712,76 @@
                     type="button"
                     class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                     onclick={() => handleAdminReset('export')}
-                    disabled={isResetting || isExportingLogs}
+                    disabled={isResetting || isExportingLogs || !canExportSelectedTypes}
+                >
+                    {isExportingLogs ? 'Exporting...' : 'Export Logs'}
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+{#if exportDialogOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div class="w-full max-w-md rounded border border-gray-200 bg-white p-4 shadow-xl">
+            <div class="mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Export Logs</h2>
+            </div>
+
+            <div class="mb-4 rounded border border-gray-200 bg-gray-50 p-3">
+                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-sm font-medium text-gray-700">Event Types</div>
+                    <div class="flex gap-2">
+                        <button
+                            type="button"
+                            class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                            onclick={selectAllExportTypes}
+                            disabled={isExportingLogs}
+                        >
+                            All
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                            onclick={selectAgentFocusedExportTypes}
+                            disabled={isExportingLogs}
+                        >
+                            Agent-focused
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {#each ARCHIVE_EVENT_TYPES as type}
+                        <label class="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm">
+                            <span class="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={exportTypeSelection[type]}
+                                    onchange={(event) => setExportTypeSelection(type, (event.currentTarget as HTMLInputElement).checked)}
+                                    disabled={isExportingLogs}
+                                />
+                                <span>{EVENT_TYPE_LABELS[type]}</span>
+                            </span>
+                            <span class="text-xs text-gray-500">{eventTypeCount(type)}</span>
+                        </label>
+                    {/each}
+                </div>
+            </div>
+
+            <div class="flex flex-wrap justify-end gap-2">
+                <button
+                    type="button"
+                    class="rounded border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    onclick={closeExportDialog}
+                    disabled={isExportingLogs}
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    onclick={handleExportLogs}
+                    disabled={isExportingLogs || !canExportSelectedTypes}
                 >
                     {isExportingLogs ? 'Exporting...' : 'Export Logs'}
                 </button>

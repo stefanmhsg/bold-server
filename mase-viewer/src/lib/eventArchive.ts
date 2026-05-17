@@ -5,6 +5,9 @@ const DB_VERSION = 2;
 const EVENT_STORE = 'events';
 const RUN_ID_STORAGE_KEY = 'maze-viewer.current-run-id.v1';
 
+export const ARCHIVE_EVENT_TYPES = ['AGENT_MOVED', 'TRANSACTION', 'UI_UPSERT', 'UI_DELETE'] as const;
+export type ArchiveEventType = typeof ARCHIVE_EVENT_TYPES[number];
+export type ArchiveEventTypeCounts = Record<ArchiveEventType, number>;
 export type ArchiveExportStatus = 'saved' | 'downloaded' | 'empty' | 'canceled' | 'unavailable';
 
 export interface ArchiveExportResult {
@@ -33,7 +36,24 @@ export interface ArchivedEventPage<T extends MazeEvent> {
     hasMore: boolean;
 }
 
-type StoredEventType = ArchivedMazeEvent['type'];
+export interface ArchiveEventQuery {
+    searchText?: string;
+}
+
+export interface ArchiveExportOptions {
+    eventTypes?: readonly ArchiveEventType[];
+}
+
+type StoredEventType = ArchiveEventType;
+
+export function emptyArchiveEventTypeCounts(): ArchiveEventTypeCounts {
+    return {
+        AGENT_MOVED: 0,
+        TRANSACTION: 0,
+        UI_UPSERT: 0,
+        UI_DELETE: 0
+    };
+}
 
 type DirectoryPicker = (options?: { mode?: 'read' | 'readwrite' }) => Promise<DirectoryHandle>;
 
@@ -107,7 +127,8 @@ class EventArchive {
     async getEventsByType<T extends MazeEvent>(
         type: StoredEventType,
         limit: number,
-        beforeArchiveId?: number | null
+        beforeArchiveId?: number | null,
+        query: ArchiveEventQuery = {}
     ): Promise<ArchivedEventPage<T>> {
         if (limit <= 0 || !this.isAvailable()) {
             return { events: [], nextCursor: null, hasMore: false };
@@ -130,6 +151,7 @@ class EventArchive {
 
             const range = IDBKeyRange.bound([type, 0], [type, upperArchiveId]);
             const request = index.openCursor(range, 'prev');
+            const normalizedSearch = query.searchText?.trim().toLowerCase() ?? '';
 
             request.onsuccess = () => {
                 const cursor = request.result;
@@ -145,7 +167,10 @@ class EventArchive {
                     return;
                 }
 
-                records.push(cursor.value as ArchivedMazeEvent);
+                const record = cursor.value as ArchivedMazeEvent;
+                if (!normalizedSearch || this.recordMatchesSearch(record, normalizedSearch)) {
+                    records.push(record);
+                }
                 cursor.continue();
             };
 
@@ -168,6 +193,27 @@ class EventArchive {
         });
     }
 
+    async countByType(): Promise<ArchiveEventTypeCounts> {
+        const counts = emptyArchiveEventTypeCounts();
+        if (!this.isAvailable()) {
+            return counts;
+        }
+
+        const db = await this.openDb();
+
+        await Promise.all(ARCHIVE_EVENT_TYPES.map((type) => new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(EVENT_STORE, 'readonly');
+            const request = tx.objectStore(EVENT_STORE).index('type').count(type);
+            request.onsuccess = () => {
+                counts[type] = request.result;
+                resolve();
+            };
+            request.onerror = () => reject(request.error ?? new Error(`Failed to count ${type} events`));
+        })));
+
+        return counts;
+    }
+
     async clear(): Promise<void> {
         if (!this.isAvailable()) {
             return;
@@ -183,12 +229,17 @@ class EventArchive {
         });
     }
 
-    async exportNdjson(): Promise<ArchiveExportResult> {
+    async exportNdjson(options: ArchiveExportOptions = {}): Promise<ArchiveExportResult> {
         if (!this.isAvailable()) {
             return { status: 'unavailable', count: 0, message: 'IndexedDB is not available in this browser.' };
         }
 
-        const records = await this.getAllRecords();
+        const eventTypes = this.normalizeEventTypes(options.eventTypes);
+        if (eventTypes.length === 0) {
+            return { status: 'empty', count: 0, message: 'No event types selected.' };
+        }
+
+        const records = await this.getAllRecords(eventTypes);
         if (records.length === 0) {
             return { status: 'empty', count: 0, message: 'No logs to export.' };
         }
@@ -293,8 +344,9 @@ class EventArchive {
         return nextCursor;
     }
 
-    private async getAllRecords(): Promise<ArchivedMazeEvent[]> {
+    private async getAllRecords(eventTypes: readonly ArchiveEventType[]): Promise<ArchivedMazeEvent[]> {
         const db = await this.openDb();
+        const allowedTypes = new Set(eventTypes);
 
         return new Promise<ArchivedMazeEvent[]>((resolve, reject) => {
             const records: ArchivedMazeEvent[] = [];
@@ -308,12 +360,40 @@ class EventArchive {
                     return;
                 }
 
-                records.push(cursor.value as ArchivedMazeEvent);
+                const record = cursor.value as ArchivedMazeEvent;
+                if (allowedTypes.has(record.type)) {
+                    records.push(record);
+                }
                 cursor.continue();
             };
 
             request.onerror = () => reject(request.error ?? new Error('Failed to read archived events'));
         });
+    }
+
+    private normalizeEventTypes(eventTypes?: readonly ArchiveEventType[]): ArchiveEventType[] {
+        if (!eventTypes) {
+            return [...ARCHIVE_EVENT_TYPES];
+        }
+
+        const allowedTypes = new Set<ArchiveEventType>(ARCHIVE_EVENT_TYPES);
+        return eventTypes.filter((type, index, values) => allowedTypes.has(type) && values.indexOf(type) === index);
+    }
+
+    private recordMatchesSearch(record: ArchivedMazeEvent, normalizedSearch: string): boolean {
+        const parts = [
+            record.type,
+            record.agent ?? '',
+            record.cell ?? '',
+            record.graph ?? '',
+            record.transactionId === null || record.transactionId === undefined ? '' : String(record.transactionId)
+        ];
+
+        if (parts.some((part) => part.toLowerCase().includes(normalizedSearch))) {
+            return true;
+        }
+
+        return JSON.stringify(record.event).toLowerCase().includes(normalizedSearch);
     }
 
     private createFileName(runId: string): string {

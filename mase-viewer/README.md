@@ -22,6 +22,29 @@ docker run -p 3000:3000 -it mase-viewer
 ```
 The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or the port you specified).
 
+## MASE Server Configuration
+
+By default the viewer targets `http://localhost:8080` and derives the WebSocket URL as `ws://localhost:8080/ws`.
+
+For local `npm run dev`, set these only when the server is not on the default port:
+
+```sh
+PUBLIC_MASE_SERVER_HTTP_URL=http://localhost:8080
+PUBLIC_MASE_SERVER_WS_URL=ws://localhost:8080/ws
+```
+
+For Docker, the SvelteKit server may need an internal container URL while the browser still needs a host-reachable public URL:
+
+```sh
+docker run -p 3000:3000 \
+  -e MASE_SERVER_INTERNAL_HTTP_URL=http://mase-server:8080 \
+  -e PUBLIC_MASE_SERVER_HTTP_URL=http://localhost:8080 \
+  -e PUBLIC_MASE_SERVER_WS_URL=ws://localhost:8080/ws \
+  mase-viewer
+```
+
+`MASE_SERVER_INTERNAL_HTTP_URL` is used by the viewer server process to fetch `/admin/maze`. `PUBLIC_MASE_SERVER_HTTP_URL` and `PUBLIC_MASE_SERVER_WS_URL` are returned to the browser for reset requests and live WebSocket events.
+
 
 
 ## What you can do in MASE Viewer
@@ -33,6 +56,8 @@ The app will be running at http://127.0.1.1:3000/ or http://localhost:3000 (or t
 - Monitor Agent Movements in real time (time, agent, and location).
 - Monitor Transaction/Cell Updates in real time when server transaction tracing is enabled (transaction id, time, trigger, agent, graph, status, and executed rule count).
 - Double-click a Transaction/Cell Updates row to expand details when trace events are available. Summary mode shows transaction id, timing, status, graph, agent, and rule count. Full mode also shows request body, merge added/removed triples, and per-rule added/removed triples.
+- Export archived logs as NDJSON, with event-type checkboxes for Agent Movements, Cell Updates, UI Upserts, and UI Deletes.
+- Reset the server store after choosing whether to export selected log event types, discard logs, or cancel.
 - Read triples in grouped context form for clarity:
 	- `<context = graph_uri> :`
 	- `<s> <p> <o>`

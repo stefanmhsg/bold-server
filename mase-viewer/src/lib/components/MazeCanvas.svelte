@@ -614,6 +614,7 @@
                 agents.delete(agentId);
             }
             agentPositions.delete(agentId);
+            agentColors.delete(agentId);
             
             // Re-layout old cell if it existed
             if (oldCellId) {
