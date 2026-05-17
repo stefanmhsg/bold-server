@@ -162,8 +162,46 @@
         canvasRevision += 1;
     }
 
-    async function handleClearLogs() {
-        await mazeState.clearLogs();
+    function handleClearTables() {
+        mazeState.clearTables();
+    }
+
+    async function handleExportLogs() {
+        if (isExportingLogs || isResetting) return;
+
+        isExportingLogs = true;
+        clearResetMessage();
+
+        try {
+            const exportResult = await mazeState.exportLogsNdjson();
+
+            if (exportResult.status === 'canceled') {
+                showResetMessage({ type: 'error', text: 'Log export canceled.' }, false);
+                return;
+            }
+
+            if (exportResult.status === 'unavailable') {
+                showResetMessage({ type: 'error', text: exportResult.message ?? 'Log export is unavailable.' }, false);
+                return;
+            }
+
+            if (exportResult.status === 'empty') {
+                showResetMessage({ type: 'success', text: 'No logs available to export.' });
+                return;
+            }
+
+            showResetMessage({
+                type: 'success',
+                text: `Exported ${exportResult.count} log events${exportResult.fileName ? ` to ${exportResult.fileName}` : ''}.`
+            });
+        } catch (e) {
+            showResetMessage({
+                type: 'error',
+                text: `Log export failed: ${e instanceof Error ? e.message : String(e)}`
+            }, false);
+        } finally {
+            isExportingLogs = false;
+        }
     }
 
     /**
@@ -418,20 +456,41 @@
             <button
                 type="button"
                 class="px-3 py-2 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50"
-                onclick={handleClearLogs}
+                onclick={handleClearTables}
             >
-                Clear Logs
+                Clear Tables
+            </button>
+            <button
+                type="button"
+                class="px-3 py-2 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                onclick={handleExportLogs}
+                disabled={isExportingLogs || isResetting}
+            >
+                {isExportingLogs ? 'Exporting...' : 'Export Logs'}
             </button>
         </div>
 
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Agent Movements</h3>
-            <AgentEventLog events={mazeState.agentEvents} filterText={eventFilterText} onAgentSelect={handleAgentSelect} />
+            <AgentEventLog
+                events={mazeState.agentEvents}
+                filterText={eventFilterText}
+                onAgentSelect={handleAgentSelect}
+                hasMore={mazeState.agentEventsHasMore}
+                isLoadingMore={mazeState.isLoadingAgentEvents}
+                onLoadMore={() => mazeState.loadMoreAgentEvents()}
+            />
         </div>
 
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Cell Updates</h3>
-            <CellEventLog events={mazeState.transactionEvents} filterText={eventFilterText} />
+            <CellEventLog
+                events={mazeState.transactionEvents}
+                filterText={eventFilterText}
+                hasMore={mazeState.transactionEventsHasMore}
+                isLoadingMore={mazeState.isLoadingTransactionEvents}
+                onLoadMore={() => mazeState.loadMoreTransactionEvents()}
+            />
         </div>
 
         <!-- Agent Inspector -->

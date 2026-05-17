@@ -64,6 +64,7 @@ export type RuntimeCanvasEvent = AgentMovedEvent | UiUpsertEvent | UiDeleteEvent
 
 const HOT_AGENT_EVENT_LIMIT = 50;
 const HOT_TRANSACTION_EVENT_LIMIT = 50;
+const COLD_EVENT_PAGE_SIZE = 100;
 const HOT_UI_EVENT_LIMIT = 50;
 const REPLAY_DEDUPE_WINDOW_MS = 3000;
 const REPLAY_DEDUPE_MAX_SIGNATURES = 2000;
@@ -76,6 +77,10 @@ export class MazeStore {
     status = $state<string>("disconnected");
     archiveCount = $state(0);
     archiveError = $state<string | null>(null);
+    agentEventsHasMore = $state(false);
+    transactionEventsHasMore = $state(false);
+    isLoadingAgentEvents = $state(false);
+    isLoadingTransactionEvents = $state(false);
     socket: WebSocket | null = null;
     private pendingEvents: MazeEvent[] = [];
     private flushHandle: number | null = null;
@@ -85,6 +90,10 @@ export class MazeStore {
     private currentRunId = eventArchive.getCurrentRunId();
     private archiveWrite: Promise<void> = Promise.resolve();
     private suppressResetTransactionsUntil = 0;
+    private agentArchiveCursor: number | null = null;
+    private transactionArchiveCursor: number | null = null;
+    private agentColdBrowsingActive = false;
+    private transactionColdBrowsingActive = false;
 
     constructor() {
         void this.hydrateArchivedLogs();
@@ -114,14 +123,18 @@ export class MazeStore {
         }
 
         try {
-            const [agentEvents, transactionEvents, count] = await Promise.all([
-                eventArchive.getRecentEventsByType<AgentMovedEvent>('AGENT_MOVED', HOT_AGENT_EVENT_LIMIT),
-                eventArchive.getRecentEventsByType<TransactionEvent>('TRANSACTION', HOT_TRANSACTION_EVENT_LIMIT),
+            const [agentPage, transactionPage, count] = await Promise.all([
+                eventArchive.getEventsByType<AgentMovedEvent>('AGENT_MOVED', HOT_AGENT_EVENT_LIMIT),
+                eventArchive.getEventsByType<TransactionEvent>('TRANSACTION', HOT_TRANSACTION_EVENT_LIMIT),
                 eventArchive.count()
             ]);
 
-            this.agentEvents = agentEvents;
-            this.transactionEvents = transactionEvents;
+            this.agentEvents = agentPage.events;
+            this.transactionEvents = transactionPage.events;
+            this.agentArchiveCursor = agentPage.nextCursor;
+            this.transactionArchiveCursor = transactionPage.nextCursor;
+            this.agentEventsHasMore = agentPage.hasMore;
+            this.transactionEventsHasMore = transactionPage.hasMore;
             this.archiveCount = count;
             this.archiveError = null;
         } catch (error) {
@@ -158,11 +171,21 @@ export class MazeStore {
         return this.signatureForPayload(payload);
     }
 
-    async clearLogs(): Promise<void> {
+    clearTables(): void {
         this.agentEvents = [];
+        this.transactionEvents = [];
+        this.agentArchiveCursor = null;
+        this.transactionArchiveCursor = null;
+        this.agentColdBrowsingActive = false;
+        this.transactionColdBrowsingActive = false;
+        this.agentEventsHasMore = this.archiveCount > 0;
+        this.transactionEventsHasMore = this.archiveCount > 0;
+    }
+
+    private async clearArchiveAndTables(): Promise<void> {
+        this.clearTables();
         this.uiEvents = [];
         this.uiDeleteEvents = [];
-        this.transactionEvents = [];
         this.replaySeenSignatures.clear();
 
         try {
@@ -185,10 +208,62 @@ export class MazeStore {
     async resetForNewRun(): Promise<void> {
         this.flushQueuedEventsNow();
         this.pendingEvents = [];
-        await this.clearLogs();
+        await this.clearArchiveAndTables();
         this.currentRunId = eventArchive.startNewRun();
         this.suppressResetTransactionsUntil = Date.now() + REPLAY_DEDUPE_WINDOW_MS;
         this.seedReplayDedupeSignatures();
+    }
+
+    async loadMoreAgentEvents(): Promise<void> {
+        if (this.isLoadingAgentEvents || !this.agentEventsHasMore) {
+            return;
+        }
+
+        this.isLoadingAgentEvents = true;
+        try {
+            await this.waitForArchiveWrites();
+            await this.loadMoreEvents<AgentMovedEvent>(
+                'AGENT_MOVED',
+                () => this.agentArchiveCursor,
+                (cursor) => this.agentArchiveCursor = cursor,
+                () => this.agentEventsHasMore,
+                (hasMore) => this.agentEventsHasMore = hasMore,
+                () => this.agentEvents,
+                (events) => this.agentEvents = events
+            );
+            this.agentColdBrowsingActive = true;
+        } catch (error) {
+            this.archiveError = error instanceof Error ? error.message : String(error);
+            console.warn('Failed to load archived agent events', error);
+        } finally {
+            this.isLoadingAgentEvents = false;
+        }
+    }
+
+    async loadMoreTransactionEvents(): Promise<void> {
+        if (this.isLoadingTransactionEvents || !this.transactionEventsHasMore) {
+            return;
+        }
+
+        this.isLoadingTransactionEvents = true;
+        try {
+            await this.waitForArchiveWrites();
+            await this.loadMoreEvents<TransactionEvent>(
+                'TRANSACTION',
+                () => this.transactionArchiveCursor,
+                (cursor) => this.transactionArchiveCursor = cursor,
+                () => this.transactionEventsHasMore,
+                (hasMore) => this.transactionEventsHasMore = hasMore,
+                () => this.transactionEvents,
+                (events) => this.transactionEvents = events
+            );
+            this.transactionColdBrowsingActive = true;
+        } catch (error) {
+            this.archiveError = error instanceof Error ? error.message : String(error);
+            console.warn('Failed to load archived transaction events', error);
+        } finally {
+            this.isLoadingTransactionEvents = false;
+        }
     }
 
     private waitForArchiveWrites(): Promise<void> {
@@ -202,6 +277,62 @@ export class MazeStore {
         }
 
         this.flushPendingEvents();
+    }
+
+    private async loadMoreEvents<T extends MazeEvent>(
+        type: T['type'],
+        getCursor: () => number | null,
+        setCursor: (cursor: number | null) => void,
+        getHasMore: () => boolean,
+        setHasMore: (hasMore: boolean) => void,
+        getEvents: () => T[],
+        setEvents: (events: T[]) => void
+    ): Promise<void> {
+        let appended = 0;
+
+        while (getHasMore() && appended === 0) {
+            const page = await eventArchive.getEventsByType<T>(type, COLD_EVENT_PAGE_SIZE, getCursor());
+            setCursor(page.nextCursor);
+            setHasMore(page.hasMore);
+
+            if (page.events.length === 0) {
+                break;
+            }
+
+            const current = getEvents();
+            const merged = this.appendUniqueEvents(current, page.events);
+            appended = merged.length - current.length;
+            setEvents(merged);
+        }
+    }
+
+    private appendUniqueEvents<T extends MazeEvent>(current: T[], incoming: T[]): T[] {
+        const seen = new Set(current.map((event) => this.visibleEventKey(event)));
+        const uniqueIncoming = incoming.filter((event) => {
+            const key = this.visibleEventKey(event);
+            if (seen.has(key)) {
+                return false;
+            }
+
+            seen.add(key);
+            return true;
+        });
+
+        return [...current, ...uniqueIncoming];
+    }
+
+    private prependVisibleEvent<T extends MazeEvent>(
+        events: T[],
+        event: T,
+        hotLimit: number,
+        coldBrowsingActive: boolean
+    ): T[] {
+        const next = [event, ...events];
+        return coldBrowsingActive ? next : next.slice(0, hotLimit);
+    }
+
+    private visibleEventKey(event: MazeEvent): string {
+        return JSON.stringify(event);
     }
 
     private queueEvent(event: MazeEvent): void {
@@ -227,7 +358,12 @@ export class MazeStore {
         for (const mazeEvent of batch) {
             switch (mazeEvent.type) {
                 case 'AGENT_MOVED':
-                    this.agentEvents = [...this.agentEvents, mazeEvent].slice(-HOT_AGENT_EVENT_LIMIT);
+                    this.agentEvents = this.prependVisibleEvent(
+                        this.agentEvents,
+                        mazeEvent,
+                        HOT_AGENT_EVENT_LIMIT,
+                        this.agentColdBrowsingActive
+                    );
                     this.emitRuntimeCanvasEvent(mazeEvent);
                     break;
                 case 'UI_UPSERT':
@@ -239,7 +375,12 @@ export class MazeStore {
                     this.emitRuntimeCanvasEvent(mazeEvent);
                     break;
                 case 'TRANSACTION':
-                    this.transactionEvents = [...this.transactionEvents, mazeEvent].slice(-HOT_TRANSACTION_EVENT_LIMIT);
+                    this.transactionEvents = this.prependVisibleEvent(
+                        this.transactionEvents,
+                        mazeEvent,
+                        HOT_TRANSACTION_EVENT_LIMIT,
+                        this.transactionColdBrowsingActive
+                    );
                     break;
             }
         }

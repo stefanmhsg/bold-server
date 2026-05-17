@@ -26,6 +26,9 @@ Future work on log retention, event archival, reset behavior, and scenario metad
 - [x] (2026-05-17) Introduced [src/lib/eventArchive.ts](src/lib/eventArchive.ts), an IndexedDB event archive module with NDJSON export.
 - [x] (2026-05-17) Changed Reset Store into an Export logs / Discard logs / Cancel flow, then fully reset the viewer after export or discard.
 - [x] (2026-05-17) Kept log export Docker-compatible by using browser-side file save/download instead of assuming write access to the container filesystem.
+- [x] (2026-05-17) Added an Export Logs button outside the reset flow.
+- [x] (2026-05-17) Renamed Clear Logs to Clear Tables and made it clear visible table rows without deleting archived logs.
+- [x] (2026-05-17) Added Load More paging from IndexedDB into both event tables, with 100-row pages and automatic continuation after the first click when the user scrolls to the bottom.
 
 ## Surprises & Discoveries
 
@@ -46,6 +49,9 @@ Future work on log retention, event archival, reset behavior, and scenario metad
 
 - Observation: Browser code cannot silently write exported logs into the repository or Docker container filesystem.
   Evidence: File export must be initiated by the browser, either through the File System Access API with a user-selected directory such as `mase-viewer/log`, or through a normal browser download fallback.
+
+- Observation: Table clearing and log deletion are now separate operations.
+  Evidence: [src/routes/+page.svelte](src/routes/+page.svelte) labels the visible clear action as Clear Tables and calls `mazeState.clearTables()`, while reset/discard still clears the IndexedDB archive through `mazeState.resetForNewRun()`.
 
 ## Decision Log
 
@@ -81,6 +87,14 @@ Future work on log retention, event archival, reset behavior, and scenario metad
   Rationale: Reset starts a new experiment run. The viewer should not silently destroy diagnostic logs, but it also should not keep stale canvas, inspector, or hot log state attached to the fresh run after the user chooses export or discard.
   Date/Author: 2026-05-17 / Codex
 
+- Decision: Clear Tables must not delete archived logs.
+  Rationale: Users need a quick way to reduce visible table noise without losing experiment evidence. Log deletion is reserved for Reset Store with Discard Logs, or future explicit archive-management controls.
+  Date/Author: 2026-05-17 / Codex
+
+- Decision: Archived table paging loads 100 rows per page and switches to scroll continuation after the first click.
+  Rationale: The first click is a deliberate opt-in to cold log browsing. After that, scrolling to the table bottom is enough to append older archived rows without repeated button clicks.
+  Date/Author: 2026-05-17 / Codex
+
 - Decision: Keep frontend scenario-specific logic visibly separated from runtime state projection.
   Rationale: Static optimal routes are acceptable as visualization aids, but scenario-specific simulation behavior belongs in the server rules and RDF data.
   Date/Author: 2026-05-16 / prior viewer notes
@@ -89,7 +103,7 @@ Future work on log retention, event archival, reset behavior, and scenario metad
 
 This file has been converted from freestyle living notes into an ExecPlan-style viewer planning document. The viewer now includes an export/discard/cancel reset flow backed by an IndexedDB archive.
 
-The main remaining gap is longer-term archive browsing and performance polish. The hot event arrays are bounded, `sessionStorage` full-array writes are gone, NDJSON export exists, and Reset Store now clears client state after Export or Discard.
+The main remaining gap is longer-term archive browsing and performance polish. The hot event arrays are bounded, `sessionStorage` full-array writes are gone, NDJSON export exists, Reset Store now clears client state after Export or Discard, and both event tables can page cold logs back from IndexedDB.
 
 ## Context and Orientation
 
@@ -168,7 +182,7 @@ The viewer keeps displayed logs as bounded in-memory arrays. `agentEvents` store
 
 Every accepted WebSocket event is appended asynchronously to IndexedDB through [src/lib/eventArchive.ts](src/lib/eventArchive.ts). Export writes all archived records as NDJSON, preserving nested transaction trace payloads.
 
-The two event table components receive the hot arrays directly from the page and render every retained hot row. [src/lib/components/AgentEventLog.svelte](src/lib/components/AgentEventLog.svelte) filters by agent URI or formatted cell location and renders matching hot rows. [src/lib/components/CellEventLog.svelte](src/lib/components/CellEventLog.svelte) filters by agent or graph and renders matching hot transaction rows.
+The two event table components receive visible arrays directly from the page. Initially those arrays are the latest 50 rows. After the user clicks Load More, [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts) loads 100 older rows from IndexedDB and appends them to the visible table. Further scrolling to the bottom loads the next 100-row page automatically.
 
 The Cell Updates table is especially expensive in `full` transaction trace mode because each event can include request body text, merge diffs, and per-rule added/removed triples.
 
@@ -186,7 +200,7 @@ Be more careful with transactions. Some transactions are global or cell-centric,
 
 ### Known Issues and Risks
 
-Visible event arrays are bounded to 50 rows per table, so they no longer grow without limit or rewrite full `sessionStorage` payloads. Archive data now lives in IndexedDB, which is browser-local and quota-limited. There is no archived-row browser UI yet; export is the first archive access path. Filtering is linear over the 50-row hot windows.
+Visible event arrays start at 50 rows per table, so they no longer grow without user intent or rewrite full `sessionStorage` payloads. Archive data now lives in IndexedDB, which is browser-local and quota-limited. Load More can append cold rows to the visible table in 100-row pages. Filtering is linear over currently visible rows.
 
 The Cell Updates table intentionally keeps its user-facing label, even though it is backed by `TRANSACTION` events from the server. Expanded transaction row state now uses a stable event key instead of a filtered row index.
 
@@ -198,7 +212,7 @@ Large full transaction traces can make the frontend heavy even before rows are e
 
 Milestone 1 stabilizes the live event tables. Add bounded hot log limits of 50 rows each for `agentEvents` and `transactionEvents`, and replace filtered-row index expansion with a stable key. This is implemented in [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts) and [src/lib/components/CellEventLog.svelte](src/lib/components/CellEventLog.svelte).
 
-Milestone 2 adds a cold event archive. Introduce an event archive module with an interface such as `appendEvents`, `getRecentEventsByType`, `count`, `clear`, and `exportNdjson`. This is implemented in [src/lib/eventArchive.ts](src/lib/eventArchive.ts). Pagination and archive browsing remain future work.
+Milestone 2 adds a cold event archive. Introduce an event archive module with an interface such as `appendEvents`, `getEventsByType`, `count`, `clear`, and `exportNdjson`. This is implemented in [src/lib/eventArchive.ts](src/lib/eventArchive.ts). Basic table paging from the archive is implemented; richer archive search remains future work.
 
 Milestone 3 coordinates reset invalidation with the server reset plan. [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md) has defined and implemented the `POST /admin/maze/reset` endpoint, replay-buffer clearing, and reset notification contract. The viewer now presents Export logs, Discard logs, and Cancel choices. Export and Discard call the reset endpoint and then clear hot/archive state, invalidate page data, remount [src/lib/components/MazeCanvas.svelte](src/lib/components/MazeCanvas.svelte), and close selected inspectors.
 
@@ -210,7 +224,7 @@ Start with the live hot-path bottlenecks. In [src/lib/mazeState.svelte.ts](src/l
 
 Next, introduce a storage boundary for archived events. A small archive interface should sit outside the Svelte component tree so the live store can append events without making the archive reactive. IndexedDB is the preferred browser-side default because it is asynchronous, persistent, and can index by timestamp, agent, cell, graph, transaction id, and event type. NDJSON is the export format for all archived events so movement, UI, and nested transaction events use one consistent artifact.
 
-The reset button in [src/routes/+page.svelte](src/routes/+page.svelte) opens a confirmation dialog. Cancel does nothing. Export logs writes NDJSON before reset; Discard logs skips export. After either Export or Discard, reset clears hot and IndexedDB logs, starts a new archive run, invalidates page data, remounts the canvas, closes selected inspectors, clears the filter, and shows a temporary success or failure message with a close button.
+The reset button in [src/routes/+page.svelte](src/routes/+page.svelte) opens a confirmation dialog. Cancel does nothing. Export logs writes NDJSON before reset; Discard logs skips export. After either Export or Discard, reset clears hot and IndexedDB logs, starts a new archive run, invalidates page data, remounts the canvas, closes selected inspectors, clears the filter, and shows a temporary success or failure message with a close button. The separate Export Logs button exports without resetting, and Clear Tables clears visible rows without deleting archived logs.
 
 Keep current agent location rendering behavior fast. There is a separate workpackage to investigate RDF-backed agent location rendering from `maze:contains` cell triples, but that work should normalize any authoritative location changes into the same compact canvas movement command shape used by the current `AGENT_MOVED` listener.
 
@@ -241,7 +255,7 @@ Then verify that the viewer applies the chosen invalidation behavior. The prefer
 
 For log-related changes, verify that live agent markers still move smoothly during event bursts, the Agent Movements table shows recent rows and can access archived rows if archival is implemented, and the Cell Updates table works in transaction trace modes `off`, `summary`, and `full`.
 
-Verify reload behavior with existing stored data. Verify Clear Logs behavior for both hot and archived data. If archives exist, the UI must clearly distinguish between "clear live view" and "delete archive", or one command must explicitly do both.
+Verify reload behavior with existing stored data. Verify Clear Tables clears visible rows without deleting IndexedDB logs, Export Logs still exports those logs, and Reset Store with Discard Logs clears both visible rows and archived logs.
 
 For canvas changes, verify that maze cells, walls, labels, UI overlays, cell backgrounds, and optimal route overlay still render. Verify that UI upsert/delete events update the correct Konva layer, path rasterization fallback still handles unsupported or invalid path data, and cell and agent inspectors still open from double-click interactions.
 
@@ -276,7 +290,7 @@ Suggested hot/cold model:
 - Table default view: hot/recent rows.
 - Archived view: exported NDJSON first; paginated IndexedDB queries can follow later.
 
-`Clear Logs` should clear both hot arrays and the IndexedDB archive because there is a separate export path for keeping logs.
+`Clear Tables` clears visible rows only. Reset Store with Discard Logs clears both hot arrays and the IndexedDB archive. Export Logs writes the archive without resetting.
 
 Export target note: [log/.gitignore](log/.gitignore) keeps a repository-local `log` folder available for users who want to select `mase-viewer/log` in browsers that support directory save. Browsers without that API use the normal downloads folder. Dockerized deployments use the same browser-side export path; no container write access is required.
 
@@ -312,7 +326,7 @@ Read [src/lib/components/MazeCanvas.svelte](src/lib/components/MazeCanvas.svelte
 
 Keep the runtime canvas listener path fast and bounded. Avoid making table history the source of truth for canvas rendering.
 
-When changing log retention, update both the Clear Logs behavior and this document. When adding persistent storage, handle quota failures and private browsing failures gracefully.
+When changing log retention, update Clear Tables, Reset Store log deletion behavior, and this document. When adding persistent storage, handle quota failures and private browsing failures gracefully.
 
 Do not assume `TRANSACTION` events are enabled. The server can run trace mode `off`, `summary`, or `full`. Do not assume full transaction detail exists, because summary mode intentionally omits request bodies and triple-level diffs.
 
@@ -326,7 +340,7 @@ The viewer depends on WebSocket events from `ws://localhost:8080/ws`, currently 
 
 The reset UI depends on [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). The server plan defines the `POST /admin/maze/reset` response, the WebSocket replay-buffer cleanup behavior, and the `ADMIN_RESET` notification. The viewer should use that endpoint after the user chooses Export logs or Discard logs, then invalidate page data, remount or reset [src/lib/components/MazeCanvas.svelte](src/lib/components/MazeCanvas.svelte), clear hot and IndexedDB logs in [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts), and close selected cell and agent inspectors in [src/routes/+page.svelte](src/routes/+page.svelte).
 
-[src/lib/eventArchive.ts](src/lib/eventArchive.ts) exposes stable methods: `appendEvents`, `getRecentEventsByType`, `count`, `clear`, and `exportNdjson`. The initial implementation uses IndexedDB, but the interface should not prevent later server-backed storage.
+[src/lib/eventArchive.ts](src/lib/eventArchive.ts) exposes stable methods: `appendEvents`, `getEventsByType`, `getRecentEventsByType`, `count`, `clear`, and `exportNdjson`. The initial implementation uses IndexedDB, but the interface should not prevent later server-backed storage.
 
 Revision note, 2026-05-17: Reorganized the viewer notes into ExecPlan-style sections and cross-linked the reset/data invalidation dependency with [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). No implementation work was performed.
 
@@ -335,3 +349,5 @@ Revision note, 2026-05-17: Added a trigger-only Reset Store button to [src/route
 Revision note, 2026-05-17: Removed the Cell Updates rename/clarification TODO. The table label remains user-facing wording while the implementation can still use transaction event data internally.
 
 Revision note, 2026-05-17: Planned the IndexedDB/NDJSON log archive and reset dialog implementation. The selected defaults are 50 hot rows each for movement and Cell Updates, NDJSON export for all event types, browser-side directory save or download fallback for Docker compatibility, and full viewer reset after Export or Discard.
+
+Revision note, 2026-05-17: Split table clearing from log deletion, added independent Export Logs, and added 100-row archived log paging with scroll continuation for both visible event tables.

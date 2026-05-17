@@ -1,7 +1,7 @@
 import type { MazeEvent } from './mazeState.svelte';
 
 const DB_NAME = 'mase-viewer-event-archive';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const EVENT_STORE = 'events';
 const RUN_ID_STORAGE_KEY = 'maze-viewer.current-run-id.v1';
 
@@ -25,6 +25,12 @@ export interface ArchivedMazeEvent {
     graph?: string | null;
     transactionId?: number | null;
     event: MazeEvent;
+}
+
+export interface ArchivedEventPage<T extends MazeEvent> {
+    events: T[];
+    nextCursor: number | null;
+    hasMore: boolean;
 }
 
 type StoredEventType = ArchivedMazeEvent['type'];
@@ -94,28 +100,52 @@ class EventArchive {
     }
 
     async getRecentEventsByType<T extends MazeEvent>(type: StoredEventType, limit: number): Promise<T[]> {
+        const page = await this.getEventsByType<T>(type, limit);
+        return page.events;
+    }
+
+    async getEventsByType<T extends MazeEvent>(
+        type: StoredEventType,
+        limit: number,
+        beforeArchiveId?: number | null
+    ): Promise<ArchivedEventPage<T>> {
         if (limit <= 0 || !this.isAvailable()) {
-            return [];
+            return { events: [], nextCursor: null, hasMore: false };
         }
 
         const db = await this.openDb();
 
-        return new Promise<T[]>((resolve, reject) => {
-            const events: T[] = [];
+        return new Promise<ArchivedEventPage<T>>((resolve, reject) => {
+            const records: ArchivedMazeEvent[] = [];
             const tx = db.transaction(EVENT_STORE, 'readonly');
-            const index = tx.objectStore(EVENT_STORE).index('typeTimestamp');
-            const range = IDBKeyRange.bound([type, 0], [type, Number.MAX_SAFE_INTEGER]);
+            const index = tx.objectStore(EVENT_STORE).index('typeArchiveId');
+            const upperArchiveId = beforeArchiveId === null || beforeArchiveId === undefined
+                ? Number.MAX_SAFE_INTEGER
+                : beforeArchiveId - 1;
+
+            if (upperArchiveId < 0) {
+                resolve({ events: [], nextCursor: null, hasMore: false });
+                return;
+            }
+
+            const range = IDBKeyRange.bound([type, 0], [type, upperArchiveId]);
             const request = index.openCursor(range, 'prev');
 
             request.onsuccess = () => {
                 const cursor = request.result;
-                if (!cursor || events.length >= limit) {
-                    resolve(events.reverse());
+                if (!cursor || records.length > limit) {
+                    const pageRecords = records.slice(0, limit);
+                    const nextCursor = this.nextCursorForRecords(pageRecords);
+
+                    resolve({
+                        events: pageRecords.map((record) => record.event as T),
+                        nextCursor,
+                        hasMore: records.length > limit || Boolean(cursor)
+                    });
                     return;
                 }
 
-                const record = cursor.value as ArchivedMazeEvent;
-                events.push(record.event as T);
+                records.push(cursor.value as ArchivedMazeEvent);
                 cursor.continue();
             };
 
@@ -194,20 +224,29 @@ class EventArchive {
 
             request.onupgradeneeded = () => {
                 const db = request.result;
+                let store: IDBObjectStore;
+
                 if (!db.objectStoreNames.contains(EVENT_STORE)) {
-                    const store = db.createObjectStore(EVENT_STORE, {
+                    store = db.createObjectStore(EVENT_STORE, {
                         keyPath: 'archiveId',
                         autoIncrement: true
                     });
+                } else {
+                    if (!request.transaction) {
+                        throw new Error('Missing IndexedDB upgrade transaction');
+                    }
 
-                    store.createIndex('runId', 'runId');
-                    store.createIndex('type', 'type');
-                    store.createIndex('timestamp', 'timestamp');
-                    store.createIndex('typeTimestamp', ['type', 'timestamp']);
-                    store.createIndex('agent', 'agent');
-                    store.createIndex('graph', 'graph');
-                    store.createIndex('transactionId', 'transactionId');
+                    store = request.transaction.objectStore(EVENT_STORE);
                 }
+
+                this.ensureIndex(store, 'runId', 'runId');
+                this.ensureIndex(store, 'type', 'type');
+                this.ensureIndex(store, 'timestamp', 'timestamp');
+                this.ensureIndex(store, 'typeTimestamp', ['type', 'timestamp']);
+                this.ensureIndex(store, 'typeArchiveId', ['type', 'archiveId']);
+                this.ensureIndex(store, 'agent', 'agent');
+                this.ensureIndex(store, 'graph', 'graph');
+                this.ensureIndex(store, 'transactionId', 'transactionId');
             };
 
             request.onsuccess = () => resolve(request.result);
@@ -232,6 +271,26 @@ class EventArchive {
             transactionId: 'transactionId' in event ? event.transactionId ?? -1 : -1,
             event
         };
+    }
+
+    private ensureIndex(store: IDBObjectStore, name: string, keyPath: string | string[]): void {
+        if (!store.indexNames.contains(name)) {
+            store.createIndex(name, keyPath);
+        }
+    }
+
+    private nextCursorForRecords(records: ArchivedMazeEvent[]): number | null {
+        let nextCursor: number | null = null;
+
+        for (const record of records) {
+            if (typeof record.archiveId !== 'number') {
+                continue;
+            }
+
+            nextCursor = nextCursor === null ? record.archiveId : Math.min(nextCursor, record.archiveId);
+        }
+
+        return nextCursor;
     }
 
     private async getAllRecords(): Promise<ArchivedMazeEvent[]> {

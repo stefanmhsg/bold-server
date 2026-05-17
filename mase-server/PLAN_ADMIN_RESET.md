@@ -23,6 +23,7 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
 - [x] (2026-05-17 13:40Z) Kept `mase-viewer` invalidation deferred; no viewer cleanup, remount, or refresh behavior was changed.
 - [x] (2026-05-17) Added a trigger-only viewer button in [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md)'s scope that calls `POST /admin/maze/reset`.
 - [x] (2026-05-17) Updated the viewer reset flow so Export logs and Discard logs trigger the endpoint and then fully reset client state.
+- [x] (2026-05-17) Added independent viewer log export and made Clear Tables non-destructive for archived logs.
 
 ## Surprises & Discoveries
 
@@ -244,6 +245,8 @@ Current viewer reset flow:
 
 The viewer exports or discards logs before invoking reset. After a successful reset response, the viewer invalidates `/admin/maze` data, remounts the canvas, closes inspectors, clears hot/archive logs, and shows a temporary dismissible result message. The server endpoint itself does not write exported log files.
 
+Outside the reset flow, the viewer can export logs without resetting and can clear visible tables without deleting the IndexedDB archive. Those operations remain entirely viewer-side.
+
 ## Interfaces and Dependencies
 
 At the end of implementation, `mase-server/src/main/java/org/maze/application/MazeResetService.java` should provide one public reset method that performs the full clear, reload, startup rule execution, WebSocket replay cleanup, and result creation. The exact result type may be a small DTO or `MazeAdminSnapshotDto`, but the endpoint must return JSON.
@@ -269,3 +272,5 @@ Revision note, 2026-05-17: Implemented the reset endpoint and updated progress, 
 Revision note, 2026-05-17: Added a trigger-only viewer reset button and documented that it initiates the server endpoint without client-side invalidation, log cleanup, or snapshot refresh.
 
 Revision note, 2026-05-17: Added the viewer-side reset/export follow-up. The server reset API remains unchanged; NDJSON export is handled by the browser so Docker deployments do not need writable server volumes for viewer logs.
+
+Revision note, 2026-05-17: Recorded the follow-up viewer behavior: independent Export Logs, non-destructive Clear Tables, and archived table paging do not change the server reset API.

@@ -1,11 +1,16 @@
 <script lang="ts">
     import type { AgentMovedEvent } from '$lib/mazeState.svelte';
 
-    let { events, filterText = '', onAgentSelect } = $props<{ 
+    let { events, filterText = '', onAgentSelect, hasMore = false, isLoadingMore = false, onLoadMore } = $props<{
         events: AgentMovedEvent[];
         filterText?: string;
         onAgentSelect?: (agentUri: string) => void;
+        hasMore?: boolean;
+        isLoadingMore?: boolean;
+        onLoadMore?: () => void | Promise<void>;
     }>();
+
+    let autoLoadMore = $state(false);
 
     const normalizedFilterText = $derived(filterText.trim().toLowerCase());
 
@@ -41,10 +46,38 @@
         
         return cellUri.split('/').pop() || cellUri;
     }
+
+    function agentEventKey(event: AgentMovedEvent): string {
+        return [event.timestamp, event.agent, event.cell].join('|');
+    }
+
+    async function requestMore(enableAutoLoad = false): Promise<void> {
+        if (!hasMore || isLoadingMore || !onLoadMore) {
+            return;
+        }
+
+        if (enableAutoLoad) {
+            autoLoadMore = true;
+        }
+
+        await onLoadMore();
+    }
+
+    function handleScroll(event: Event): void {
+        if (!autoLoadMore || !hasMore || isLoadingMore) {
+            return;
+        }
+
+        const target = event.currentTarget as HTMLElement;
+        const remaining = target.scrollHeight - target.scrollTop - target.clientHeight;
+        if (remaining <= 24) {
+            void requestMore();
+        }
+    }
 </script>
 
 <div class="h-[300px] min-h-[180px] max-h-[70vh] w-full min-w-0 resize-y overflow-hidden rounded-lg border">
-    <div class="h-full overflow-y-auto overflow-x-hidden">
+    <div class="h-full overflow-y-auto overflow-x-hidden" onscroll={handleScroll}>
         <table class="w-full text-left">
             <thead class="bg-gray-100 border-b sticky top-0">
                 <tr>
@@ -54,7 +87,7 @@
                 </tr>
             </thead>
             <tbody>
-                {#each filteredEvents as event}
+                {#each filteredEvents as event (agentEventKey(event))}
                     <tr class="border-b hover:bg-gray-50">
                         <td class="p-2 text-base whitespace-nowrap text-gray-500">
                             {new Date(event.timestamp).toLocaleTimeString()}
@@ -74,6 +107,20 @@
                     <tr>
                         <td colspan="3" class="p-4 text-center text-gray-500">
                             {normalizedFilterText ? 'No matching agent movements.' : 'No agent movements yet.'}
+                        </td>
+                    </tr>
+                {/if}
+                {#if hasMore}
+                    <tr>
+                        <td colspan="3" class="p-3 text-center">
+                            <button
+                                type="button"
+                                class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                onclick={() => requestMore(true)}
+                                disabled={isLoadingMore}
+                            >
+                                {isLoadingMore ? 'Loading...' : 'Load More'}
+                            </button>
                         </td>
                     </tr>
                 {/if}
