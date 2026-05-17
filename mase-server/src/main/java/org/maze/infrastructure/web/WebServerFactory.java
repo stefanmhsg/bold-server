@@ -15,6 +15,7 @@ import org.maze.api.ld.CorsFilter;
 import org.maze.api.ld.LinkedDataDereferenceResource;
 import org.maze.api.sparql.SparqlResource;
 import org.maze.api.admin.MazeAdminResource;
+import org.maze.api.vocab.VocabularyResource;
 import org.maze.application.AccessValidator;
 import org.maze.application.MazeMutationCoordinator;
 import org.maze.application.MazeResetService;
@@ -124,6 +125,7 @@ public class WebServerFactory {
         
         // Configure JAX-RS resources
         ResourceConfig ldConfig = new ResourceConfig();
+        ldConfig.register(VocabularyResource.class);
         ldConfig.register(LinkedDataDereferenceResource.class);
         ldConfig.register(SparqlResource.class);
         ldConfig.register(MazeAdminResource.class);

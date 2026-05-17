@@ -97,6 +97,21 @@ class ScenarioPackageResolverTest {
                 () -> new ScenarioPackageResolver().resolve(scenario));
     }
 
+    @Test
+    void resolvesRulesByPortableCaseFoldedRelativePath() throws Exception {
+        Path scenario = createBasePackage("case-order");
+        Files.writeString(scenario.resolve("rules/root.rq"), "CONSTRUCT WHERE { ?s ?p ?o }\n", StandardCharsets.UTF_8);
+        Files.writeString(scenario.resolve("rules/Zeta.rq"), "CONSTRUCT WHERE { ?s ?p ?o }\n", StandardCharsets.UTF_8);
+        Files.writeString(scenario.resolve("rules/alpha.rq"), "CONSTRUCT WHERE { ?s ?p ?o }\n", StandardCharsets.UTF_8);
+
+        ScenarioPackage resolved = new ScenarioPackageResolver().resolve(scenario);
+
+        assertEquals(List.of(
+                "rules/alpha.rq",
+                "rules/root.rq",
+                "rules/Zeta.rq"), relativePaths(scenario, resolved.ruleFiles()));
+    }
+
     private Path createBasePackage(String id) throws Exception {
         Path scenario = tempDir.resolve(id);
         Files.createDirectories(scenario.resolve("data"));

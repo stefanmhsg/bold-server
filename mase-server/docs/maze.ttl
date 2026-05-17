@@ -1,41 +1,450 @@
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix a2a: <https://example.org/a2a#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix dyn: <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#> .
+@prefix http: <http://www.w3.org/2011/http#> .
+@prefix ldp: <http://www.w3.org/ns/ldp#> .
+@prefix mase: <https://example.org/mase#> .
+@prefix maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix dc: <http://purl.org/dc/terms/> .
 @prefix schema: <http://schema.org/> .
+@prefix stig: <https://example.org/stigmark#> .
+@prefix ui: <https://example.org/ui#> .
+@prefix xhv: <http://www.w3.org/1999/xhtml/vocab#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-<https://rdfa.info/play/vocab>
-   rdf:type owl:Ontology;
-   rdfs:label "The Maze Ontology"@en;
-   dc:title "The Maze Ontology"@en .
-<https://rdfa.info/play/vocab#maze>
-   schema:rangeIncludes <https://rdfa.info/play/vocab#Maze>;
-   schema:domainIncludes <https://rdfa.info/play/vocab#Cell> .
-<https://rdfa.info/play/vocab#Maze>
-   rdf:type rdfs:Class;
-   rdfs:label "Maze"@en .
-<https://rdfa.info/play/vocab#Cell>
-   rdf:type rdfs:Class;
-   rdfs:label "Cell"@en .
-<https://rdfa.info/play/vocab#Direction>
-   rdfs:subClassOf rdf:Property;
-   rdfs:label "Direction"@en .
-<https://rdfa.info/play/vocab#north>
-   rdf:type rdf:Property;
-   rdf:type <https://rdfa.info/play/vocab#Direction>;
-   rdfs:label "north"@en .
-<https://rdfa.info/play/vocab#east>
-   rdf:type rdf:Property;
-   rdf:type <https://rdfa.info/play/vocab#Direction>;
-   rdfs:label "east"@en .
-<https://rdfa.info/play/vocab#south>
-   rdf:type rdf:Property;
-   rdf:type <https://rdfa.info/play/vocab#Direction>;
-   rdfs:label "south"@en .
-<https://rdfa.info/play/vocab#west>
-   rdf:type rdf:Property;
-   rdf:type <https://rdfa.info/play/vocab#Direction>;
-   rdfs:label "west"@en .
-<https://rdfa.info/play/vocab#Wall>
-   rdf:type rdfs:Class;
-   rdfs:label "Wall"@en .
+<https://kaefer3000.github.io/2021-02-dagstuhl/vocab>
+    a owl:Ontology ;
+    dct:title "MASE Maze Vocabulary"@en ;
+    rdfs:label "MASE Maze Vocabulary"@en ;
+    rdfs:comment "Vocabulary terms used by the MASE server scenarios, dynamic maze rules, UI events, RDF error responses, scenario metadata, and A2A keyholder integration."@en .
+
+#
+# Maze domain
+#
+
+maze:Maze a rdfs:Class ;
+    rdfs:label "Maze"@en .
+
+maze:SmallMaze a rdfs:Class ;
+    rdfs:subClassOf maze:Maze ;
+    rdfs:label "SmallMaze"@en .
+
+maze:MidMaze a rdfs:Class ;
+    rdfs:subClassOf maze:Maze ;
+    rdfs:label "MidMaze"@en .
+
+maze:BigMaze a rdfs:Class ;
+    rdfs:subClassOf maze:Maze ;
+    rdfs:label "BigMaze"@en .
+
+maze:CcrsMaze a rdfs:Class ;
+    rdfs:subClassOf maze:Maze ;
+    rdfs:label "CCRS Maze"@en .
+
+maze:Cell a rdfs:Class ;
+    rdfs:label "Cell"@en .
+
+maze:Wall a rdfs:Class ;
+    rdfs:label "Wall"@en .
+
+maze:Map a rdfs:Class ;
+    rdfs:label "Map"@en .
+
+maze:Counter a rdfs:Class ;
+    rdfs:label "Counter"@en .
+
+maze:Color a rdfs:Class ;
+    rdfs:label "Color"@en .
+
+maze:Agent a rdfs:Class ;
+    rdfs:label "Maze agent"@en .
+
+maze:Direction a rdfs:Class ;
+    rdfs:label "Direction predicate"@en .
+
+maze:north a rdf:Property, maze:Direction ;
+    rdfs:domain maze:Cell ;
+    rdfs:label "north"@en .
+
+maze:east a rdf:Property, maze:Direction ;
+    rdfs:domain maze:Cell ;
+    rdfs:label "east"@en .
+
+maze:south a rdf:Property, maze:Direction ;
+    rdfs:domain maze:Cell ;
+    rdfs:label "south"@en .
+
+maze:west a rdf:Property, maze:Direction ;
+    rdfs:domain maze:Cell ;
+    rdfs:label "west"@en .
+
+maze:green a rdf:Property, maze:Color ;
+    rdfs:domain maze:Cell ;
+    rdfs:label "green transition"@en .
+
+maze:orange a rdf:Property, maze:Color ;
+    rdfs:domain maze:Cell ;
+    rdfs:label "orange transition"@en .
+
+maze:exit a rdf:Property ;
+    rdfs:domain maze:Cell ;
+    rdfs:label "exit transition"@en .
+
+maze:transitions a rdf:Property ;
+    rdfs:domain maze:Maze ;
+    rdfs:label "supported transition predicates"@en .
+
+maze:contains a rdf:Property ;
+    rdfs:label "contains"@en .
+
+maze:at a rdf:Property ;
+    rdfs:domain maze:Agent ;
+    rdfs:range maze:Cell ;
+    rdfs:label "agent location"@en .
+
+xhv:start a rdf:Property ;
+    rdfs:domain maze:Maze ;
+    rdfs:range maze:Cell ;
+    rdfs:label "start cell"@en .
+
+ldp:contains a rdf:Property ;
+    rdfs:label "contains"@en .
+
+#
+# Dynamic maze state and rule vocabulary
+#
+
+dyn:Lock a rdfs:Class ;
+    rdfs:subClassOf maze:Cell ;
+    rdfs:label "Lock"@en .
+
+dyn:UnlockedLock a rdfs:Class ;
+    rdfs:subClassOf dyn:Lock ;
+    rdfs:label "Unlocked lock"@en .
+
+dyn:Action a rdfs:Class ;
+    rdfs:label "Required action"@en .
+
+dyn:Key a rdfs:Class ;
+    rdfs:label "Key"@en .
+
+dyn:RedKey a rdfs:Class ;
+    rdfs:subClassOf dyn:Key ;
+    rdfs:label "Red key"@en .
+
+dyn:BlueKey a rdfs:Class ;
+    rdfs:subClassOf dyn:Key ;
+    rdfs:label "Blue key"@en .
+
+dyn:GreenKey a rdfs:Class ;
+    rdfs:subClassOf dyn:Key ;
+    rdfs:label "Green key"@en .
+
+dyn:CyanKey a rdfs:Class ;
+    rdfs:subClassOf dyn:Key ;
+    rdfs:label "Cyan key"@en .
+
+dyn:OrangeKey a rdfs:Class ;
+    rdfs:subClassOf dyn:Key ;
+    rdfs:label "Orange key"@en .
+
+dyn:PinkKey a rdfs:Class ;
+    rdfs:subClassOf dyn:Key ;
+    rdfs:label "Pink key"@en .
+
+dyn:YellowKey a rdfs:Class ;
+    rdfs:subClassOf dyn:Key ;
+    rdfs:label "Yellow key"@en .
+
+dyn:RedKeyBodyShape a rdfs:Class ;
+    rdfs:label "Red key request body shape"@en .
+
+dyn:BlueKeyBodyShape a rdfs:Class ;
+    rdfs:label "Blue key request body shape"@en .
+
+dyn:GreenKeyBodyShape a rdfs:Class ;
+    rdfs:label "Green key request body shape"@en .
+
+dyn:moveSuccessEvent a rdfs:Class ;
+    rdfs:label "Move success event"@en .
+
+dyn:entersFrom a rdf:Property ;
+    rdfs:domain maze:Agent ;
+    rdfs:range maze:Cell ;
+    rdfs:label "enters from"@en .
+
+dyn:agent a rdf:Property ;
+    rdfs:range maze:Agent ;
+    rdfs:label "event agent"@en .
+
+dyn:targetCell a rdf:Property ;
+    rdfs:range maze:Cell ;
+    rdfs:label "event target cell"@en .
+
+dyn:hasKey a rdf:Property ;
+    rdfs:domain maze:Cell ;
+    rdfs:range dyn:Key ;
+    rdfs:label "has key"@en .
+
+dyn:keyValue a rdf:Property ;
+    rdfs:domain dyn:Key ;
+    rdfs:label "key value"@en .
+
+dyn:state a rdf:Property ;
+    rdfs:domain dyn:Lock ;
+    rdfs:label "lock state"@en .
+
+dyn:hasStatus a rdf:Property ;
+    rdfs:label "action status"@en .
+
+dyn:needsAction a rdf:Property ;
+    rdfs:domain dyn:Lock ;
+    rdfs:range dyn:Action ;
+    rdfs:label "needs action"@en .
+
+dyn:foundAt a rdf:Property ;
+    rdfs:label "required key type"@en .
+
+dyn:needsProperty a rdf:Property ;
+    rdfs:label "required key property"@en .
+
+dyn:fitsInLock a rdf:Property ;
+    rdfs:domain dyn:Key ;
+    rdfs:range dyn:Lock ;
+    rdfs:label "fits in lock"@en .
+
+dyn:acceptsKeyType a rdf:Property ;
+    rdfs:domain dyn:Lock ;
+    rdfs:range dyn:Key ;
+    rdfs:label "accepted key type"@en .
+
+dyn:locked a rdfs:Resource ;
+    rdfs:label "locked"@en .
+
+dyn:unlocked a rdfs:Resource ;
+    rdfs:label "unlocked"@en .
+
+dyn:open a rdfs:Resource ;
+    rdfs:label "open"@en .
+
+dyn:done a rdfs:Resource ;
+    rdfs:label "done"@en .
+
+http:body a rdf:Property ;
+    rdfs:label "HTTP body"@en .
+
+http:statusCodeValue a rdf:Property ;
+    rdfs:label "HTTP status code value"@en .
+
+#
+# Stigmergy markers
+#
+
+stig:Marker a rdfs:Class ;
+    rdfs:label "Stigmergy marker"@en .
+
+stig:contains a rdf:Property ;
+    rdfs:label "contains marker value"@en .
+
+stig:hasMarker a rdf:Property ;
+    rdfs:range stig:Marker ;
+    rdfs:label "has marker"@en .
+
+stig:refersTo a rdf:Property ;
+    rdfs:label "refers to"@en .
+
+stig:quantitative a rdf:Property ;
+    rdfs:label "quantitative marker value"@en .
+
+#
+# UI snapshot and WebSocket event vocabulary
+#
+
+ui:UiElement a rdfs:Class ;
+    rdfs:label "UI element"@en .
+
+ui:hasUiElement a rdf:Property ;
+    rdfs:domain maze:Cell ;
+    rdfs:range ui:UiElement ;
+    rdfs:label "has UI element"@en .
+
+ui:konvaType a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:label "Konva type"@en .
+
+ui:layer a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:label "render layer"@en .
+
+ui:direction a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:label "direction"@en .
+
+ui:anchor a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:label "anchor"@en .
+
+ui:offsetX a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "x offset"@en .
+
+ui:offsetY a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "y offset"@en .
+
+ui:width a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "width"@en .
+
+ui:height a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "height"@en .
+
+ui:fill a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:label "fill"@en .
+
+ui:stroke a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:label "stroke"@en .
+
+ui:strokeWidth a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "stroke width"@en .
+
+ui:opacity a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "opacity"@en .
+
+ui:scaleX a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "x scale"@en .
+
+ui:scaleY a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "y scale"@en .
+
+ui:data a rdf:Property ;
+    rdfs:domain ui:UiElement ;
+    rdfs:label "UI data"@en .
+
+mase:AgentMovedEvent a rdfs:Class ;
+    rdfs:label "agent moved WebSocket event"@en .
+
+mase:UiUpsertEvent a rdfs:Class ;
+    rdfs:label "UI upsert WebSocket event"@en .
+
+mase:UiDeleteEvent a rdfs:Class ;
+    rdfs:label "UI delete WebSocket event"@en .
+
+mase:TransactionEvent a rdfs:Class ;
+    rdfs:label "transaction trace WebSocket event"@en .
+
+mase:AdminResetEvent a rdfs:Class ;
+    rdfs:label "admin reset WebSocket event"@en .
+
+#
+# MASE API, errors, and scenario package metadata
+#
+
+mase:errorMessage a rdf:Property ;
+    rdfs:label "error message"@en .
+
+mase:errorStatusCode a rdf:Property ;
+    rdfs:range xsd:integer ;
+    rdfs:label "error status code"@en .
+
+mase:ScenarioPackage a rdfs:Class ;
+    rdfs:label "scenario package"@en .
+
+mase:ScenarioManifest a rdfs:Class ;
+    rdfs:label "scenario manifest"@en .
+
+mase:ScenarioAgent a rdfs:Class ;
+    rdfs:subClassOf maze:Agent ;
+    rdfs:label "scenario-owned agent"@en .
+
+mase:scenarioId a rdf:Property ;
+    rdfs:domain mase:ScenarioPackage ;
+    rdfs:label "scenario id"@en .
+
+mase:scenarioName a rdf:Property ;
+    rdfs:domain mase:ScenarioPackage ;
+    rdfs:label "scenario name"@en .
+
+mase:initDataset a rdf:Property ;
+    rdfs:domain mase:ScenarioPackage ;
+    rdfs:label "initial dataset"@en .
+
+mase:rulesDirectory a rdf:Property ;
+    rdfs:domain mase:ScenarioPackage ;
+    rdfs:label "active rules directory"@en .
+
+mase:rulesDisabledDirectory a rdf:Property ;
+    rdfs:domain mase:ScenarioPackage ;
+    rdfs:label "disabled rules directory"@en .
+
+mase:validationDirectory a rdf:Property ;
+    rdfs:domain mase:ScenarioPackage ;
+    rdfs:label "validation directory"@en .
+
+mase:agentsDirectory a rdf:Property ;
+    rdfs:domain mase:ScenarioPackage ;
+    rdfs:label "agents directory"@en .
+
+mase:manifest a rdf:Property ;
+    rdfs:domain mase:ScenarioPackage ;
+    rdfs:range mase:ScenarioManifest ;
+    rdfs:label "manifest"@en .
+
+mase:gradleTask a rdf:Property ;
+    rdfs:domain mase:ScenarioAgent ;
+    rdfs:label "Gradle task"@en .
+
+mase:mainClass a rdf:Property ;
+    rdfs:domain mase:ScenarioAgent ;
+    rdfs:label "Java main class"@en .
+
+#
+# A2A keyholder integration
+#
+
+a2a:AgentService a rdfs:Class ;
+    rdfs:label "A2A agent service"@en .
+
+a2a:agentCard a rdf:Property ;
+    rdfs:domain mase:ScenarioAgent ;
+    rdfs:label "A2A agent card"@en .
+
+a2a:providesType a rdf:Property ;
+    rdfs:domain mase:ScenarioAgent ;
+    rdfs:label "provided RDF type"@en .
+
+a2a:providesProperty a rdf:Property ;
+    rdfs:domain mase:ScenarioAgent ;
+    rdfs:label "provided RDF property"@en .
+
+a2a:messageEndpoint a rdf:Property ;
+    rdfs:domain a2a:AgentService ;
+    rdfs:label "A2A message endpoint"@en .
+
+a2a:skill a rdf:Property ;
+    rdfs:domain a2a:AgentService ;
+    rdfs:label "A2A skill"@en .
+
+a2a:artifact a rdf:Property ;
+    rdfs:label "A2A artifact"@en .
+
+a2a:confidence a rdf:Property ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "artifact confidence"@en .

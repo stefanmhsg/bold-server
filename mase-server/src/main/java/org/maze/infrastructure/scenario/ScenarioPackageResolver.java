@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
@@ -97,15 +98,16 @@ public class ScenarioPackageResolver {
     }
 
     private List<Path> discoverFilesByExtension(Path directory, String extension) throws IOException {
-        if (!Files.isDirectory(directory)) {
+        Path normalizedDirectory = directory.toAbsolutePath().normalize();
+        if (!Files.isDirectory(normalizedDirectory)) {
             return List.of();
         }
-        try (Stream<Path> stream = Files.walk(directory)) {
+        try (Stream<Path> stream = Files.walk(normalizedDirectory)) {
             return stream
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(extension))
                     .map(path -> path.toAbsolutePath().normalize())
-                    .sorted(Comparator.comparing(Path::toString))
+                    .sorted(portablePathComparator(normalizedDirectory))
                     .toList();
         }
     }
@@ -133,7 +135,7 @@ public class ScenarioPackageResolver {
                     .filter(Files::isRegularFile)
                     .map(path -> path.toAbsolutePath().normalize())
                     .filter(path -> regex.matcher(root.relativize(path).toString().replace('\\', '/')).matches())
-                    .sorted(Comparator.comparing(Path::toString))
+                    .sorted(portablePathComparator(root))
                     .toList();
         }
     }
@@ -195,6 +197,18 @@ public class ScenarioPackageResolver {
 
     private String normalizePattern(String pattern) {
         return pattern.trim().replace('\\', '/');
+    }
+
+    private Comparator<Path> portablePathComparator(Path root) {
+        return Comparator
+                .comparing((Path path) -> portableRelativePath(root, path).toLowerCase(Locale.ROOT))
+                .thenComparing(path -> portableRelativePath(root, path));
+    }
+
+    private String portableRelativePath(Path root, Path path) {
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        return normalizedRoot.relativize(normalizedPath).toString().replace('\\', '/');
     }
 
     private String globToRegex(String glob) {

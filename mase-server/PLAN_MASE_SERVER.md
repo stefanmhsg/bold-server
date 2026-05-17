@@ -43,10 +43,10 @@ With no arguments, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defau
 - [x] (2026-05-17) Revalidated package-only server build, tests, and distribution after the agent move and cleanup.
 - [x] (2026-05-17) Retired the completed admin reset feature plan after confirming the endpoint, reset service, mutation coordination, replay-buffer cleanup, viewer reset flow, and reset tests are in place.
 - [ ] Update creator WP6 package export expectations to match the final server package contract.
-- [ ] Investigate whether active rule sorting should normalize separators and case for byte-for-byte stable rule traces across Windows, macOS, and Linux.
-- [ ] Investigate [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) layout selection: compare the generic layout and CCRS layout, then decide whether the CCRS layout can safely cover all scenarios so the type-based split can be removed.
-- [ ] Expand [maze.ttl](docs/maze.ttl) so the checked-in vocabulary covers the domain, dynamic maze, UI, event, error, scenario package, and A2A-related terms that now appear in code, rules, and data.
-- [ ] Serve [maze.ttl](docs/maze.ttl) as a dereferenceable vocabulary from the server with RDF content negotiation.
+- [x] (2026-05-17 20:20+02:00) Normalized active rule sorting by slash-normalized, package-relative, case-folded names, with original normalized names as tie-breakers.
+- [x] (2026-05-17 20:20+02:00) Consolidated [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) on the broader incoming-reference/disconnected-component layout path and removed the `maze:CcrsMaze` type switch.
+- [x] (2026-05-17 20:20+02:00) Expanded [maze.ttl](docs/maze.ttl) to cover domain, dynamic maze, UI, event, error, scenario package, stigmergy, and A2A-related terms currently found in code, rules, data, and agent metadata.
+- [x] (2026-05-17 20:20+02:00) Added a dereferenceable `/vocab` endpoint that serves [maze.ttl](docs/maze.ttl) with RDF content negotiation and copied `docs/` into the install distribution.
 
 ## Surprises & Discoveries
 
@@ -62,14 +62,17 @@ With no arguments, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defau
 - Observation: Active package rule discovery is mostly insulated from Java glob separator differences because package mode derives an active root and walks it with `Files.walk`, then filters by the `.rq` extension.
   Evidence: [ScenarioPackageResolver.java](src/main/java/org/maze/infrastructure/scenario/ScenarioPackageResolver.java) resolves the active root and calls `discoverFilesByExtension`; [MazeRuleLoader.java](src/main/java/org/maze/infrastructure/storage/MazeRuleLoader.java) also uses `Files.walk` for package rules.
 
-- Observation: Package rule membership is robust across Windows, macOS, and Linux for normal directories, but exact ordering and duplicate-name behavior still need a portability pass if rule trace order must be byte-for-byte stable across platforms.
-  Evidence: Package rule names are normalized with `replace('\\', '/')` when loading, while discovery currently sorts paths before that normalization.
+- Observation: Package rule membership is robust across Windows, macOS, and Linux for normal directories, and active rule ordering now avoids platform `Path.toString()` differences.
+  Evidence: [ScenarioPackageResolver.java](src/main/java/org/maze/infrastructure/scenario/ScenarioPackageResolver.java) and [MazeRuleLoader.java](src/main/java/org/maze/infrastructure/storage/MazeRuleLoader.java) sort discovered and loaded rules by slash-normalized, package-relative, case-folded names before applying scenario rule-order patterns.
 
-- Observation: Maze layout selection is controlled by RDF data, not by package properties. The service checks whether `<http://127.0.1.1:8080/maze>` has RDF type `maze:CcrsMaze`; changing `mase.scenario.id` or other `scenario.properties` values will not affect the layout algorithm.
-  Evidence: [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) calls `isCcrsMaze(conn)` before choosing `calculateCcrsLayout` or `calculateLayout`, and `getMazeScenarioName()` also derives the visible scenario name from RDF types.
+- Observation: The old generic layout was a subset of the CCRS layout. The CCRS path follows normal outgoing maze directions, adds incoming-only references, places disconnected components, and guards coordinate collisions.
+  Evidence: [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) now calls one `calculateLayout` path for all scenarios; `MazeLayoutServiceTest.layoutUsesIncomingReferencesAndPlacesDisconnectedComponentsWithoutCcrsType` verifies the broader behavior without a `maze:CcrsMaze` RDF type, and `ScenarioPackageStartupTest.packagedSmallMazeLoadsDataAndRunsStartupRules` still verifies ordinary SmallMaze layout as 5x5.
 
 - Observation: Public transport hosts and RDF graph identity must be decoupled for Docker.
   Evidence: [ResourceIriResolver.java](src/main/java/org/maze/infrastructure/web/ResourceIriResolver.java) maps Linked Data `/maze`, `/cells/...`, and `/agents/...` request paths back to the canonical RDF base before graph lookup.
+
+- Observation: The checked-in vocabulary had fallen behind the public RDF surface used by scenarios and API errors.
+  Evidence: [maze.ttl](docs/maze.ttl) now defines `maze:`, `dyn:`, `ui:`, `mase:`, `stig:`, and `a2a:` terms; `VocabularyDocumentTest.mazeVocabularyParsesAndContainsCurrentPublicTerms` parses the file and asserts representative current terms.
 
 ## Decision Log
 
@@ -101,6 +104,18 @@ With no arguments, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defau
   Rationale: RDF graph names, rules, and scenario data need one stable identity base, while Docker and local browsers may need different transport hosts.
   Date/Author: 2026-05-17 / Codex
 
+- Decision: Sort active rule paths and rule names by portable normalized keys.
+  Rationale: `Path.toString()` is platform-dependent, and case-sensitive ordering can make diagnostics differ across filesystems. Sorting by slash-normalized, package-relative, case-folded names keeps startup logs and transaction traces stable for normal scenario packages, while the original normalized name remains the tie-breaker for deterministic behavior.
+  Date/Author: 2026-05-17 / Codex
+
+- Decision: Use one layout algorithm for all scenarios.
+  Rationale: The CCRS layout path covers ordinary outgoing direction traversal and adds support for incoming-only references, disconnected components, and occupied-position checks. Keeping the RDF-type switch made rendering depend on a maze class name rather than graph shape.
+  Date/Author: 2026-05-17 / Codex
+
+- Decision: Serve the checked-in vocabulary from `/vocab`.
+  Rationale: The existing public maze namespace is an external hash namespace, but the server can still expose the authoritative local vocabulary document at a stable endpoint with RDF content negotiation. Copying [docs](docs) into the distribution makes the same endpoint work in Docker.
+  Date/Author: 2026-05-17 / Codex
+
 ## Outcomes & Retrospective
 
 `mase-server` is now package-only for scenario startup. `ServerConfiguration` loads the selected package's `scenario.properties`, `Configurator` rejects legacy task-name arguments with a clear message, package-local rules are loaded from filesystem paths, and the distribution copies package folders rather than split runtime asset trees.
@@ -108,6 +123,8 @@ With no arguments, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defau
 The server ships built-in package copies for SmallMaze, MidMaze, BigMaze, MaseCreator, and CCRS. `mase.server.protocol = ldp` was removed end to end after the audit showed it had no runtime effect. Scenario-specific Java agents now live under the scenario packages and can be run through package-specific Gradle JavaExec tasks.
 
 The admin reset feature is complete and no longer needs a separate active plan. `POST /admin/maze/reset` clears and reloads the active scenario dataset, runs startup rules, serializes reset against agent POST and SPARQL mutations, clears stale WebSocket replay messages, returns a fresh admin snapshot, and is documented in [README.md](README.md).
+
+Active rule ordering is now portable enough for byte-for-byte stable rule traces across normal Windows, macOS, and Linux checkouts. The maze layout service no longer branches on `maze:CcrsMaze`; the robust layout is the only path. The vocabulary source has been expanded and is served at `/vocab` as Turtle, JSON-LD, RDF/XML, or N-Triples according to `Accept`.
 
 ## Current Scenario Contract
 
@@ -153,29 +170,7 @@ The `manifest.json` is not required to start the server. It carries package meta
 
    Align [../mase-creator/MASE-CREATOR.md](../mase-creator/MASE-CREATOR.md) with the package-only server contract.
 
-2. Investigate layout algorithm consolidation:
-
-        rg -n "isCcrsMaze|calculateCcrsLayout|calculateLayout|getMazeScenarioName" mase-server/src/main/java/org/maze/application/MazeLayoutService.java mase-server/src/test/java
-
-   Compare the generic and CCRS layout paths across ordinary grids, disconnected components, one-way links, incoming-only references, and coordinate collisions.
-
-3. Expand the vocabulary source:
-
-        rg -n "MazeVocab|MAZE_NS|DYNMAZE_NS|UI_NS|MASE_NS|a2a:|ui:|dyn:|stig:" mase-server/src mase-server/scenarios mase-server/docs
-
-   Update [maze.ttl](docs/maze.ttl) with terms discovered in code, rules, and data.
-
-4. Serve the vocabulary dereferenceably:
-
-        rg -n "ResourceConfig|LinkedDataDereferenceResource|Produces|text/turtle|RDFValueFormats" mase-server/src/main/java
-
-   Add a route for the vocabulary IRI or a stable local vocabulary endpoint that returns [maze.ttl](docs/maze.ttl) as `text/turtle`, with content negotiation for other RDF serializations if the existing RDF format helpers make that cheap.
-
-5. Normalize rule sorting if traces must be identical across platforms:
-
-        rg -n "Comparator.comparing\\(Path::toString\\)|replace\\\\\\\\|relativize" mase-server/src/main/java/org/maze/infrastructure
-
-   Prefer sorting by slash-normalized package-relative names before rule loading.
+2. Optionally add an HTTP smoke test for `/vocab` if the project starts using embedded Jetty tests for API resources. Current validation covers Turtle parsing, route registration at compile time, and distribution copying.
 
 ## Validation and Acceptance
 
@@ -232,7 +227,15 @@ Current scenario-owned launch defaults:
 
 Cross-platform rule discovery note:
 
-    Official Java docs confirm that Path is system-dependent and FileSystem glob matching works on the Path string representation. The active package rule loader avoids the riskiest part of that API by walking the active rules directory and filtering `.rq` files. Keep slash-normalized rule names for diagnostics, and consider slash-normalized sorting if exact cross-platform trace order matters.
+    Official Java docs confirm that Path is system-dependent and FileSystem glob matching works on the Path string representation. The active package rule loader avoids the riskiest part of that API by walking the active rules directory and filtering `.rq` files. Rule discovery and rule loading now sort by slash-normalized, package-relative, case-folded names, with the original normalized name as a deterministic tie-breaker.
+
+Vocabulary endpoint:
+
+    GET /vocab
+    Accept: text/turtle
+    Accept: application/ld+json
+    Accept: application/rdf+xml
+    Accept: application/n-triples
 
 External references checked:
 
@@ -286,6 +289,19 @@ Validation evidence from the package-only cleanup:
     Test-Path mase-server\build\install\mase-server\src\main\resources\rules
     False
 
+Validation evidence from rule sorting, layout consolidation, and vocabulary serving:
+
+    cd mase-server
+    .\gradlew.bat test --tests "org.maze.infrastructure.storage.MazeRuleLoaderPackageTest" --tests "org.maze.infrastructure.scenario.ScenarioPackageResolverTest" --tests "org.maze.application.MazeLayoutServiceTest" --tests "org.maze.infrastructure.scenario.ScenarioPackageStartupTest" --tests "org.maze.api.vocab.VocabularyDocumentTest"
+    BUILD SUCCESSFUL
+
+    cd mase-server
+    .\gradlew.bat installDist
+    BUILD SUCCESSFUL
+
+    Test-Path build\install\mase-server\docs\maze.ttl
+    True
+
 Revision note, 2026-05-17: Initiated this server-scope plan after investigating creator WP6 and current `mase-server` feasibility.
 
 Revision note, 2026-05-17: Added the requested `mase.server.protocol = ldp` audit/removal task and clarified that nested folders under the active `rules/` tree are loaded.
@@ -303,3 +319,5 @@ Revision note, 2026-05-17: Added canonical RDF resource IRI resolution for Linke
 Revision note, 2026-05-17: After user confirmation that scenario packages work, completed the package-only refactor by moving agents into scenario-owned source trees and removing the split legacy runtime structures.
 
 Revision note, 2026-05-17: Revalidated package-only cleanup with compile, full tests, installDist, and distribution path checks.
+
+Revision note, 2026-05-17: Completed the active rule sorting portability pass, removed type-based maze layout selection, expanded [maze.ttl](docs/maze.ttl), added the `/vocab` RDF endpoint, and recorded focused validation plus install distribution evidence.

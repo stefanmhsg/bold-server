@@ -19,11 +19,18 @@ import org.slf4j.LoggerFactory;
 public class MazeRuleLoader {
     
     private static final Logger log = LoggerFactory.getLogger(MazeRuleLoader.class);
+    private static final Comparator<MazeRule> RULE_NAME_COMPARATOR = Comparator
+            .comparing((MazeRule rule) -> rule.getName().toLowerCase(Locale.ROOT))
+            .thenComparing(MazeRule::getName);
 
     public List<MazeRule> loadRulesFromPaths(List<Path> ruleFiles, Path ruleNameRoot, List<String> orderPatterns) {
         List<MazeRule> rules = new ArrayList<>();
+        List<Path> sortedRuleFiles = ruleFiles.stream()
+                .map(path -> path.toAbsolutePath().normalize())
+                .sorted(portablePathComparator(ruleNameRoot))
+                .toList();
 
-        for (Path ruleFile : ruleFiles) {
+        for (Path ruleFile : sortedRuleFiles) {
             try {
                 MazeRule rule = loadRule(ruleFile, ruleNameRoot);
                 rules.add(rule);
@@ -118,7 +125,7 @@ public class MazeRuleLoader {
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".rq"))
                     .map(path -> path.toAbsolutePath().normalize())
-                    .sorted(Comparator.comparing(Path::toString))
+                    .sorted(portablePathComparator(rulesRoot))
                     .toList();
         }
     }
@@ -138,7 +145,7 @@ public class MazeRuleLoader {
         // If no patterns defined, return rules in alphabetical order by name
         if (patterns == null || patterns.isEmpty()) {
             log.info("No rule execution order configured, using alphabetical order");
-            rules.sort(Comparator.comparing(MazeRule::getName));
+            rules.sort(RULE_NAME_COMPARATOR);
             return rules;
         }
         
@@ -172,7 +179,7 @@ public class MazeRuleLoader {
                 log.debug("Pattern '{}' matched no rules (skipping)", pattern);
             } else {
                 // Sort matching rules alphabetically within the same pattern
-                matchingRules.sort(Comparator.comparing(MazeRule::getName));
+                matchingRules.sort(RULE_NAME_COMPARATOR);
                 orderedRules.addAll(matchingRules);
                 
                 log.debug("Pattern '{}' matched {} rule(s): {}", 
@@ -193,7 +200,7 @@ public class MazeRuleLoader {
         }
         
         if (!unmatchedRules.isEmpty()) {
-            unmatchedRules.sort(Comparator.comparing(MazeRule::getName));
+            unmatchedRules.sort(RULE_NAME_COMPARATOR);
             orderedRules.addAll(unmatchedRules);
             
             log.info("Added {} unmatched rule(s) at end: {}",
@@ -204,6 +211,18 @@ public class MazeRuleLoader {
         }
         
         return orderedRules;
+    }
+
+    private Comparator<Path> portablePathComparator(Path root) {
+        return Comparator
+                .comparing((Path path) -> portableRelativePath(root, path).toLowerCase(Locale.ROOT))
+                .thenComparing(path -> portableRelativePath(root, path));
+    }
+
+    private String portableRelativePath(Path root, Path path) {
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        return normalizedRoot.relativize(normalizedPath).toString().replace('\\', '/');
     }
     
     /**

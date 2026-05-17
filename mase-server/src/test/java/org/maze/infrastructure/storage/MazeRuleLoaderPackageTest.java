@@ -67,6 +67,26 @@ class MazeRuleLoaderPackageTest {
                 discovered);
     }
 
+    @Test
+    void ordersRulesByPortableCaseFoldedNames() throws Exception {
+        Path scenario = tempDir.resolve("case-order");
+        Path zeta = writeRule(scenario.resolve("rules/Zeta.rq"), "CONSTRUCT WHERE { ?s ?p ?o }\n");
+        Path beta = writeRule(scenario.resolve("rules/Nested/beta.rq"), "CONSTRUCT WHERE { ?s ?p ?o }\n");
+        Path alpha = writeRule(scenario.resolve("rules/alpha.rq"), "CONSTRUCT WHERE { ?s ?p ?o }\n");
+
+        MazeRuleLoader loader = new MazeRuleLoader();
+        List<MazeRule> rules = loader.loadRulesFromPaths(
+                List.of(zeta, beta, alpha),
+                scenario,
+                List.of());
+
+        assertEquals(List.of(
+                "rules/alpha",
+                "rules/Nested/beta",
+                "rules/Zeta"),
+                rules.stream().map(MazeRule::getName).toList());
+    }
+
     private Path writeRule(Path path, String text) throws Exception {
         Files.createDirectories(path.getParent());
         Files.writeString(path, text, StandardCharsets.UTF_8);

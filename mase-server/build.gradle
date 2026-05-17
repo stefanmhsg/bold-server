@@ -78,6 +78,7 @@ distributions {
         contents {
             // Copies self-contained scenario packages to the distribution.
             from('scenarios') { into('scenarios') }
+            from('docs') { into('docs') }
             from('query') { into('query') }
         }
     }

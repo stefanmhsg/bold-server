@@ -2,6 +2,7 @@ package org.maze.application;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -32,7 +33,6 @@ public class MazeLayoutService {
     private static final String SOUTH = "south";
     private static final String EAST = "east";
     private static final String WEST = "west";
-    private static final String CCRS_MAZE_TYPE = "https://kaefer3000.github.io/2021-02-dagstuhl/vocab#CcrsMaze";
 
     public MazeLayoutService(SailRepository repository) {
         this.repository = repository;
@@ -49,11 +49,8 @@ public class MazeLayoutService {
         Map<String, CellDto> cellMap = new HashMap<>();
         String startCell = null;
         String exitCell = null;
-        boolean useCcrsLayout = false;
 
         try (SailRepositoryConnection conn = repository.getConnection()) {
-            useCcrsLayout = isCcrsMaze(conn);
-
             // 1. Find Start Cell
             String startQuery = "PREFIX xhv: <http://www.w3.org/1999/xhtml/vocab#> " +
                               "SELECT ?start WHERE { ?s xhv:start ?start } LIMIT 1";
@@ -157,11 +154,7 @@ public class MazeLayoutService {
         }
 
         if (startCell != null && cellMap.containsKey(startCell)) {
-            if (useCcrsLayout) {
-                calculateCcrsLayout(cellMap, startCell);
-            } else {
-                calculateLayout(cellMap, startCell);
-            }
+            calculateLayout(cellMap, startCell);
         } else {
             log.warn("Start cell not found or not in cell map");
         }
@@ -197,7 +190,7 @@ public class MazeLayoutService {
         return layout;
     }
 
-    private void calculateCcrsLayout(Map<String, CellDto> cellMap, String startCellId) {
+    private void calculateLayout(Map<String, CellDto> cellMap, String startCellId) {
         Queue<String> queue = new ArrayDeque<>();
         Set<String> visited = new HashSet<>();
         Map<String, List<IncomingReference>> incomingByTarget = buildIncomingIndex(cellMap);
@@ -214,7 +207,7 @@ public class MazeLayoutService {
         expandPlacedCells(cellMap, visited, queue, incomingByTarget, occupiedPositions);
 
         int nextComponentX = maxX(cellMap, visited) + 3;
-        for (String cellId : cellMap.keySet()) {
+        for (String cellId : cellMap.keySet().stream().sorted().toList()) {
             if (visited.contains(cellId)) {
                 continue;
             }
@@ -232,28 +225,6 @@ public class MazeLayoutService {
         }
     }
 
-    private void calculateLayout(Map<String, CellDto> cellMap, String startCellId) {
-        Queue<String> queue = new ArrayDeque<>();
-        Set<String> visited = new HashSet<>();
-        
-        CellDto start = cellMap.get(startCellId);
-        start.x = 0;
-        start.y = 0;
-        
-        queue.add(startCellId);
-        visited.add(startCellId);
-        
-        while (!queue.isEmpty()) {
-            String currentId = queue.poll();
-            CellDto current = cellMap.get(currentId);
-            
-            processNeighbor(current, "north", 0, -1, cellMap, visited, queue);
-            processNeighbor(current, "south", 0, 1, cellMap, visited, queue);
-            processNeighbor(current, "east", 1, 0, cellMap, visited, queue);
-            processNeighbor(current, "west", -1, 0, cellMap, visited, queue);
-        }
-    }
-
     private void expandPlacedCells(
             Map<String, CellDto> cellMap,
             Set<String> visited,
@@ -265,29 +236,15 @@ public class MazeLayoutService {
             String currentId = queue.poll();
             CellDto current = cellMap.get(currentId);
 
-            processCcrsNeighbor(current, NORTH, 0, -1, cellMap, visited, queue, occupiedPositions);
-            processCcrsNeighbor(current, SOUTH, 0, 1, cellMap, visited, queue, occupiedPositions);
-            processCcrsNeighbor(current, EAST, 1, 0, cellMap, visited, queue, occupiedPositions);
-            processCcrsNeighbor(current, WEST, -1, 0, cellMap, visited, queue, occupiedPositions);
+            processNeighbor(current, NORTH, 0, -1, cellMap, visited, queue, occupiedPositions);
+            processNeighbor(current, SOUTH, 0, 1, cellMap, visited, queue, occupiedPositions);
+            processNeighbor(current, EAST, 1, 0, cellMap, visited, queue, occupiedPositions);
+            processNeighbor(current, WEST, -1, 0, cellMap, visited, queue, occupiedPositions);
             processIncomingNeighbors(current, cellMap, visited, queue, incomingByTarget, occupiedPositions);
         }
     }
 
-    private void processNeighbor(CellDto current, String direction, int dx, int dy, 
-                               Map<String, CellDto> cellMap, Set<String> visited, Queue<String> queue) {
-        String neighborId = current.connections.get(direction);
-        if (neighborId != null && !neighborId.equals("wall") && !neighborId.contains("Wall")) {
-            if (!visited.contains(neighborId) && cellMap.containsKey(neighborId)) {
-                CellDto neighbor = cellMap.get(neighborId);
-                neighbor.x = current.x + dx;
-                neighbor.y = current.y + dy;
-                visited.add(neighborId);
-                queue.add(neighborId);
-            }
-        }
-    }
-
-    private void processCcrsNeighbor(CellDto current, String direction, int dx, int dy,
+    private void processNeighbor(CellDto current, String direction, int dx, int dy,
                                Map<String, CellDto> cellMap, Set<String> visited, Queue<String> queue,
                                Map<String, String> occupiedPositions) {
         String neighborId = current.connections.get(direction);
@@ -353,6 +310,9 @@ public class MazeLayoutService {
             addIncomingReference(incomingByTarget, cellMap, cell, EAST);
             addIncomingReference(incomingByTarget, cellMap, cell, WEST);
         }
+        incomingByTarget.values().forEach(list -> list.sort(Comparator
+                .comparing((IncomingReference ref) -> ref.sourceId)
+                .thenComparing(ref -> ref.direction)));
         return incomingByTarget;
     }
 
@@ -399,20 +359,6 @@ public class MazeLayoutService {
 
     private String positionKey(int x, int y) {
         return x + ":" + y;
-    }
-
-    private boolean isCcrsMaze(SailRepositoryConnection conn) {
-        String query =
-                "SELECT ?type WHERE { <http://127.0.1.1:8080/maze> a ?type . }";
-        try (TupleQueryResult result = conn.prepareTupleQuery(query).evaluate()) {
-            while (result.hasNext()) {
-                BindingSet bs = result.next();
-                if (CCRS_MAZE_TYPE.equals(bs.getValue("type").stringValue())) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     public String getMazeScenarioName() {
