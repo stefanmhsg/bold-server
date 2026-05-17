@@ -82,6 +82,10 @@ public class MazeBroadcaster {
         }
     }
 
+    public static synchronized void clearRecentMessages() {
+        recentMessages.clear();
+    }
+
     private static synchronized void replayRecentMessages(Session session) {
         for (String message : recentMessages) {
             if (session.isOpen()) {

@@ -45,6 +45,18 @@ mase.transaction.trace = summary
 - `summary`: emit lightweight transaction headers with time, trigger, agent, graph, status, error, and executed rule count. This keeps cell-update visibility without per-triple logging.
 - `full`: include request body, merged triples, and per-rule RDF diffs. This is useful for debugging but expensive during larger multi-agent runs because it snapshots RDF state around rule execution.
 
+### Admin Reset Endpoint
+
+The admin API can reset the in-memory RDF4J store back to the dataset configured by `mase.init.dataset` in the active `sim-*.properties` file:
+
+```shell script
+curl -X POST http://localhost:8080/admin/maze/reset
+```
+
+The endpoint clears the repository, reloads the configured TriG dataset, runs the same startup rules as server boot, clears stale WebSocket replay messages, and returns a fresh admin maze snapshot as JSON. The reset is serialized against normal agent POST mutations and SPARQL updates so other writes cannot interleave with the clear/reload transaction.
+
+Viewer-side data invalidation is intentionally handled separately. See [PLAN_ADMIN_RESET.md](PLAN_ADMIN_RESET.md) and [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md) for the reset/viewer dependency and future UI considerations.
+
 ### Example Agent
 
 Run sample dfs agent (name: `bob`) against a running server:

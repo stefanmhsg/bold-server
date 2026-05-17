@@ -3,6 +3,7 @@ package org.maze.infrastructure.rdf;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.rdf4j.model.Model;
@@ -36,12 +37,37 @@ public class DataLoader {
         log.info("Loading data from pattern: {}", datasetPattern);
         
         try (RepositoryConnection conn = repository.getConnection()) {
-            for (String filename : FileUtils.listFiles(datasetPattern)) {
-                loadFile(conn, filename, baseUri);
+            conn.begin();
+            try {
+                loadData(conn, datasetPattern, baseUri);
+                conn.commit();
+            } catch (IOException | RuntimeException e) {
+                conn.rollback();
+                throw e;
             }
         }
         
         logGraphStatistics(repository);
+    }
+
+    /**
+     * Load RDF data into an existing transaction.
+     *
+     * @param conn active repository connection owned by the caller
+     * @param datasetPattern file pattern (e.g., "data/*.trig")
+     * @param baseUri base URI for resolving relative URIs
+     * @throws IOException if file loading fails
+     */
+    public void loadData(RepositoryConnection conn, String datasetPattern, URI baseUri) throws IOException {
+        List<String> filenames = new ArrayList<>(FileUtils.listFiles(datasetPattern));
+        Collections.sort(filenames);
+        if (filenames.isEmpty()) {
+            throw new IOException("No RDF files matched dataset pattern: " + datasetPattern);
+        }
+
+        for (String filename : filenames) {
+            loadFile(conn, filename, baseUri);
+        }
     }
     
     private void loadFile(RepositoryConnection conn, String filename, URI baseUri) throws IOException {
@@ -54,9 +80,7 @@ public class DataLoader {
                             baseUri.toString(), format);
         log.info("Parsed model has {} statements", ds.size());
         
-        conn.begin();
         conn.add(ds);
-        conn.commit();
     }
     
     private void logGraphStatistics(SailRepository repository) {

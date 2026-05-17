@@ -37,21 +37,31 @@ public class PostHandler {
     private final MazeRuleService ruleService;
     private final AccessValidator accessValidator;
     private final TransactionTraceMode transactionTraceMode;
+    private final MazeMutationCoordinator mutationCoordinator;
 
     public PostHandler(SailRepository repository,
                        MazeRuleService ruleService,
                        AccessValidator accessValidator) {
-        this(repository, ruleService, accessValidator, TransactionTraceMode.OFF);
+        this(repository, ruleService, accessValidator, TransactionTraceMode.OFF, new MazeMutationCoordinator());
     }
 
     public PostHandler(SailRepository repository,
                        MazeRuleService ruleService,
                        AccessValidator accessValidator,
                        TransactionTraceMode transactionTraceMode) {
+        this(repository, ruleService, accessValidator, transactionTraceMode, new MazeMutationCoordinator());
+    }
+
+    public PostHandler(SailRepository repository,
+                       MazeRuleService ruleService,
+                       AccessValidator accessValidator,
+                       TransactionTraceMode transactionTraceMode,
+                       MazeMutationCoordinator mutationCoordinator) {
         this.repository = repository;
         this.ruleService = ruleService;
         this.accessValidator = accessValidator;
         this.transactionTraceMode = transactionTraceMode;
+        this.mutationCoordinator = mutationCoordinator;
     }
 
     public PostResult performPost(String agentName, String graphIRI, Model rdfModel) {
@@ -59,6 +69,10 @@ public class PostHandler {
     }
 
     public PostResult performPost(String agentName, String graphIRI, Model rdfModel, String requestBody) {
+        return mutationCoordinator.withSharedMutation(() -> performPostUnlocked(agentName, graphIRI, rdfModel, requestBody));
+    }
+
+    private PostResult performPostUnlocked(String agentName, String graphIRI, Model rdfModel, String requestBody) {
         TransactionTraceContext trace = TransactionTraceContext.forPost(
                 transactionTraceMode,
                 agentName,

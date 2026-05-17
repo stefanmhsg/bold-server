@@ -34,6 +34,10 @@ public class AccessValidator {
         this.repository = repository;
         this.sparqlService = sparqlService;
     }
+
+    public void clearCaches() {
+        cachedEntranceCell = null;
+    }
     
     /**
      * Validates if an agent can access a requested cell.

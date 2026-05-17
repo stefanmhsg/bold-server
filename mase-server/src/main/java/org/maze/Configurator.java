@@ -102,7 +102,7 @@ public class Configurator {
         
         // Create and start web server
         WebServerFactory webFactory = new WebServerFactory();
-        Server server = webFactory.createServer(config, repository, ruleService);
+        Server server = webFactory.createServer(config, repository, ruleService, rdfBaseURI);
         
         log.info("Maze Server started successfully");
         server.join();

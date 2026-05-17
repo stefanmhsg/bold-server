@@ -16,7 +16,8 @@ import org.maze.api.ld.LinkedDataDereferenceResource;
 import org.maze.api.sparql.SparqlResource;
 import org.maze.api.admin.MazeAdminResource;
 import org.maze.application.AccessValidator;
-import org.glassfish.jersey.jackson.JacksonFeature;
+import org.maze.application.MazeMutationCoordinator;
+import org.maze.application.MazeResetService;
 import org.maze.application.MazeRuleService;
 import org.maze.application.PostHandler;
 import org.maze.application.SparqlService;
@@ -38,6 +39,7 @@ public class WebServerFactory {
     public static final String ACCESS_VALIDATOR_SERVLET_ATTRIBUTE = "ACCESS_VALIDATOR_SERVLET_ATTRIBUTE";
     public static final String POST_HANDLER_SERVLET_ATTRIBUTE = "POST_HANDLER_SERVLET_ATTRIBUTE";
     public static final String SPARQL_SERVICE_SERVLET_ATTRIBUTE = "SPARQL_SERVICE_SERVLET_ATTRIBUTE";
+    public static final String MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE = "MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE";
     
     /**
      * Create and configure a web server.
@@ -48,14 +50,15 @@ public class WebServerFactory {
      * @return Configured Jetty server
      * @throws Exception if server creation fails
      */
-    public Server createServer(ServerConfiguration config, SailRepository repository, 
-                               MazeRuleService gameEngine) throws Exception {
+    public Server createServer(ServerConfiguration config, SailRepository repository,
+                               MazeRuleService gameEngine,
+                               URI rdfBaseUri) throws Exception {
         int port = config.getPort();
         Server server = new Server(port);
         ServletContextHandler context = new ServletContextHandler("/");
         server.setHandler(context);
         
-        configureRestEndpoints(context, config, repository, gameEngine);
+        configureRestEndpoints(context, config, repository, gameEngine, rdfBaseUri);
         
         // Configure WebSocket
         JakartaWebSocketServletContainerInitializer.configure(context, (servletContext, container) -> {
@@ -85,16 +88,27 @@ public class WebServerFactory {
     
     private void configureRestEndpoints(ServletContextHandler context,
                                        ServerConfiguration config,
-                                       SailRepository repository, 
-                                       MazeRuleService gameEngine) {
+                                       SailRepository repository,
+                                       MazeRuleService gameEngine,
+                                       URI rdfBaseUri) {
         // Initialize services - SparqlService must be created first
-        SparqlService sparqlService = new SparqlService(repository);
+        MazeMutationCoordinator mutationCoordinator = new MazeMutationCoordinator();
+        SparqlService sparqlService = new SparqlService(repository, mutationCoordinator);
         AccessValidator accessValidator = new AccessValidator(repository, sparqlService);
         PostHandler postHandler = new PostHandler(
             repository,
             gameEngine,
             accessValidator,
-            config.getTransactionTraceMode());
+            config.getTransactionTraceMode(),
+            mutationCoordinator);
+        MazeResetService resetService = new MazeResetService(
+            repository,
+            config.getInitDataset(),
+            rdfBaseUri,
+            gameEngine,
+            config.getTransactionTraceMode(),
+            mutationCoordinator,
+            accessValidator);
         
         // Share repository, game engine, and services via ServletContext
         context.setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);
@@ -102,6 +116,7 @@ public class WebServerFactory {
         context.setAttribute(ACCESS_VALIDATOR_SERVLET_ATTRIBUTE, accessValidator);
         context.setAttribute(POST_HANDLER_SERVLET_ATTRIBUTE, postHandler);
         context.setAttribute(SPARQL_SERVICE_SERVLET_ATTRIBUTE, sparqlService);
+        context.setAttribute(MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE, resetService);
         
         // Configure JAX-RS resources
         ResourceConfig ldConfig = new ResourceConfig();
@@ -109,7 +124,6 @@ public class WebServerFactory {
         ldConfig.register(SparqlResource.class);
         ldConfig.register(MazeAdminResource.class);
         ldConfig.register(CorsFilter.class);
-        ldConfig.register(JacksonFeature.class);
         ldConfig.register(JacksonFeature.class);
         
         Servlet ldContainer = new ServletContainer(ldConfig);

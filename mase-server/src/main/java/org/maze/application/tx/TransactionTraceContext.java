@@ -52,6 +52,10 @@ public class TransactionTraceContext {
         return mode.emitsEvents() ? new TransactionTraceContext("STARTUP", mode) : null;
     }
 
+    public static TransactionTraceContext forReset(TransactionTraceMode mode) {
+        return mode.emitsEvents() ? new TransactionTraceContext("RESET", mode) : null;
+    }
+
     public void captureMergeBefore(SailRepositoryConnection connection, String graphIri) {
         if (!mode.capturesTriples()) {
             return;

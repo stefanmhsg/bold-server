@@ -14,13 +14,13 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
 
 - [x] (2026-05-17 13:12Z) Created this executable plan and captured the agreed implementation direction.
 - [x] (2026-05-17 13:19Z) Cross-linked the reset plan with the viewer planning notes and documented the reset/data invalidation dependency in both files.
-- [ ] Add a server-side reset service that can clear and reload the RDF4J repository in one controlled operation.
-- [ ] Add an admin endpoint, expected as `POST /admin/maze/reset`, that invokes the reset service and returns a machine-readable result.
-- [ ] Ensure the reset operation serializes safely against agent POST handling and other write operations.
-- [ ] Clear or reset WebSocket replay state so old experiment events are not replayed after a reset.
-- [ ] Add focused server tests for successful reset, failure rollback, and reset concurrency behavior.
-- [ ] Document the endpoint in `mase-server/README.md`.
-- [ ] Defer `mase-viewer` data invalidation and remount behavior. Record frontend impact considerations in this plan only.
+- [x] (2026-05-17 13:40Z) Added `MazeResetService` to clear/reload the configured dataset and run startup rules in one reset transaction.
+- [x] (2026-05-17 13:40Z) Added `POST /admin/maze/reset`, returning a fresh `MazeAdminSnapshotDto` JSON payload.
+- [x] (2026-05-17 13:40Z) Added `MazeMutationCoordinator` and wired it through normal agent POST handling, SPARQL updates, and reset.
+- [x] (2026-05-17 13:40Z) Added WebSocket replay-buffer clearing and a post-reset `ADMIN_RESET` notification.
+- [x] (2026-05-17 13:40Z) Added focused reset tests for successful restore, rollback on parse failure, and waiting for an in-flight POST mutation.
+- [x] (2026-05-17 13:40Z) Documented the endpoint in `mase-server/README.md`.
+- [x] (2026-05-17 13:40Z) Kept `mase-viewer` invalidation deferred; no viewer implementation was changed.
 
 ## Surprises & Discoveries
 
@@ -38,6 +38,9 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
 
 - Observation: Viewer reset invalidation depends on both the server reset contract and the viewer event-retention strategy.
   Evidence: [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md) now records that reset can mean clearing live state, archiving the previous run, preserving logs for audit, remounting the canvas, refreshing inspectors, or some combination of those behaviors.
+
+- Observation: `DataLoader` needed an explicit empty-match failure for reset safety.
+  Evidence: `DataLoader.loadData(RepositoryConnection, ...)` now throws when the configured dataset pattern matches no files, so reset cannot silently clear the repository and commit an empty store.
 
 ## Decision Log
 
@@ -57,9 +60,17 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
   Rationale: The server must define an atomic reset endpoint, replay-buffer cleanup, and a reset notification contract. The viewer must then decide how that contract interacts with hot logs, archives, Konva canvas remounting, and selected inspectors, as described in [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md).
   Date/Author: 2026-05-17 / Codex
 
+- Decision: Return the fresh admin snapshot from `POST /admin/maze/reset`.
+  Rationale: The caller immediately receives the authoritative post-reset layout, UI snapshot, and scenario name, and clients that do not want the payload can ignore it.
+  Date/Author: 2026-05-17 / Codex
+
+- Decision: Use a fair `ReentrantReadWriteLock` as the reset mutation coordinator.
+  Rationale: Normal POST and SPARQL update mutations can still proceed concurrently where existing per-resource rules allow it, while reset uses the exclusive lock to prevent any clear/reload interleaving.
+  Date/Author: 2026-05-17 / Codex
+
 ## Outcomes & Retrospective
 
-This plan has only been initiated. No server or viewer code has been changed yet.
+The server reset endpoint has been implemented and validated. No viewer invalidation or remount behavior was implemented; that remains intentionally deferred to the viewer plan.
 
 ## Context and Orientation
 
@@ -191,6 +202,16 @@ Current admin snapshot fetch in the viewer:
     mase-viewer/src/routes/+page.ts
     fetch('http://localhost:8080/admin/maze')
 
+Validation transcript:
+
+    cd mase-server
+    .\gradlew.bat compileJava
+    BUILD SUCCESSFUL in 2s
+
+    cd mase-server
+    .\gradlew.bat test
+    BUILD SUCCESSFUL in 8s
+
 Viewer invalidation considerations for a future plan:
 
 The viewer has at least four independent state surfaces affected by reset. Page load data holds `maze`, `uiSnapshot`, and `scenarioName`. `MazeCanvas.svelte` holds Konva objects and maps for agents, agent positions, UI nodes, path render caches, and cell background state. `mazeState.svelte.ts` holds WebSocket-derived event logs and runtime listener delivery. The page holds selected cell and agent inspector state. A future viewer reset implementation must decide which of these should be cleared, preserved for audit, or refreshed from `/admin/maze`.
@@ -218,3 +239,5 @@ The endpoint should consume no request body and produce `application/json`.
 Revision note, 2026-05-17: Initiated this plan from the reset endpoint analysis. The user agreed with the server-side approach and explicitly deferred `mase-viewer` data invalidation, so the plan records viewer impact considerations without making frontend invalidation part of the current work.
 
 Revision note, 2026-05-17: Added the cross-plan dependency with [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md). The server reset plan now explicitly owns the reset endpoint and notification contract, while the viewer plan owns later invalidation, remounting, and log/archive behavior.
+
+Revision note, 2026-05-17: Implemented the reset endpoint and updated progress, discoveries, decisions, outcomes, and validation evidence. The implementation keeps viewer invalidation deferred.

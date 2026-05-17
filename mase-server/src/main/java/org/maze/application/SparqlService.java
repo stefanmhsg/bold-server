@@ -39,6 +39,7 @@ public class SparqlService {
     private static final Logger log = LoggerFactory.getLogger(SparqlService.class);
     
     private final SailRepository repository;
+    private final MazeMutationCoordinator mutationCoordinator;
     
     /**
      * Create a new SPARQL service.
@@ -46,7 +47,12 @@ public class SparqlService {
      * @param repository the RDF repository to query against
      */
     public SparqlService(SailRepository repository) {
+        this(repository, new MazeMutationCoordinator());
+    }
+
+    public SparqlService(SailRepository repository, MazeMutationCoordinator mutationCoordinator) {
         this.repository = repository;
+        this.mutationCoordinator = mutationCoordinator;
     }
     
     /**
@@ -76,16 +82,27 @@ public class SparqlService {
         } else {
             log.info("Executing SPARQL query: {}", queryString.substring(0, Math.min(100, queryString.length())));
         }
+
+        QueryType queryType = determineQueryType(queryString);
+        if (externalConn == null && queryType == QueryType.UPDATE) {
+            return mutationCoordinator.withSharedMutation(
+                    () -> executeQueryUnlocked(queryString, acceptHeader, externalConn, queryType));
+        }
+
+        return executeQueryUnlocked(queryString, acceptHeader, externalConn, queryType);
+    }
+
+    private SparqlResult executeQueryUnlocked(String queryString,
+                                              String acceptHeader,
+                                              SailRepositoryConnection externalConn,
+                                              QueryType queryType) {
         
         boolean ownConnection = (externalConn == null);
         SailRepositoryConnection connection = null;
         
         try {
             connection = ownConnection ? repository.getConnection() : externalConn;
-            
-            // Determine query type
-            QueryType queryType = determineQueryType(queryString);
-            
+
             switch (queryType) {
                 case SELECT:
                     return executeSelectQuery(connection, queryString, acceptHeader);

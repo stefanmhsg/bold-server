@@ -21,8 +21,8 @@ public class CorsFilter implements ContainerResponseFilter {
         // Add only if not already set by another component
         if (responseContext.getHeaders().getFirst("Access-Control-Allow-Origin") == null) {
             responseContext.getHeaders().add("Access-Control-Allow-Origin", "*");
-            responseContext.getHeaders().add("Access-Control-Allow-Methods", "GET, OPTIONS, HEAD");
-            responseContext.getHeaders().add("Access-Control-Allow-Headers", "Accept, Content-Type");
+            responseContext.getHeaders().add("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS, HEAD");
+            responseContext.getHeaders().add("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type");
         }
     }
 }
