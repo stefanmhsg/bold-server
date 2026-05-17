@@ -7,6 +7,8 @@
     import CellEventLog from '$lib/components/CellEventLog.svelte';
     import { showOptimalRoute } from '$lib/routeOverlayStore';
 
+    const ADMIN_RESET_URL = 'http://localhost:8080/admin/maze/reset';
+
     let { data } = $props<{ data: PageData }>();
 
     let selectedCellData = $state<string | null>(null);
@@ -20,10 +22,45 @@
     let isPosting = $state(false);
     let postMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
     let eventFilterText = $state('');
+    let isResetting = $state(false);
+    let resetMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
 
     onMount(() => {
         mazeState.connect();
     });
+
+    async function handleAdminReset() {
+        if (isResetting) return;
+
+        isResetting = true;
+        resetMessage = null;
+
+        try {
+            const response = await fetch(ADMIN_RESET_URL, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                resetMessage = { type: 'success', text: 'Reset completed.' };
+            } else {
+                const errorText = await response.text();
+                resetMessage = {
+                    type: 'error',
+                    text: `Reset failed (${response.status}): ${errorText || response.statusText}`
+                };
+            }
+        } catch (e) {
+            resetMessage = {
+                type: 'error',
+                text: `Reset failed: ${e instanceof Error ? e.message : String(e)}`
+            };
+        } finally {
+            isResetting = false;
+        }
+    }
 
     /**
      * Remove unused @prefix declarations from Turtle RDF.
@@ -46,20 +83,20 @@
         });
         
         // Find which prefixes are actually used in the content
-        const usedPrefixes = new Set<string>();
+        const usedPrefixes: string[] = [];
         const content = contentLines.join('\n');
         
         prefixLines.forEach(({ prefix }) => {
             // Check if prefix is used with colon notation (e.g., "maze:", "rdf:")
             const prefixPattern = new RegExp(`\\b${prefix}:`, 'g');
-            if (prefixPattern.test(content)) {
-                usedPrefixes.add(prefix);
+            if (prefixPattern.test(content) && !usedPrefixes.includes(prefix)) {
+                usedPrefixes.push(prefix);
             }
         });
         
         // Rebuild with only used prefixes
         const usedPrefixLines = prefixLines
-            .filter(({ prefix }) => usedPrefixes.has(prefix))
+            .filter(({ prefix }) => usedPrefixes.includes(prefix))
             .map(({ line }) => line);
         
         // Return cleaned content
@@ -163,8 +200,8 @@
 <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,32rem),1fr))] items-start gap-6 p-4">
     <!-- Left Column: Maze Visualization -->
     <div class="flex min-w-0 flex-col gap-6">
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex min-w-0 flex-wrap items-center gap-3">
                 <h1 class="text-2xl font-bold">Maze Viewer</h1>
                 {#if data.scenarioName}
                     <span class="px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 border border-blue-200">
@@ -172,14 +209,31 @@
                     </span>
                 {/if}
             </div>
-            <button
-                onclick={() => showOptimalRoute.update((v) => !v)}
-                class="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50"
-                type="button"
-            >
-                {$showOptimalRoute ? 'Hide Optimal Route' : 'Show Optimal Route'}
-            </button>
+            <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <button
+                    onclick={handleAdminReset}
+                    class="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                    title="Reset RDF store"
+                    disabled={isResetting}
+                >
+                    {isResetting ? 'Resetting...' : 'Reset Store'}
+                </button>
+                <button
+                    onclick={() => showOptimalRoute.update((v) => !v)}
+                    class="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50"
+                    type="button"
+                >
+                    {$showOptimalRoute ? 'Hide Optimal Route' : 'Show Optimal Route'}
+                </button>
+            </div>
         </div>
+
+        {#if resetMessage}
+            <div class={resetMessage.type === 'success' ? 'rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700' : 'rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 break-words'}>
+                {resetMessage.text}
+            </div>
+        {/if}
         
         {#if data.maze}
             <div class="h-[600px] min-w-0 max-w-full resize overflow-hidden rounded border-2 border-gray-300 bg-white">

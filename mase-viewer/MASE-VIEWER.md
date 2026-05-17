@@ -19,6 +19,7 @@ Future work on log retention, event archival, reset behavior, and scenario metad
 - [x] (2026-05-16) Recorded current viewer architecture, runtime event flow, bottlenecks, risks, and candidate improvements in the original living notes.
 - [x] (2026-05-17 13:19Z) Re-aligned this file to ExecPlan-style high-level sections while preserving the existing viewer guidance.
 - [x] (2026-05-17 13:19Z) Documented the dependency between viewer reset invalidation and [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md).
+- [x] (2026-05-17) Added a trigger-only Reset Store button in [src/routes/+page.svelte](src/routes/+page.svelte) that calls `POST /admin/maze/reset`.
 - [ ] Add bounded hot log limits for agent movement and transaction tables.
 - [ ] Replace expanded transaction row index with a stable key.
 - [ ] Clarify or rename the Cell Updates table because it displays `TRANSACTION` events, not only cell-local changes.
@@ -40,6 +41,9 @@ Future work on log retention, event archival, reset behavior, and scenario metad
 - Observation: Viewer reset invalidation is coupled to the server reset plan and to viewer log/archive design.
   Evidence: [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md) defers viewer invalidation while planning a `POST /admin/maze/reset` endpoint and a reset notification. The viewer must decide whether reset clears, archives, or preserves hot logs before it can safely implement a button or automatic `ADMIN_RESET` handling.
 
+- Observation: The viewer can now initiate server reset without applying client-side invalidation.
+  Evidence: [src/routes/+page.svelte](src/routes/+page.svelte) posts to `http://localhost:8080/admin/maze/reset`, shows success or failure feedback, and intentionally does not call SvelteKit invalidation, clear logs, remount [src/lib/components/MazeCanvas.svelte](src/lib/components/MazeCanvas.svelte), or close inspectors.
+
 ## Decision Log
 
 - Decision: Keep the server and RDF repository authoritative.
@@ -54,13 +58,17 @@ Future work on log retention, event archival, reset behavior, and scenario metad
   Rationale: The server reset endpoint in [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md) must define the reset response and notification contract first. The viewer also needs a log/archive policy because reset can reasonably mean "clear live state", "archive old experiment state", or "preserve logs for audit while remounting the canvas".
   Date/Author: 2026-05-17 / Codex
 
+- Decision: Add a trigger-only reset button before choosing the invalidation strategy.
+  Rationale: The endpoint is useful for rerunning experiments from the browser now, while cleanup and refresh behavior still depends on the hot/cold log model, canvas remount strategy, and inspector lifecycle.
+  Date/Author: 2026-05-17 / Codex
+
 - Decision: Keep frontend scenario-specific logic visibly separated from runtime state projection.
   Rationale: Static optimal routes are acceptable as visualization aids, but scenario-specific simulation behavior belongs in the server rules and RDF data.
   Date/Author: 2026-05-16 / prior viewer notes
 
 ## Outcomes & Retrospective
 
-This file has been converted from freestyle living notes into an ExecPlan-style viewer planning document. No Svelte, TypeScript, or server code has been changed by this documentation update.
+This file has been converted from freestyle living notes into an ExecPlan-style viewer planning document. The viewer now includes a trigger-only reset button, but the broader reset invalidation work remains open.
 
 The main remaining gap is implementation work. The viewer still has unbounded hot event arrays, full-array `sessionStorage` writes, no archive backend, and no reset invalidation path. The reset invalidation path is intentionally deferred until the server reset behavior and viewer archival semantics are explicit.
 
@@ -172,7 +180,7 @@ Milestone 1 stabilizes the live event tables. Add bounded hot log limits for `ag
 
 Milestone 2 adds a cold event archive. Introduce an event archive module with an interface such as `appendEvent`, `queryRecent`, `queryByAgent`, `clear`, and `export`. Start with IndexedDB unless a server-backed archive is explicitly chosen. The milestone is complete when hot arrays stay bounded while old movement and transaction records remain inspectable through queries or exports.
 
-Milestone 3 coordinates reset invalidation with the server reset plan. Wait for [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md) to define and implement the `POST /admin/maze/reset` endpoint, replay-buffer clearing, and reset notification contract. Then decide whether the viewer should handle reset with a full page reload, SvelteKit invalidation plus a keyed `MazeCanvas` remount, or a store-level reset API. The milestone is complete when reset produces an authoritative fresh snapshot on the canvas without leaking pre-reset runtime state into the new experiment view.
+Milestone 3 coordinates reset invalidation with the server reset plan. [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md) has defined and implemented the `POST /admin/maze/reset` endpoint, replay-buffer clearing, and reset notification contract. The viewer now has a trigger-only button, so the remaining milestone work is to decide whether the viewer should handle reset with a full page reload, SvelteKit invalidation plus a keyed `MazeCanvas` remount, or a store-level reset API. The milestone is complete when reset produces an authoritative fresh snapshot on the canvas without leaking pre-reset runtime state into the new experiment view.
 
 Milestone 4 improves deployment and scenario metadata boundaries. Make the server base URL and WebSocket URL configurable, and consider replacing hard-coded optimal route lists with a server scenario metadata endpoint if routes should become scenario data. The milestone is complete when the viewer can target a non-local MASE server without source edits and scenario metadata ownership is explicit.
 
@@ -182,7 +190,7 @@ Start with the live hot-path bottlenecks. In [src/lib/mazeState.svelte.ts](src/l
 
 Next, introduce a storage boundary for archived events. A small archive interface should sit outside the Svelte component tree so the live store can append events without making the archive reactive. IndexedDB is the preferred browser-side default because it is asynchronous, persistent, and can index by timestamp, agent, cell, graph, transaction id, and event type. NDJSON remains a good export format for transaction events because nested traces are preserved without flattening. CSV is suitable for agent movements because those events are flat: timestamp, agent, and cell.
 
-Only after hot/cold log behavior is clear should reset invalidation be designed. Reset is not just a fetch problem. It affects page data, Konva runtime state, event logs, WebSocket replay de-duplication, selected inspectors, and any archive that may distinguish one experiment run from another. The server plan in [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md) should provide a stable endpoint and notification. The viewer plan should then decide whether reset starts a new archive session, preserves previous logs for audit, clears the hot window, or does all three.
+A trigger-only reset button now posts to the server reset endpoint from [src/routes/+page.svelte](src/routes/+page.svelte). Only after hot/cold log behavior is clear should reset invalidation be designed. Reset is not just a fetch problem. It affects page data, Konva runtime state, event logs, WebSocket replay de-duplication, selected inspectors, and any archive that may distinguish one experiment run from another. The viewer plan should decide whether reset starts a new archive session, preserves previous logs for audit, clears the hot window, or does all three.
 
 Keep current agent location rendering behavior fast. There is a separate workpackage to investigate RDF-backed agent location rendering from `maze:contains` cell triples, but that work should normalize any authoritative location changes into the same compact canvas movement command shape used by the current `AGENT_MOVED` listener.
 
@@ -205,6 +213,8 @@ For reset-related viewer work, do not start until the server endpoint from [PLAN
 
     curl -X POST http://localhost:8080/admin/maze/reset
 
+The current trigger-only UI path is [src/routes/+page.svelte](src/routes/+page.svelte). It should send the POST request and display success or failure feedback without invalidating page data, clearing logs, remounting the canvas, or closing inspectors.
+
 Then verify that the viewer applies the chosen invalidation behavior. If the chosen behavior is a full reload, the page should refetch `/admin/maze` and remount the canvas. If the chosen behavior is SvelteKit invalidation, confirm that `MazeCanvas` is keyed or otherwise destroyed and recreated so old Konva nodes and agent positions do not survive.
 
 ## Validation and Acceptance
@@ -217,6 +227,8 @@ For canvas changes, verify that maze cells, walls, labels, UI overlays, cell bac
 
 For reset invalidation, acceptance depends on the server reset contract in [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). Once the server can atomically reset the RDF store and clear stale WebSocket replay events, the viewer must prove that a reset does not leave old agent markers, old UI overlays, stale selected inspector data, or stale hot logs attached to the new experiment view unless those old logs are intentionally archived and labeled as a previous run.
 
+For the current trigger-only reset button, acceptance is narrower: clicking Reset Store sends `POST /admin/maze/reset`, disables duplicate clicks while the request is pending, and displays success or failure feedback. It is not expected to refresh page data or clean up client-side state yet.
+
 ## Idempotence and Recovery
 
 Log pruning and archival should be safe to run repeatedly. If an archive write fails because of quota, private browsing restrictions, or IndexedDB errors, the live canvas should continue to update and the UI should surface the persistence failure without breaking runtime rendering.
@@ -224,6 +236,8 @@ Log pruning and archival should be safe to run repeatedly. If an archive write f
 Reset invalidation must be idempotent. Receiving an `ADMIN_RESET` notification twice, or clicking a future reset button twice, should not duplicate archive sessions, corrupt the canvas, or leave the page between two snapshots. If a reset POST succeeds but the snapshot refetch fails, the viewer should show a clear disconnected or stale-state indication and allow retry.
 
 Do not make a destructive archive decision implicit. If reset should delete logs, make that explicit in the UI or configuration. If reset should archive the previous run, assign the archived records to a distinguishable run/session id before clearing the hot view.
+
+The current trigger-only reset button is idempotent at the UI level: repeated clicks send repeated admin reset requests, while the pending request disables duplicate clicks. Because it does not mutate viewer logs or canvas state directly, it does not yet create archive/session lifecycle side effects.
 
 ## Artifacts and Notes
 
@@ -286,8 +300,10 @@ The viewer depends on `GET /admin/maze` returning a `MazeAdminSnapshot` with lay
 
 The viewer depends on WebSocket events from `ws://localhost:8080/ws`, currently consumed in [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts). Existing event types are `AGENT_MOVED`, `UI_UPSERT`, `UI_DELETE`, and `TRANSACTION`.
 
-The future reset UI depends on [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). The server plan must define the `POST /admin/maze/reset` response, the WebSocket replay-buffer cleanup behavior, and any reset notification such as `ADMIN_RESET`. The viewer plan must then decide how to invalidate page data, remount or reset [src/lib/components/MazeCanvas.svelte](src/lib/components/MazeCanvas.svelte), clear or archive hot logs in [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts), and close or refresh selected cell and agent inspectors in [src/routes/+page.svelte](src/routes/+page.svelte).
+The reset UI depends on [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). The server plan defines the `POST /admin/maze/reset` response, the WebSocket replay-buffer cleanup behavior, and the `ADMIN_RESET` notification. The current viewer button only triggers that endpoint. The viewer plan must still decide how to invalidate page data, remount or reset [src/lib/components/MazeCanvas.svelte](src/lib/components/MazeCanvas.svelte), clear or archive hot logs in [src/lib/mazeState.svelte.ts](src/lib/mazeState.svelte.ts), and close or refresh selected cell and agent inspectors in [src/routes/+page.svelte](src/routes/+page.svelte).
 
 If event archival is implemented, prefer a small interface with stable methods: `appendEvent`, `queryRecent`, `queryByAgent`, `clear`, and `export`. The initial implementation can use IndexedDB, but the interface should not prevent later server-backed storage.
 
 Revision note, 2026-05-17: Reorganized the viewer notes into ExecPlan-style sections and cross-linked the reset/data invalidation dependency with [PLAN_ADMIN_RESET.md](../mase-server/PLAN_ADMIN_RESET.md). No implementation work was performed.
+
+Revision note, 2026-05-17: Added a trigger-only Reset Store button to [src/routes/+page.svelte](src/routes/+page.svelte). The button initiates server reset but intentionally leaves data cleanup, canvas remounting, and snapshot refresh behavior for later work.
