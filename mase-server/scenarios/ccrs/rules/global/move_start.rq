@@ -1,0 +1,31 @@
+PREFIX dyn:  <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+DELETE {
+    # Target Graph: Cleanup Request. TODO: potential for stigmergy
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom <http://127.0.1.1:8080/maze> .
+    }
+}
+INSERT {
+    # Target Graph: Containment statement
+    GRAPH ?targetGraph {
+        ?targetGraph maze:contains ?agent .
+    }
+    # Origin Graph: success statement
+    GRAPH <http://127.0.1.1:8080/maze> {
+        _:blankNode a dyn:moveSuccessEvent ;
+            dyn:agent ?agent ;
+            dyn:targetCell ?targetGraph ;
+            xsd:dateTime ?timestamp . 
+    }
+}
+WHERE {
+    # the move event to the first cell
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom <http://127.0.1.1:8080/maze> .
+    }
+
+    BIND( NOW() AS ?timestamp )
+}

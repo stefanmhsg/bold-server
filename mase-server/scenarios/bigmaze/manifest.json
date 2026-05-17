@@ -1,0 +1,11 @@
+{
+  "contractVersion": "0.1",
+  "id": "bigmaze",
+  "name": "BigMaze",
+  "entrypoint": "scenario.properties",
+  "files": {
+    "data": ["data/BigMaze.trig"],
+    "rules": ["rules/**/*.rq"]
+  },
+  "warnings": []
+}

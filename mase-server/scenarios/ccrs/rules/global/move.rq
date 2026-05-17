@@ -1,0 +1,46 @@
+PREFIX dyn:  <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+DELETE {
+    # Origin Graph: Remove old containment statement
+    GRAPH ?oldGraph {
+        ?oldGraph maze:contains ?agent .
+    }
+    # Target Graph: Cleanup Request. TODO: potential for stigmergy
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom ?oldGraph .
+    }
+}
+INSERT {
+    # Target Graph: Containment statement
+    GRAPH ?targetGraph {
+        ?targetGraph maze:contains ?agent .
+    }
+    # Origin Graph: success statement
+    GRAPH ?oldGraph {
+        _:blankNode a dyn:moveSuccessEvent ;
+            dyn:agent ?agent ;
+            dyn:targetCell ?targetGraph ;
+            xsd:dateTime ?timestamp . 
+    }
+}
+WHERE {
+    # the move event
+    GRAPH ?targetGraph {
+        ?agent dyn:entersFrom ?oldGraph .
+    }
+
+    # find the cell the agent is currently in
+    GRAPH ?oldGraph {
+        ?oldGraph maze:contains ?agent .
+    }
+
+    # check adjacency by looking inside the current cell graph. Optional - already filtered in AccessValidator
+    GRAPH ?oldGraph {
+        ?oldGraph ?dir ?targetGraph .
+        FILTER (?dir IN (maze:north, maze:south, maze:east, maze:west, maze:exit))
+    }
+
+    BIND( NOW() AS ?timestamp )
+}

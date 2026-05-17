@@ -1,0 +1,11 @@
+{
+  "contractVersion": "0.1",
+  "id": "midmaze",
+  "name": "MidMaze",
+  "entrypoint": "scenario.properties",
+  "files": {
+    "data": ["data/MidMaze.trig"],
+    "rules": ["rules/**/*.rq"]
+  },
+  "warnings": []
+}

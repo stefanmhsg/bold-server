@@ -62,6 +62,7 @@ distributions {
         contents {
             // copies relevant configuration files to dist folder
             from('data') { into('data') }
+            from('scenarios') { into('scenarios') }
             from('query') { into('query') }
             from('.') { include('*.properties') }
             // Extract rules from resources to distribution

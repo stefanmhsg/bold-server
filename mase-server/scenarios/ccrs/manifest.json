@@ -1,0 +1,29 @@
+{
+  "contractVersion": "0.1",
+  "id": "ccrs",
+  "name": "CCRS Maze",
+  "entrypoint": "scenario.properties",
+  "files": {
+    "data": ["data/CcrsMazeV1.trig"],
+    "rules": ["rules/**/*.rq"]
+  },
+  "mechanics": ["movement", "dynamic-locks", "key-pickup", "a2a-keyholder"],
+  "agents": [
+    {
+      "id": "ccrs-agent",
+      "type": "java-main",
+      "mainClass": "org.maze.examples.CcrsAgent"
+    },
+    {
+      "id": "keyholder-agent",
+      "type": "java-main",
+      "mainClass": "org.maze.examples.KeyHolderAgent"
+    },
+    {
+      "id": "a2a-key-seeker",
+      "type": "java-main",
+      "mainClass": "org.maze.examples.A2AKeySeekerAgent"
+    }
+  ],
+  "warnings": []
+}

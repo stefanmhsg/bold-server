@@ -1,0 +1,11 @@
+{
+  "contractVersion": "0.1",
+  "id": "smallmaze",
+  "name": "SmallMaze",
+  "entrypoint": "scenario.properties",
+  "files": {
+    "data": ["data/SmallMaze.trig"],
+    "rules": ["rules/**/*.rq"]
+  },
+  "warnings": []
+}

@@ -1,5 +1,6 @@
 package org.maze.application;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +18,16 @@ public class MazeRuleService {
     
     private final SparqlService sparqlService;
     private final List<MazeRule> rules;
+
+    public MazeRuleService(SailRepository repository, List<Path> ruleFiles, Path ruleNameRoot, List<String> orderPatterns) {
+        MazeRuleLoader ruleLoader = new MazeRuleLoader();
+        List<MazeRule> rules = ruleLoader.loadRulesFromPaths(ruleFiles, ruleNameRoot, orderPatterns);
+
+        this.sparqlService = new SparqlService(repository);
+        this.rules = rules;
+
+        log.info("MazeRuleService initialized from scenario package with {} rules", rules.size());
+    }
     
     public MazeRuleService(SailRepository repository, String mazeName, List<String> additionalRulesets, List<String> orderPatterns) {
         // Initialize rule Service with loaded rules

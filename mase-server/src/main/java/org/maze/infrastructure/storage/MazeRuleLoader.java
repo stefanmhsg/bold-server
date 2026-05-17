@@ -5,10 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.maze.domain.rules.MazeRule;
 import org.maze.infrastructure.io.FileUtils;
@@ -58,6 +61,31 @@ public class MazeRuleLoader {
         
         return orderedRules;
     }
+
+    public List<MazeRule> loadRulesFromPaths(List<Path> ruleFiles, Path ruleNameRoot, List<String> orderPatterns) {
+        List<MazeRule> rules = new ArrayList<>();
+
+        for (Path ruleFile : ruleFiles) {
+            try {
+                MazeRule rule = loadRule(ruleFile, ruleNameRoot);
+                rules.add(rule);
+                log.info("Loaded maze rule: {}", rule.getName());
+            } catch (IOException e) {
+                log.error("Failed to load rule file: {}", ruleFile, e);
+            }
+        }
+
+        log.info("Loaded {} maze rules from package paths (before ordering)", rules.size());
+
+        List<MazeRule> orderedRules = applyRuleOrdering(rules, orderPatterns);
+
+        log.info("Final rule execution order: {}",
+                orderedRules.stream()
+                        .map(MazeRule::getName)
+                        .collect(Collectors.joining(", ")));
+
+        return orderedRules;
+    }
     
     /**
      * Load all .rq rule files from the resources/rules directory.
@@ -100,6 +128,26 @@ public class MazeRuleLoader {
             
             return new MazeRule(ruleName, sparqlQuery, description, ruleType);
         }
+    }
+
+    public MazeRule loadRule(Path ruleFile, Path ruleNameRoot) throws IOException {
+        Path normalizedRuleFile = ruleFile.toAbsolutePath().normalize();
+        Path normalizedRoot = ruleNameRoot.toAbsolutePath().normalize();
+        if (!normalizedRuleFile.startsWith(normalizedRoot)) {
+            throw new IOException("Rule file is outside rule name root: " + normalizedRuleFile);
+        }
+
+        String sparqlQuery = Files.readString(normalizedRuleFile, StandardCharsets.UTF_8);
+        String description = extractDescription(sparqlQuery);
+        String ruleName = normalizedRoot.relativize(normalizedRuleFile)
+                .toString()
+                .replace('\\', '/')
+                .replaceFirst("\\.rq$", "");
+        MazeRule.RuleType ruleType = detectRuleType(sparqlQuery);
+
+        log.debug("Loaded rule '{}' as type: {}", ruleName, ruleType);
+
+        return new MazeRule(ruleName, sparqlQuery, description, ruleType);
     }
     
     /**
@@ -191,6 +239,22 @@ public class MazeRuleLoader {
         log.info("Discovered {} rule files{}", ruleFiles.size(), 
                 pathName != null ? " for path: " + pathName : "");
         return ruleFiles;
+    }
+
+    public List<Path> discoverPackageRuleFiles(Path scenarioRoot) throws IOException {
+        Path rulesRoot = scenarioRoot.toAbsolutePath().normalize().resolve("rules");
+        if (!Files.isDirectory(rulesRoot)) {
+            return List.of();
+        }
+
+        try (Stream<Path> stream = Files.walk(rulesRoot)) {
+            return stream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".rq"))
+                    .map(path -> path.toAbsolutePath().normalize())
+                    .sorted(Comparator.comparing(Path::toString))
+                    .toList();
+        }
     }
     
     /**

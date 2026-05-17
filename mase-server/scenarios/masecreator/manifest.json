@@ -1,0 +1,11 @@
+{
+  "contractVersion": "0.1",
+  "id": "masecreator",
+  "name": "MaseCreator",
+  "entrypoint": "scenario.properties",
+  "files": {
+    "data": ["data/MaseCreator.trig"],
+    "rules": ["rules/**/*.rq"]
+  },
+  "warnings": []
+}

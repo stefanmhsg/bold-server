@@ -21,11 +21,27 @@ Specifing maze AND rules as argument (loads rules/Global per default AND rules/G
 gradle runMase --args="sim-SmallMaze  Stigmergy"
 ```
 
+Run a self-contained scenario package:
+```shell script
+gradle runMase --args="--scenario scenarios/smallmaze"
+```
+
+Package mode can also be selected through an environment variable when no command-line argument is supplied:
+```shell script
+$env:MASE_SCENARIO_DIR = "scenarios/ccrs"
+gradle runMase
+```
+
+In package mode the server reads `scenario.properties`, RDF data, and SPARQL rules relative to the selected scenario directory. Every `.rq` file below the package's `rules/` directory is active and loaded recursively. Files below `rules-disabled/` are ignored and can be used for deactivated or work-in-progress rules.
+
+Built-in package examples live under [scenarios](scenarios).
+
 
 ### Docker
 ```shell script
 docker build . -t mase-server
 docker run -p 8080:8080 -e TASKNAME=sim-SmallMaze -it mase-server
+docker run -p 8080:8080 -e MASE_SCENARIO_DIR=scenarios/smallmaze -it mase-server
 ```
 
 ### Entry Point
@@ -33,7 +49,7 @@ http://127.0.1.1:8080/maze
 
 ### Scenario Runtime Settings
 
-Server runtime settings that belong to a simulation run are configured in the selected `sim-*.properties` file.
+Server runtime settings that belong to a simulation run are configured in the selected legacy `sim-*.properties` file or in a package-local `scenario.properties` file.
 
 ```properties
 mase.transaction.trace = summary
@@ -47,7 +63,7 @@ mase.transaction.trace = summary
 
 ### Admin Reset Endpoint
 
-The admin API can reset the in-memory RDF4J store back to the dataset configured by `mase.init.dataset` in the active `sim-*.properties` file:
+The admin API can reset the in-memory RDF4J store back to the dataset configured by `mase.init.dataset` in the active legacy `sim-*.properties` file or package-local `scenario.properties` file:
 
 ```shell script
 curl -X POST http://localhost:8080/admin/maze/reset
