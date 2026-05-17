@@ -7,5 +7,13 @@
     "data": ["data/BigMaze.trig"],
     "rules": ["rules/**/*.rq"]
   },
+  "agents": [
+    {
+      "id": "bob-dfs",
+      "type": "java-main",
+      "mainClass": "org.maze.scenarios.bigmaze.agents.SampleDfsAgentBob",
+      "gradleTask": "runBigMazeBobAgent"
+    }
+  ],
   "warnings": []
 }

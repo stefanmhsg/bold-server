@@ -2,8 +2,6 @@ package org.maze;
 
 import java.net.URI;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
@@ -29,18 +27,17 @@ public class Configurator {
 
     private static final Logger log = LoggerFactory.getLogger(Configurator.class);
     private static final ObjectMapper mapper = new ObjectMapper();
+    private static final Path DEFAULT_SCENARIO_ROOT = Path.of("scenarios/smallmaze");
     
     public static final String RELATIVE_BASE_URI_WITH_TRAILING_SLASH_FOR_GRAPH_STORE_PROTOCOL = "gsp/";
 
     public static void main(String[] args) throws Exception {
         log.info("Starting MASE Maze Server...");
         
-        StartupSelection startup = parseStartupSelection(args);
+        Path scenarioRoot = parseScenarioRoot(args);
         
         // Load configuration
-        ServerConfiguration config = startup.scenarioRoot() != null
-                ? ServerConfiguration.forScenarioPackage(startup.scenarioRoot())
-                : new ServerConfiguration(startup.taskName());
+        ServerConfiguration config = ServerConfiguration.forScenarioPackage(scenarioRoot);
         
         // Create RDF repository
         RepositoryFactory repoFactory = new RepositoryFactory();
@@ -52,23 +49,14 @@ public class Configurator {
         DataLoader dataLoader = new DataLoader();
         dataLoader.loadData(repository, config.getInitDataset(), rdfBaseURI);
         
-        List<String> ruleExecutionOrder = config.getRuleExecutionOrder();
-        MazeRuleService ruleService;
-        if (config.isScenarioPackageMode()) {
-            ScenarioPackage scenarioPackage = config.getScenarioPackage()
-                    .orElseThrow(() -> new IllegalStateException("Scenario package mode has no package"));
-            ruleService = new MazeRuleService(
-                    repository,
-                    scenarioPackage.ruleFiles(),
-                    scenarioPackage.root(),
-                    ruleExecutionOrder);
-            log.info("MazeRuleService initialized for scenario package: {}", scenarioPackage.id());
-        } else {
-            String mazeName = extractMazeName(startup.taskName());
-            List<String> rulesetPaths = buildRulesetPaths(startup.additionalRulesets());
-            ruleService = new MazeRuleService(repository, mazeName, rulesetPaths, ruleExecutionOrder);
-            log.info("MazeRuleService initialized for maze: {}", mazeName != null ? mazeName : "generic");
-        }
+        ScenarioPackage scenarioPackage = config.getScenarioPackage()
+                .orElseThrow(() -> new IllegalStateException("Scenario package configuration did not resolve a package"));
+        MazeRuleService ruleService = new MazeRuleService(
+                repository,
+                scenarioPackage.ruleFiles(),
+                scenarioPackage.root(),
+                config.getRuleExecutionOrder());
+        log.info("MazeRuleService initialized for scenario package: {}", scenarioPackage.id());
 
         // Run rules once at startup to ensure initial consistency
         SailRepositoryConnection conn = null;
@@ -120,51 +108,31 @@ public class Configurator {
         server.join();
     }
     
-    private static StartupSelection parseStartupSelection(String[] args) {
+    private static Path parseScenarioRoot(String[] args) {
         if (args.length > 0 && "--scenario".equals(args[0])) {
             if (args.length < 2 || args[1].isBlank()) {
                 throw new IllegalArgumentException("Missing scenario directory after --scenario");
             }
             if (args.length > 2) {
-                throw new IllegalArgumentException("Additional ruleset arguments are not supported in package mode");
+                throw new IllegalArgumentException("Unexpected arguments after scenario directory");
             }
-            return StartupSelection.scenario(Path.of(args[1]));
+            return Path.of(args[1]);
         }
 
         if (args.length == 0 || args[0].isBlank()) {
             String scenarioDir = System.getenv("MASE_SCENARIO_DIR");
             if (scenarioDir != null && !scenarioDir.isBlank()) {
-                return StartupSelection.scenario(Path.of(scenarioDir.trim()));
+                return Path.of(scenarioDir.trim());
             }
 
-            String taskName = System.getenv("TASKNAME");
-            if (taskName != null && !taskName.isBlank()) {
-                return StartupSelection.legacy(taskName.trim(), List.of());
-            }
-
-            return StartupSelection.legacy("sim-SmallMaze", List.of());
+            return DEFAULT_SCENARIO_ROOT;
         }
 
-        return StartupSelection.legacy(args[0], parseAdditionalRulesets(args));
-    }
-
-    private static List<String> parseAdditionalRulesets(String[] args) {
-        List<String> rulesets = new ArrayList<>();
-        for (int i = 1; i < args.length; i++) {
-            rulesets.add(args[i]);
-        }
-        return rulesets;
-    }
-
-    private record StartupSelection(String taskName, Path scenarioRoot, List<String> additionalRulesets) {
-
-        private static StartupSelection legacy(String taskName, List<String> additionalRulesets) {
-            return new StartupSelection(taskName, null, List.copyOf(additionalRulesets));
+        if (args.length == 1) {
+            throw new IllegalArgumentException("Legacy task names are no longer supported. Use --scenario <scenario-directory>.");
         }
 
-        private static StartupSelection scenario(Path scenarioRoot) {
-            return new StartupSelection(null, scenarioRoot, List.of());
-        }
+        throw new IllegalArgumentException("Use --scenario <scenario-directory> or set MASE_SCENARIO_DIR.");
     }
     
     /**
@@ -178,44 +146,4 @@ public class Configurator {
         return new URI("http://127.0.1.1:8080/");
     }
     
-    /**
-     * Build full ruleset paths, always including Global as base.
-     */
-    private static List<String> buildRulesetPaths(List<String> additionalRulesets) {
-        List<String> paths = new ArrayList<>();
-        paths.add("Global");
-        
-        for (String ruleset : additionalRulesets) {
-            paths.add("Global/" + ruleset);
-        }
-        
-        if (!additionalRulesets.isEmpty()) {
-            log.info("Additional ruleset paths: {}", paths);
-        }
-        
-        return paths;
-    }
-    
-    /**
-     * Extracts the maze name from a task string.
-     * Examples: "sim-SmallMaze" -> "SmallMaze", "sim-BigMaze" -> "BigMaze"
-     * 
-     * @param task The task string (e.g., "sim-SmallMaze")
-     * @return The maze name (e.g., "SmallMaze"), or null if no maze detected
-     */
-    private static String extractMazeName(String task) {
-        if (task == null || task.isEmpty()) {
-            return null;
-        }
-        
-        // Remove "sim-" prefix if present
-        if (task.startsWith("sim-")) {
-            return task.substring(4); // Skip "sim-" (4 characters)
-        }
-        
-        log.warn("Unrecognized task format: {}. Using as-is. Check if rules loaded properly.", task);
-        
-        // If no prefix, return the task as-is
-        return task;
-    }
 }

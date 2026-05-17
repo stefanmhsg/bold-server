@@ -29,43 +29,6 @@ public class MazeRuleService {
         log.info("MazeRuleService initialized from scenario package with {} rules", rules.size());
     }
     
-    public MazeRuleService(SailRepository repository, String mazeName, List<String> additionalRulesets, List<String> orderPatterns) {
-        // Initialize rule Service with loaded rules
-        MazeRuleLoader ruleLoader = new MazeRuleLoader();
-        List<String> ruleFiles = ruleLoader.discoverRuleFiles(mazeName);
-        
-        // Load all additional global rulesets if specified
-        if (additionalRulesets != null && !additionalRulesets.isEmpty()) {
-            for (String ruleset : additionalRulesets) {
-                List<String> additionalRuleFiles = ruleLoader.discoverRuleFiles(ruleset);
-                ruleFiles.addAll(additionalRuleFiles);
-                log.info("Added {} rules from additional ruleset: {}", additionalRuleFiles.size(), ruleset);
-            }
-        }
-        
-        List<MazeRule> rules = ruleLoader.loadRules(ruleFiles, orderPatterns);
-        
-        // Initialize SPARQL service first (needed by rule service)
-        this.sparqlService = new SparqlService(repository);
-        this.rules = rules;
-        
-        String rulesetsInfo = additionalRulesets != null && !additionalRulesets.isEmpty() 
-                ? " + " + String.join(", ", additionalRulesets) 
-                : "";
-        log.info("MazeRuleService initialized{}{} with {} rules", 
-                mazeName != null ? " for " + mazeName : "",
-                rulesetsInfo,
-                rules.size());
-    }
-    
-    /**
-     * Constructor without rule ordering (backward compatibility).
-     * Uses alphabetical order for rules.
-     */
-    public MazeRuleService(SailRepository repository, String mazeName, List<String> additionalRulesets) {
-        this(repository, mazeName, additionalRulesets, null);
-    }
-    
     /**
      * Execute all rules within an external transaction.
      * This should be called after state-changing operations (e.g., POST requests).

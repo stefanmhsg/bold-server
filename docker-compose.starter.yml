@@ -4,10 +4,9 @@ services:
       context: ./mase-server
       dockerfile: Dockerfile
     container_name: mase-server
+    command: ["bin/mase-server", "--scenario", "scenarios/smallmaze"]
     ports:
       - "8080:8080"
-    environment:
-      TASKNAME: ${TASKNAME:-sim-SmallMaze}
 
   mase-viewer:
     build:
@@ -16,5 +15,9 @@ services:
     container_name: mase-viewer
     depends_on:
       - mase-server
+    environment:
+      MASE_SERVER_INTERNAL_HTTP_URL: http://mase-server:8080
+      PUBLIC_MASE_SERVER_HTTP_URL: http://localhost:8080
+      PUBLIC_MASE_SERVER_WS_URL: ws://localhost:8080/ws
     ports:
       - "3000:3000"

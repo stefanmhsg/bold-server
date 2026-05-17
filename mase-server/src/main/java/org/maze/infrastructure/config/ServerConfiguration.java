@@ -1,8 +1,8 @@
 package org.maze.infrastructure.config;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -27,25 +27,13 @@ public class ServerConfiguration {
     // TODO
     private static final String SERVER_HTTP_PORT_KEY = "mase.server.httpPort";
     private static final String SERVER_HTTP_PORT_DEFAULT = "8080";
-    private static final String INIT_DATASET_KEY = "mase.init.dataset";
     private static final String TRANSACTION_TRACE_KEY = "mase.transaction.trace";
     private static final String TRANSACTION_TRACE_DEFAULT = "summary";
     
     private final Properties properties;
-    private final String taskName;
     private final ScenarioPackage scenarioPackage;
     
-    public ServerConfiguration(String taskName) throws IOException {
-        this.taskName = taskName;
-        String configFile = taskName + ".properties";
-        this.properties = loadProperties(Path.of(configFile));
-        this.scenarioPackage = null;
-        
-        log.info("Loading configuration from: {}", configFile);
-    }
-
     private ServerConfiguration(ScenarioPackage scenarioPackage) throws IOException {
-        this.taskName = scenarioPackage.id();
         this.properties = loadProperties(scenarioPackage.propertiesFile());
         this.scenarioPackage = scenarioPackage;
 
@@ -59,7 +47,7 @@ public class ServerConfiguration {
 
     private static Properties loadProperties(Path file) throws IOException {
         Properties loaded = new Properties();
-        try (InputStream input = new FileInputStream(file.toFile())) {
+        try (InputStream input = Files.newInputStream(file)) {
             loaded.load(input);
         }
         return loaded;
@@ -70,10 +58,7 @@ public class ServerConfiguration {
     }
     
     public String getInitDataset() {
-        if (scenarioPackage != null) {
-            return scenarioPackage.resolvedDatasetPattern();
-        }
-        return properties.getProperty(INIT_DATASET_KEY);
+        return scenarioPackage.resolvedDatasetPattern();
     }
 
     public TransactionTraceMode getTransactionTraceMode() {
@@ -83,11 +68,11 @@ public class ServerConfiguration {
     }
     
     public String getTaskName() {
-        return taskName;
+        return scenarioPackage.id();
     }
 
     public boolean isScenarioPackageMode() {
-        return scenarioPackage != null;
+        return true;
     }
 
     public Optional<ScenarioPackage> getScenarioPackage() {

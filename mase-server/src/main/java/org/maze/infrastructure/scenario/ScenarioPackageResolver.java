@@ -21,8 +21,7 @@ public class ScenarioPackageResolver {
     public static final String MANIFEST_JSON = "manifest.json";
     public static final String INIT_DATASET_KEY = "mase.init.dataset";
     public static final String SCENARIO_ID_KEY = "mase.scenario.id";
-    public static final String RULES_PATH_KEY = "mase.rules.path";
-    public static final String DEFAULT_RULES_PATH = "rules/**/*.rq";
+    private static final String RULES_DIRECTORY = "rules";
 
     public ScenarioPackage resolve(Path root) throws IOException {
         Path normalizedRoot = root.toAbsolutePath().normalize();
@@ -51,11 +50,10 @@ public class ScenarioPackageResolver {
                     + datasetPattern + " under " + normalizedRoot);
         }
 
-        String rulesPath = properties.getProperty(RULES_PATH_KEY, DEFAULT_RULES_PATH).trim();
-        List<Path> ruleFiles = resolveRuleFiles(normalizedRoot, rulesPath);
+        List<Path> ruleFiles = resolveRuleFiles(normalizedRoot);
         if (ruleFiles.isEmpty()) {
-            throw new IOException("Scenario package has no active .rq files under rules path: "
-                    + rulesPath + " in " + normalizedRoot);
+            throw new IOException("Scenario package has no active .rq files under "
+                    + RULES_DIRECTORY + "/ in " + normalizedRoot);
         }
 
         Path manifest = normalizedRoot.resolve(MANIFEST_JSON);
@@ -90,12 +88,11 @@ public class ScenarioPackageResolver {
         return value.trim();
     }
 
-    private List<Path> resolveRuleFiles(Path root, String rulesPath) throws IOException {
-        Path activeRuleRoot = activeRootForPattern(root, rulesPath);
+    private List<Path> resolveRuleFiles(Path root) throws IOException {
+        Path activeRuleRoot = root.resolve(RULES_DIRECTORY).toAbsolutePath().normalize();
         if (!Files.isDirectory(activeRuleRoot)) {
             throw new IOException("Scenario package active rules directory is missing: " + activeRuleRoot);
         }
-        ensureInsideRoot(root, activeRuleRoot, "rules path");
         return discoverFilesByExtension(activeRuleRoot, ".rq");
     }
 

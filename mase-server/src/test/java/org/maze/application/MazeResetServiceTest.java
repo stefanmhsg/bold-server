@@ -9,7 +9,6 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,14 +29,16 @@ import org.junit.jupiter.api.io.TempDir;
 import org.maze.application.tx.TransactionTraceContext;
 import org.maze.application.tx.TransactionTraceMode;
 import org.maze.domain.model.PostResult;
+import org.maze.infrastructure.config.ServerConfiguration;
 import org.maze.infrastructure.rdf.DataLoader;
 import org.maze.infrastructure.rdf.RepositoryFactory;
+import org.maze.infrastructure.scenario.ScenarioPackage;
 
 class MazeResetServiceTest {
 
     private static final String BASE = "http://127.0.1.1:8080";
     private static final URI RDF_BASE_URI = URI.create(BASE + "/gsp/");
-    private static final String SMALL_MAZE_DATASET = "data/SmallMaze.trig";
+    private static final Path SMALL_MAZE_SCENARIO = Path.of("scenarios/smallmaze");
     private static final String MAZE = BASE + "/maze";
     private static final String START = BASE + "/cells/0/0";
     private static final String CELL = BASE + "/cells/reset-test";
@@ -50,7 +51,7 @@ class MazeResetServiceTest {
     void setUp() throws Exception {
         repository = new RepositoryFactory().createRepository(null);
         mutationCoordinator = new MazeMutationCoordinator();
-        new DataLoader().loadData(repository, SMALL_MAZE_DATASET, RDF_BASE_URI);
+        new DataLoader().loadData(repository, smallMazeConfig().getInitDataset(), RDF_BASE_URI);
     }
 
     @Test
@@ -58,7 +59,7 @@ class MazeResetServiceTest {
         addNote(START, START, "runtime");
         assertTrue(hasNote(START, START, "runtime"));
 
-        MazeResetService resetService = resetService(SMALL_MAZE_DATASET, smallMazeRuleService(), null);
+        MazeResetService resetService = resetService(smallMazeConfig().getInitDataset(), smallMazeRuleService(), null);
 
         resetService.resetToInitialDataset();
 
@@ -98,7 +99,7 @@ class MazeResetServiceTest {
                 accessValidator,
                 TransactionTraceMode.OFF,
                 mutationCoordinator);
-        MazeResetService resetService = resetService(SMALL_MAZE_DATASET, smallMazeRuleService(), accessValidator);
+        MazeResetService resetService = resetService(smallMazeConfig().getInitDataset(), smallMazeRuleService(), accessValidator);
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
@@ -137,13 +138,18 @@ class MazeResetServiceTest {
                 accessValidator);
     }
 
-    private MazeRuleService smallMazeRuleService() {
+    private ServerConfiguration smallMazeConfig() throws Exception {
+        return ServerConfiguration.forScenarioPackage(SMALL_MAZE_SCENARIO);
+    }
+
+    private MazeRuleService smallMazeRuleService() throws Exception {
+        ServerConfiguration config = smallMazeConfig();
+        ScenarioPackage scenario = config.getScenarioPackage().orElseThrow();
         return new MazeRuleService(
                 repository,
-                "SmallMaze",
-                List.of("Global"),
-                List.of("unlock*", "stigmergy-traffic-increment*", "stigmergy-traffic-add*",
-                        "stigmergy-traffic-new*", "move*"));
+                scenario.ruleFiles(),
+                scenario.root(),
+                config.getRuleExecutionOrder());
     }
 
     private void createTestCellGraph() {
@@ -212,7 +218,7 @@ class MazeResetServiceTest {
         private final CountDownLatch releaseRule = new CountDownLatch(1);
 
         private BlockingRuleService(SailRepository repository) {
-            super(repository, "MissingMaze", List.of(), List.of());
+            super(repository, java.util.List.of(), Path.of("."), java.util.List.of());
         }
 
         @Override

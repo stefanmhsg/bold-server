@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayInputStream;
 import java.net.URI;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -21,8 +22,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.maze.domain.model.PostResult;
 import org.maze.domain.vocab.MazeVocab;
+import org.maze.infrastructure.config.ServerConfiguration;
 import org.maze.infrastructure.rdf.DataLoader;
 import org.maze.infrastructure.rdf.RepositoryFactory;
+import org.maze.infrastructure.scenario.ScenarioPackage;
 
 class PostHandlerAccessTest {
 
@@ -33,6 +36,7 @@ class PostHandlerAccessTest {
     private static final String NOT_CURRENT_SOURCE = BASE + "/cells/0/2";
     private static final String BOB = BASE + "/agents/bob";
     private static final String TEST_NOTE = "http://example.org/test#note";
+    private static final Path SMALL_MAZE_SCENARIO = Path.of("scenarios/smallmaze");
 
     private SailRepository repository;
     private PostHandler postHandler;
@@ -44,9 +48,10 @@ class PostHandlerAccessTest {
         logTestStart();
 
         repository = new RepositoryFactory().createRepository(null);
+        ServerConfiguration config = smallMazeConfig();
         new DataLoader().loadData(
                 repository,
-                "data/SmallMaze.trig",
+                config.getInitDataset(),
                 URI.create(BASE + "/gsp/"));
 
         MazeRuleService ruleService = smallMazeRuleService();
@@ -135,7 +140,7 @@ class PostHandlerAccessTest {
 
     @Test
     void movementRequestRollsBackWhenNoMovementRuleMaterializesIt() throws Exception {
-        MazeRuleService noRules = new MazeRuleService(repository, "MissingMaze", List.of(), List.of());
+        MazeRuleService noRules = new MazeRuleService(repository, List.of(), Path.of("."), List.of());
         AccessValidator accessValidator = new AccessValidator(repository, new SparqlService(repository));
         PostHandler noRulePostHandler = new PostHandler(repository, noRules, accessValidator);
 
@@ -148,13 +153,18 @@ class PostHandlerAccessTest {
         assertNoMovementRequestTriple(BOB, MAZE, START);
     }
 
-    private MazeRuleService smallMazeRuleService() {
+    private ServerConfiguration smallMazeConfig() throws Exception {
+        return ServerConfiguration.forScenarioPackage(SMALL_MAZE_SCENARIO);
+    }
+
+    private MazeRuleService smallMazeRuleService() throws Exception {
+        ServerConfiguration config = smallMazeConfig();
+        ScenarioPackage scenario = config.getScenarioPackage().orElseThrow();
         return new MazeRuleService(
                 repository,
-                "SmallMaze",
-                List.of("Global"),
-                List.of("unlock*", "stigmergy-traffic-increment*", "stigmergy-traffic-add*",
-                        "stigmergy-traffic-new*", "move*"));
+                scenario.ruleFiles(),
+                scenario.root(),
+                config.getRuleExecutionOrder());
     }
 
     private void runStartupRules(MazeRuleService ruleService) {

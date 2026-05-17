@@ -27,7 +27,6 @@ class ServerConfigurationTest {
         Files.writeString(scenario.resolve("scenario.properties"),
                 "mase.scenario.id = packaged\n"
                         + "mase.init.dataset = data/packaged.trig\n"
-                        + "mase.rules.path = rules/**/*.rq\n"
                         + "mase.rules.execution.order = unlock*, move*\n"
                         + "mase.transaction.trace = off\n",
                 StandardCharsets.UTF_8);

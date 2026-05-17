@@ -7,5 +7,13 @@
     "data": ["data/MidMaze.trig"],
     "rules": ["rules/**/*.rq"]
   },
+  "agents": [
+    {
+      "id": "bob-dfs",
+      "type": "java-main",
+      "mainClass": "org.maze.scenarios.midmaze.agents.SampleDfsAgentBob",
+      "gradleTask": "runMidMazeBobAgent"
+    }
+  ],
   "warnings": []
 }

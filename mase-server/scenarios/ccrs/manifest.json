@@ -12,17 +12,17 @@
     {
       "id": "ccrs-agent",
       "type": "java-main",
-      "mainClass": "org.maze.examples.CcrsAgent"
+      "mainClass": "org.maze.scenarios.ccrs.agents.CcrsAgent"
     },
     {
       "id": "keyholder-agent",
       "type": "java-main",
-      "mainClass": "org.maze.examples.KeyHolderAgent"
+      "mainClass": "org.maze.scenarios.ccrs.agents.KeyHolderAgent"
     },
     {
       "id": "a2a-key-seeker",
       "type": "java-main",
-      "mainClass": "org.maze.examples.A2AKeySeekerAgent"
+      "mainClass": "org.maze.scenarios.ccrs.agents.A2AKeySeekerAgent"
     }
   ],
   "warnings": []

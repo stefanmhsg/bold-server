@@ -24,6 +24,7 @@ This matters for CCRS and other simulation runs because agents can mutate the RD
 - [x] (2026-05-17) Added a trigger-only viewer button in [MASE-VIEWER.md](../mase-viewer/MASE-VIEWER.md)'s scope that calls `POST /admin/maze/reset`.
 - [x] (2026-05-17) Updated the viewer reset flow so Export logs and Discard logs trigger the endpoint and then fully reset client state.
 - [x] (2026-05-17) Added independent viewer log export and made Clear Tables non-destructive for archived logs.
+- [x] (2026-05-17) Aligned reset documentation with scenario-package-only startup and package-local datasets/rules.
 
 ## Surprises & Discoveries
 
@@ -91,7 +92,7 @@ The server reset endpoint has been implemented and validated. The viewer reset U
 
 ## Context and Orientation
 
-The `mase-server` module is a Java 21 Gradle application. The main class is `org.maze.Configurator` in `mase-server/src/main/java/org/maze/Configurator.java`. At startup, it reads a `sim-*.properties` file through `mase-server/src/main/java/org/maze/infrastructure/config/ServerConfiguration.java`. For CCRS, `mase-server/sim-CcrsMaze.properties` sets `mase.init.dataset = data/CcrsMazeV1.trig` and defines rule execution order.
+The `mase-server` module is a Java 21 Gradle application. The main class is `org.maze.Configurator` in `mase-server/src/main/java/org/maze/Configurator.java`. At startup, it resolves a scenario package through `--scenario <folder>`, `MASE_SCENARIO_DIR`, or the default `scenarios/smallmaze`, then reads that package's `scenario.properties` through `mase-server/src/main/java/org/maze/infrastructure/config/ServerConfiguration.java`. For CCRS, `mase-server/scenarios/ccrs/scenario.properties` sets `mase.init.dataset = data/CcrsMazeV1.trig` and defines rule execution order.
 
 RDF4J is the RDF store library used by the server. The repository is currently an in-memory RDF4J `MemoryStore`, created by `mase-server/src/main/java/org/maze/infrastructure/rdf/RepositoryFactory.java`. The store is wrapped by `MazeNotifyingSail`, which observes statement changes and lets `MazeUpdateListener` broadcast WebSocket events after commits.
 
@@ -141,7 +142,7 @@ Work from the repository root unless a command says otherwise.
 
 2. Add the reset service, loader refactor, and write coordinator. Keep edits scoped to `mase-server/src/main/java/org/maze/application`, `mase-server/src/main/java/org/maze/infrastructure/rdf`, `mase-server/src/main/java/org/maze/infrastructure/web`, and `mase-server/src/main/java/org/maze/api/admin`.
 
-3. Add or update tests under `mase-server/src/test/java`. Prefer focused unit tests that construct a `SailRepository`, load `data/SmallMaze.trig` or `data/CcrsMazeV1.trig`, mutate it, reset it, and assert that known starting triples are restored while mutation triples are gone.
+3. Add or update tests under `mase-server/src/test/java`. Prefer focused unit tests that construct a `SailRepository`, load package-local datasets such as `scenarios/smallmaze/data/SmallMaze.trig` or `scenarios/ccrs/data/CcrsMazeV1.trig`, mutate it, reset it, and assert that known starting triples are restored while mutation triples are gone.
 
 4. Run compilation:
 
@@ -164,7 +165,7 @@ Work from the repository root unless a command says otherwise.
 6. Manually exercise the endpoint after implementation:
 
         cd mase-server
-        ./gradlew runMase --args="sim-CcrsMaze"
+        ./gradlew runMase --args="--scenario scenarios/ccrs"
 
    In another shell, fetch the current admin snapshot:
 
@@ -178,11 +179,11 @@ Work from the repository root unless a command says otherwise.
 
         curl http://localhost:8080/admin/maze
 
-   The final snapshot should reflect the starting CCRS scenario from `data/CcrsMazeV1.trig`, including starting counter and UI state after startup rules.
+   The final snapshot should reflect the starting CCRS scenario from `scenarios/ccrs/data/CcrsMazeV1.trig`, including starting counter and UI state after startup rules.
 
 ## Validation and Acceptance
 
-The server feature is accepted when `POST /admin/maze/reset` restores the repository to the scenario configured in the active `sim-*.properties` file without restarting the server process. For `sim-CcrsMaze`, that means reloading `mase-server/data/CcrsMazeV1.trig` unless the property file has been changed.
+The server feature is accepted when `POST /admin/maze/reset` restores the repository to the scenario configured in the active scenario package without restarting the server process. For the CCRS package, that means reloading `mase-server/scenarios/ccrs/data/CcrsMazeV1.trig` unless the package properties have been changed.
 
 The reset must be atomic from the perspective of other writers. A concurrent agent POST must either complete before reset begins or wait until reset finishes. It must not observe an empty or half-loaded store, and reset must not erase changes committed after reset completion.
 
@@ -210,7 +211,7 @@ If a reset attempt fails while the server is running, inspect server logs for th
 
 Current CCRS configuration:
 
-    mase-server/sim-CcrsMaze.properties
+    mase-server/scenarios/ccrs/scenario.properties
     mase.init.dataset = data/CcrsMazeV1.trig
     mase.rules.execution.order= normalize_maze_locks*, ccrs*, unlock*, cleanup*, move*
 

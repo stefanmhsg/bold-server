@@ -103,8 +103,7 @@ class ScenarioPackageResolverTest {
         Files.createDirectories(scenario.resolve("rules"));
         Files.writeString(scenario.resolve("scenario.properties"),
                 "mase.scenario.id = " + id + "\n"
-                        + "mase.init.dataset = data/" + id + ".trig\n"
-                        + "mase.rules.path = rules/**/*.rq\n",
+                        + "mase.init.dataset = data/" + id + ".trig\n",
                 StandardCharsets.UTF_8);
         Files.writeString(scenario.resolve("data/" + id + ".trig"), "@prefix ex: <http://example.org/> .\n", StandardCharsets.UTF_8);
         return scenario;

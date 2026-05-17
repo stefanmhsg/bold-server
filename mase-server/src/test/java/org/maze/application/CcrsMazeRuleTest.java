@@ -3,6 +3,7 @@ package org.maze.application;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -15,7 +16,9 @@ import org.junit.jupiter.api.Test;
 import org.maze.domain.model.SparqlResult;
 import org.maze.domain.rules.MazeRule;
 import org.maze.domain.vocab.MazeVocab;
+import org.maze.infrastructure.config.ServerConfiguration;
 import org.maze.infrastructure.rdf.RepositoryFactory;
+import org.maze.infrastructure.scenario.ScenarioPackage;
 import org.maze.infrastructure.storage.MazeRuleLoader;
 
 class CcrsMazeRuleTest {
@@ -23,21 +26,28 @@ class CcrsMazeRuleTest {
     @Test
     void ccrsMaintenanceRulesAreDiscoveredAndExecutable() throws Exception {
         MazeRuleLoader loader = new MazeRuleLoader();
+        ScenarioPackage scenario = ServerConfiguration.forScenarioPackage(Path.of("scenarios/ccrs"))
+                .getScenarioPackage()
+                .orElseThrow();
 
-        assertTrue(loader.discoverRuleFiles("CcrsMaze").contains("CcrsMaze/unlock-keys.rq"));
-        assertTrue(loader.discoverRuleFiles("CcrsMaze").contains("CcrsMaze/cleanup-move-success-events.rq"));
-        assertFalse(loader.discoverRuleFiles("CcrsMaze").contains("CcrsMaze/unlock-redkey.rq"));
-        assertFalse(loader.discoverRuleFiles("CcrsMaze").contains("CcrsMaze/unlock-bluekey.rq"));
-        assertFalse(loader.discoverRuleFiles("CcrsMaze").contains("CcrsMaze/unlock-greenkey.rq"));
+        List<String> discovered = loader.discoverPackageRuleFiles(scenario.root()).stream()
+                .map(path -> scenario.root().relativize(path).toString().replace('\\', '/'))
+                .toList();
+
+        assertTrue(discovered.contains("rules/scenario/unlock-keys.rq"));
+        assertTrue(discovered.contains("rules/scenario/cleanup-move-success-events.rq"));
+        assertFalse(discovered.contains("rules/scenario/unlock-redkey.rq"));
+        assertFalse(discovered.contains("rules/scenario/unlock-bluekey.rq"));
+        assertFalse(discovered.contains("rules/scenario/unlock-greenkey.rq"));
 
         SailRepository repository = new RepositoryFactory().createRepository(null);
         SparqlService sparqlService = new SparqlService(repository);
 
-        MazeRule unlockRule = loader.loadRule("CcrsMaze/unlock-keys.rq");
+        MazeRule unlockRule = loader.loadRule(scenario.root().resolve("rules/scenario/unlock-keys.rq"), scenario.root());
         SparqlResult unlockResult = sparqlService.executeQuery(unlockRule.getSparqlQuery(), "text/plain");
         assertTrue(unlockResult.success(), unlockResult.errorMessage());
 
-        MazeRule cleanupRule = loader.loadRule("CcrsMaze/cleanup-move-success-events.rq");
+        MazeRule cleanupRule = loader.loadRule(scenario.root().resolve("rules/scenario/cleanup-move-success-events.rq"), scenario.root());
         SparqlResult cleanupResult = sparqlService.executeQuery(cleanupRule.getSparqlQuery(), "text/plain");
         assertTrue(cleanupResult.success(), cleanupResult.errorMessage());
     }
@@ -45,8 +55,11 @@ class CcrsMazeRuleTest {
     @Test
     void cleanupRemovesMoveSuccessEventsAfterTheyCanTriggerRelock() throws Exception {
         MazeRuleLoader loader = new MazeRuleLoader();
-        MazeRule unlockRule = loader.loadRule("CcrsMaze/unlock-keys.rq");
-        MazeRule cleanupRule = loader.loadRule("CcrsMaze/cleanup-move-success-events.rq");
+        ScenarioPackage scenario = ServerConfiguration.forScenarioPackage(Path.of("scenarios/ccrs"))
+                .getScenarioPackage()
+                .orElseThrow();
+        MazeRule unlockRule = loader.loadRule(scenario.root().resolve("rules/scenario/unlock-keys.rq"), scenario.root());
+        MazeRule cleanupRule = loader.loadRule(scenario.root().resolve("rules/scenario/cleanup-move-success-events.rq"), scenario.root());
         SailRepository repository = new RepositoryFactory().createRepository(null);
         ValueFactory vf = repository.getValueFactory();
 
@@ -118,20 +131,27 @@ class CcrsMazeRuleTest {
 
     @Test
     void ccrsRuleOrderingRunsCleanupAfterUnlockAndBeforeMove() {
+        ServerConfiguration config;
+        try {
+            config = ServerConfiguration.forScenarioPackage(Path.of("scenarios/ccrs"));
+        } catch (Exception e) {
+            throw new AssertionError("Failed to resolve CCRS package", e);
+        }
+        ScenarioPackage scenario = config.getScenarioPackage().orElseThrow();
         SailRepository repository = new RepositoryFactory().createRepository(null);
         MazeRuleService ruleService = new MazeRuleService(
                 repository,
-                "CcrsMaze",
-                List.of("Global"),
-                List.of("normalize_maze_locks*", "ccrs*", "unlock*", "cleanup*", "move*"));
+                scenario.ruleFiles(),
+                scenario.root(),
+                config.getRuleExecutionOrder());
 
         List<String> ruleNames = ruleService.getRules().stream()
                 .map(MazeRule::getName)
                 .toList();
 
-        int unlockIndex = ruleNames.indexOf("CcrsMaze/unlock-keys");
-        int cleanupIndex = ruleNames.indexOf("CcrsMaze/cleanup-move-success-events");
-        int moveIndex = ruleNames.indexOf("Global/move");
+        int unlockIndex = ruleNames.indexOf("rules/scenario/unlock-keys");
+        int cleanupIndex = ruleNames.indexOf("rules/scenario/cleanup-move-success-events");
+        int moveIndex = ruleNames.indexOf("rules/global/move");
 
         assertTrue(unlockIndex >= 0);
         assertTrue(cleanupIndex > unlockIndex);

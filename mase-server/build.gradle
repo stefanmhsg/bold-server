@@ -17,6 +17,22 @@ repositories {
     mavenCentral()
 }
 
+def scenarioAgentSourceDirs = [
+    'scenarios/smallmaze/agents/src/main/java',
+    'scenarios/midmaze/agents/src/main/java',
+    'scenarios/bigmaze/agents/src/main/java',
+    'scenarios/masecreator/agents/src/main/java',
+    'scenarios/ccrs/agents/src/main/java'
+]
+
+sourceSets {
+    main {
+        java {
+            srcDirs += scenarioAgentSourceDirs
+        }
+    }
+}
+
 dependencies {
     // Testing - Upgrade to JUnit 5 (Jupiter)
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
@@ -60,13 +76,9 @@ application {
 distributions {
     main {
         contents {
-            // copies relevant configuration files to dist folder
-            from('data') { into('data') }
+            // Copies self-contained scenario packages to the distribution.
             from('scenarios') { into('scenarios') }
             from('query') { into('query') }
-            from('.') { include('*.properties') }
-            // Extract rules from resources to distribution
-            from('src/main/resources/rules') { into('src/main/resources/rules') }
         }
     }
 }
@@ -110,11 +122,39 @@ tasks.register('runMase', JavaExec) {
     dependsOn 'installDist'
 }
 
-tasks.register('runBobAgent', JavaExec) {
+tasks.register('runSmallMazeBobAgent', JavaExec) {
     group = 'application'
-    description = 'Run sample dfs agent bob against a running server.'
+    description = 'Run SmallMaze DFS agent bob against a running server.'
     classpath = sourceSets.main.runtimeClasspath
-    mainClass.set('org.maze.examples.SampleDfsAgentBob')
+    mainClass.set('org.maze.scenarios.smallmaze.agents.SampleDfsAgentBob')
+    configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/smallmaze')
+    dependsOn 'classes'
+}
+
+tasks.register('runMidMazeBobAgent', JavaExec) {
+    group = 'application'
+    description = 'Run MidMaze DFS agent bob against a running server.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('org.maze.scenarios.midmaze.agents.SampleDfsAgentBob')
+    configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/midmaze')
+    dependsOn 'classes'
+}
+
+tasks.register('runBigMazeBobAgent', JavaExec) {
+    group = 'application'
+    description = 'Run BigMaze DFS agent bob against a running server.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('org.maze.scenarios.bigmaze.agents.SampleDfsAgentBob')
+    configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/bigmaze')
+    dependsOn 'classes'
+}
+
+tasks.register('runMaseCreatorBobAgent', JavaExec) {
+    group = 'application'
+    description = 'Run MaseCreator DFS agent bob against a running server.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('org.maze.scenarios.masecreator.agents.SampleDfsAgentBob')
+    configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/masecreator')
     dependsOn 'classes'
 }
 
@@ -122,7 +162,7 @@ tasks.register('runCcrsAgent', JavaExec) {
     group = 'application'
     description = 'Run sample ccrs agent against a running server.'
     classpath = sourceSets.main.runtimeClasspath
-    mainClass.set('org.maze.examples.CcrsAgent')
+    mainClass.set('org.maze.scenarios.ccrs.agents.CcrsAgent')
     configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/ccrs')
     dependsOn 'classes'
 }
@@ -131,7 +171,7 @@ tasks.register('runKeyHolderAgent', JavaExec) {
     group = 'application'
     description = 'Run key holder agent with A2A endpoint and maze holding behavior.'
     classpath = sourceSets.main.runtimeClasspath
-    mainClass.set('org.maze.examples.KeyHolderAgent')
+    mainClass.set('org.maze.scenarios.ccrs.agents.KeyHolderAgent')
     configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/ccrs')
     dependsOn 'classes'
 }
@@ -140,7 +180,7 @@ tasks.register('runA2AKeySeekerAgent', JavaExec) {
     group = 'application'
     description = 'Run A2A key seeker agent that requests key from key holder and stops at cell 36/36.'
     classpath = sourceSets.main.runtimeClasspath
-    mainClass.set('org.maze.examples.A2AKeySeekerAgent')
+    mainClass.set('org.maze.scenarios.ccrs.agents.A2AKeySeekerAgent')
     configureScenarioAgentEnvironment(delegate as JavaExec, 'scenarios/ccrs')
     dependsOn 'classes'
 }

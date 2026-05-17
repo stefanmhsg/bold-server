@@ -114,7 +114,7 @@ class PostHandlerConcurrencyTest {
         private final AtomicInteger maxConcurrent = new AtomicInteger();
 
         private BlockingRuleService(SailRepository repository) {
-            super(repository, "MissingMaze", List.of(), List.of());
+            super(repository, List.of(), java.nio.file.Path.of("."), List.of());
         }
 
         @Override
