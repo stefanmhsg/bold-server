@@ -26,9 +26,11 @@ The first command is the current compatibility path. The second command is the n
 
 - [x] (2026-05-17 15:41+02:00) Investigated creator WP6/WP8 notes, existing server docs, startup configuration, data loading, rule loading, Docker entry points, and example-agent coupling.
 - [x] (2026-05-17 15:41+02:00) Created this `mase-server` directory-scope ExecPlan and cross-linked the feature-specific creator and admin reset plans.
+- [x] (2026-05-17 16:51+02:00) Clarified the rule package contract: every `.rq` file under `rules/` is active and loaded recursively; `rules-disabled/` is ignored and reserved for deactivated or work-in-progress rules.
 - [ ] Define the exact scenario package contract and document it in `mase-server/README.md`.
 - [ ] Add a scenario package resolver that can load `scenario.properties`, `manifest.json`, data paths, rule paths, validation assets, and package metadata from one root folder.
 - [ ] Refactor `ServerConfiguration` and `Configurator` so startup accepts either legacy `sim-*` task names or `--scenario <folder>` without changing existing commands.
+- [ ] Investigate whether `mase.server.protocol = ldp` still changes runtime behavior; if it is unused, remove the flag end to end from properties files, configuration APIs, docs, and package examples.
 - [ ] Refactor rule loading so package mode discovers and loads `.rq` files from the selected scenario folder instead of classpath resources or `src/main/resources/rules`.
 - [ ] Migrate built-in scenarios into package folders while leaving legacy files in place until compatibility is proven.
 - [ ] Add package-mode tests for startup configuration, data loading, rule discovery, rule ordering, reset behavior, and missing-file diagnostics.
@@ -52,6 +54,9 @@ The first command is the current compatibility path. The second command is the n
 - Observation: Current runtime properties are root-level `sim-*.properties` files, not scenario-local files.
   Evidence: `ServerConfiguration` opens `taskName + ".properties"` with `new FileInputStream(configFile)`.
 
+- Observation: `mase.server.protocol` appears to be read by `ServerConfiguration` but not used elsewhere in the current Java code.
+  Evidence: Searching for `getServerProtocol`, `mase.server.protocol`, and `SERVER_PROTOCOL` found only [ServerConfiguration.java](src/main/java/org/maze/infrastructure/config/ServerConfiguration.java) and the root `sim-*.properties` files.
+
 - Observation: Example agents are independent Java processes already, but their source and Gradle tasks are still compiled inside `mase-server` and several agents contain scenario-specific constants.
   Evidence: [build.gradle](build.gradle) defines `runCcrsAgent`, `runKeyHolderAgent`, and `runA2AKeySeekerAgent`; [CcrsAgent.java](src/main/java/org/maze/examples/CcrsAgent.java) and [KeyHolderAgent.java](src/main/java/org/maze/examples/KeyHolderAgent.java) contain hard-coded base URIs, guided coordinates, key values, target coordinates, and A2A defaults.
 
@@ -74,6 +79,14 @@ The first command is the current compatibility path. The second command is the n
 
 - Decision: Use `scenario.properties` as the authoritative runtime configuration file inside a package, with `manifest.json` reserved for metadata, generated-file lists, warnings, and creator provenance.
   Rationale: The server already uses Java properties for runtime values such as dataset, protocol, trace mode, and rule order. Keeping runtime configuration in properties minimizes parser changes and keeps package startup easy to inspect. JSON metadata remains useful for creator/export tooling and UI display.
+  Date/Author: 2026-05-17 / Codex
+
+- Decision: Do not carry `mase.server.protocol` into the package contract unless the implementation audit proves it still has a real runtime effect.
+  Rationale: Package configuration should not preserve inert compatibility flags. If `mase.server.protocol = ldp` is unused, removing it end to end reduces scenario boilerplate and avoids implying that other protocol modes exist.
+  Date/Author: 2026-05-17 / Codex
+
+- Decision: All `.rq` files under `rules/` are active and loaded recursively; `rules-disabled/` is the standard non-loaded holding area.
+  Rationale: Scenario authors should be free to organize active rules directly under `rules/` or in any nested subdirectories without changing server configuration. Rules that should be deactivated or kept as work in progress belong under `rules-disabled/`, which package mode ignores by default.
   Date/Author: 2026-05-17 / Codex
 
 - Decision: Treat scenario-owned Java agents as package-adjacent executable artifacts in the first server milestone, not as Java classes dynamically compiled or loaded by the server at runtime.
@@ -112,8 +125,13 @@ The target package layout should be explicit and local. The recommended first fo
         <scenario-id>.trig
       rules/
         *.rq
-        optional-subfolder/
+        any-subdirectory/
           *.rq
+          deeper-subdirectory/
+            *.rq
+      rules-disabled/
+        README.md
+        *.rq
       validation/
         README.md
         *.rq
@@ -130,6 +148,8 @@ In package mode, paths in `scenario.properties` are resolved relative to the pac
     mase.rules.path = rules/**/*.rq
     mase.rules.execution.order = normalize_maze_locks*, ccrs*, unlock*, cleanup*, move*
     mase.transaction.trace = summary
+
+The `rules/` directory is the active rule tree. Every `.rq` file below `rules/` is loaded recursively, whether it is directly in `rules/` or in any nested subdirectory. Subdirectories inside `rules/` are only for organization, not activation control. A package may keep draft, alternative, deactivated, or work-in-progress rules in `rules-disabled/`; package mode must ignore that directory by default. If a user wants to reactivate a disabled rule, they move or copy it back under `rules/`.
 
 The `manifest.json` should not be required to start the server in the first milestone. It should carry package metadata, creator/export provenance, generated-file lists, warnings, and optional agent descriptors. This keeps runtime startup robust even when a human hand-edits a package.
 
@@ -155,7 +175,9 @@ First, add a scenario package model under [config package](src/main/java/org/maz
 
 Next, separate "where configuration came from" from the current `ServerConfiguration` shape. Keep a legacy constructor or factory for task names, but add a package-aware factory that reads `scenario.properties` from a known folder. The configuration object should remember the scenario root when package mode is active so dataset and rule paths can be resolved relative to that root. Avoid resolving package-relative paths against the process working directory after the initial scenario root is known.
 
-Then, refactor rule loading. `MazeRuleLoader` should support loading rule text from filesystem paths in addition to classpath resources. Existing tests such as [CcrsMazeRuleTest.java](src/test/java/org/maze/application/CcrsMazeRuleTest.java) should continue to pass for legacy mode. New tests should prove that package mode loads rules from a temporary `rules/` directory and that deleting or renaming [move.rq](src/main/resources/rules/Global/move.rq) in the test setup is not required for correctness. Rule names in package mode should be stable relative paths under the scenario rule root, such as `rules/move.rq` or `rules/core/move.rq`, because transaction traces and rule order logs use rule names for diagnostics.
+As part of the configuration refactor, audit `mase.server.protocol`. Search the codebase for all reads of the property and for any behavior that branches on `ldp`. If the property is only parsed by [ServerConfiguration.java](src/main/java/org/maze/infrastructure/config/ServerConfiguration.java) and never affects endpoint registration, content negotiation, graph-store behavior, or linked-data dereferencing, remove `SERVER_PROTOCOL_KEY`, `getServerProtocol()`, all `mase.server.protocol = ldp` entries in legacy properties files, package contract examples, and README references. If a real behavior still depends on the property, document that behavior and keep the flag in both legacy and package configuration.
+
+Then, refactor rule loading. `MazeRuleLoader` should support loading rule text from filesystem paths in addition to classpath resources. Existing tests such as [CcrsMazeRuleTest.java](src/test/java/org/maze/application/CcrsMazeRuleTest.java) should continue to pass for legacy mode. New tests should prove that package mode loads rules from a temporary `rules/` directory recursively and that deleting or renaming [move.rq](src/main/resources/rules/Global/move.rq) in the test setup is not required for correctness. Rule names in package mode should be stable relative paths under the scenario rule root, such as `rules/move.rq`, `rules/core/move.rq`, or `rules/custom/mechanics/redirect.rq`, because transaction traces and rule order logs use rule names for diagnostics.
 
 After rule loading works, wire package mode into `Configurator`. Command parsing can stay small: if the first argument is `--scenario`, use the second argument as the scenario root; otherwise preserve the legacy task-name behavior. If no arguments are passed, first check `MASE_SCENARIO_DIR`; if set, use that package, otherwise default to `sim-SmallMaze` for compatibility. Docker can then set either `TASKNAME=sim-CcrsMaze` or `MASE_SCENARIO_DIR=scenarios/ccrs`.
 
@@ -175,28 +197,35 @@ Work from the repository root unless a command says otherwise.
 
    Expect to see `Configurator` handling task parsing, `ServerConfiguration` loading root-level properties, and `MazeRuleLoader` reading from `/rules/`.
 
-2. Add scenario package tests before changing startup:
+2. Audit the protocol flag:
+
+        rg -n "getServerProtocol|SERVER_PROTOCOL|server protocol|protocol" mase-server/src/main/java mase-server/src/test/java mase-server/README.md
+        rg -n "mase\\.server\\.protocol" mase-server -g "*.properties"
+
+   If only `ServerConfiguration` and properties files reference `mase.server.protocol`, remove the property end to end as part of the configuration cleanup. If other runtime code uses it, document that behavior and keep it in the package contract.
+
+3. Add scenario package tests before changing startup:
 
         cd mase-server
         ./gradlew test --tests "*ScenarioPackage*"
 
    Initially these tests will not exist. After adding them, expect missing-file tests to pass without starting Jetty or loading RDF4J.
 
-3. Add package-aware rule loading tests:
+4. Add package-aware rule loading tests:
 
         cd mase-server
         ./gradlew test --tests "*ScenarioRule*"
 
-   The tests should create temporary `.rq` files and assert that `MazeRule` names, descriptions, rule types, and execution ordering are stable.
+   The tests should create temporary `.rq` files and assert that `MazeRule` names, descriptions, rule types, and execution ordering are stable. Include a package with `rules/root.rq`, `rules/core/active.rq`, `rules/custom/nested/also-active.rq`, and `rules-disabled/inactive.rq`; assert that package mode loads all three files under `rules/` and does not load `rules-disabled/inactive.rq`.
 
-4. Compile after each wiring milestone:
+5. Compile after each wiring milestone:
 
         cd mase-server
         ./gradlew compileJava
 
    Expected result is `BUILD SUCCESSFUL`.
 
-5. Run the server in legacy mode:
+6. Run the server in legacy mode:
 
         cd mase-server
         ./gradlew runMase --args="sim-SmallMaze"
@@ -207,7 +236,7 @@ Work from the repository root unless a command says otherwise.
 
    Expect HTTP 200 and a JSON admin snapshot for the SmallMaze scenario.
 
-6. Run the server in package mode after creating a packaged SmallMaze:
+7. Run the server in package mode after creating a packaged SmallMaze:
 
         cd mase-server
         ./gradlew runMase --args="--scenario scenarios/smallmaze"
@@ -218,13 +247,13 @@ Work from the repository root unless a command says otherwise.
 
    Expect HTTP 200 and a JSON admin snapshot equivalent to the legacy SmallMaze run.
 
-7. Exercise reset in package mode after the reset service is available:
+8. Exercise reset in package mode after the reset service is available:
 
         curl -X POST http://localhost:8080/admin/maze/reset
 
    Expect HTTP 200 and a fresh admin snapshot loaded from the package-local dataset and package-local rules.
 
-8. Run the full server test suite:
+9. Run the full server test suite:
 
         cd mase-server
         ./gradlew test
@@ -250,6 +279,10 @@ Package startup is accepted when:
 boots a packaged SmallMaze copy and `GET /admin/maze` returns a valid admin snapshot.
 
 Rule isolation is accepted when package mode can run with duplicated package-local rules and no implicit lookup in `src/main/resources/rules/Global`. A package can organize rules into subfolders, but all rule files used by that package must be under the package root.
+
+Rule deactivation is accepted when draft or temporarily disabled rules can be kept in a package without being loaded accidentally. With the proposed contract, package mode loads every `.rq` file under `rules/`, including nested subdirectories, and ignores every `.rq` file under `rules-disabled/`. The server should not support partial activation inside `rules/` in the first package contract; activation is controlled by moving files between `rules/` and `rules-disabled/`.
+
+Protocol cleanup is accepted when the audit either documents a real runtime behavior for `mase.server.protocol` or removes it completely. If removed, `rg -n "mase\\.server\\.protocol|getServerProtocol|SERVER_PROTOCOL" mase-server` should find no runtime property or getter references except historical notes in this plan if they remain useful.
 
 Reset compatibility is accepted when `POST /admin/maze/reset` reloads the selected package-local data and package-local rules without switching back to legacy paths.
 
@@ -299,6 +332,7 @@ Feasibility summary:
 
     Feasible: data paths, reset dataset reload, package metadata, package-local docs, Docker env selection.
     Moderate refactor: configuration source, package-relative path resolution, rule discovery and rule loading.
+    Likely cleanup: mase.server.protocol appears unused and should be removed if the implementation audit confirms that no runtime behavior depends on it.
     Larger design choice: scenario-owned Java agents. Keep them out of server dynamic loading initially; run them as independent Java processes with package-local scripts and metadata.
 
 ## Interfaces and Dependencies
@@ -342,3 +376,7 @@ At the end of Milestone 3, `MazeRuleLoader` should support both legacy resource 
 In package mode, additional legacy ruleset arguments should either be rejected with a clear message or treated as package-local rule groups only if the package contract explicitly defines them. Do not silently load shared `Global` rules in package mode.
 
 Revision note, 2026-05-17: Initiated this server-scope plan after investigating creator WP6 and current `mase-server` feasibility. The plan records a staged path for self-contained scenario folders while preserving legacy `sim-*` startup and pointing to [PLAN_ADMIN_RESET.md](PLAN_ADMIN_RESET.md) for reset-specific work.
+
+Revision note, 2026-05-17: Added the requested `mase.server.protocol = ldp` audit/removal task and clarified that nested folders under the active rules path are loaded. The package contract now uses `rules-disabled/` as the safe place for deactivated or draft rules that should not match `mase.rules.path = rules/**/*.rq`.
+
+Revision note, 2026-05-17: Tightened the rule contract per user direction: every `.rq` file under `rules/` is loaded recursively, regardless of subdirectory structure, and `rules-disabled/` is the explicit deactivation and work-in-progress area.
