@@ -37,7 +37,8 @@ public class CcrsAgent {
     private static final String BASE_URI = "http://127.0.1.1:8080";
     private static final String MAZE_URI = BASE_URI + "/maze";
     private static final int MAX_STEPS = 2_000;
-    private static final long AGENT_DISPATCH_INTERVAL_MS = 3_000;
+    private static final long AGENT_DISPATCH_INTERVAL_MS = envLong("CCRS_AGENT_DISPATCH_INTERVAL_MS", 3_000);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(envLong("CCRS_AGENT_REQUEST_TIMEOUT_SECONDS", 10));
 
     private static final String RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
     private static final String KEY_VALUE = MazeVocab.DYNMAZE_NS + "keyValue";
@@ -109,6 +110,8 @@ public class CcrsAgent {
     private static void runConfiguredAgents() throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(AGENT_CONFIGS.size());
         try {
+            System.out.println("CCRS agent dispatch interval: " + AGENT_DISPATCH_INTERVAL_MS + " ms");
+            System.out.println("CCRS HTTP request timeout: " + REQUEST_TIMEOUT.toSeconds() + " s");
             List<Future<String>> results = new ArrayList<>();
             for (AgentConfig config : AGENT_CONFIGS) {
                 Future<String> future = executor.submit(() -> {
@@ -264,7 +267,7 @@ public class CcrsAgent {
 
     private ParsedCell getCell(String cellUri) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(cellUri))
-                .timeout(Duration.ofSeconds(10))
+                .timeout(REQUEST_TIMEOUT)
                 .GET()
             .header("Authorization", agentName)
                 .header("Accept", "text/turtle")
@@ -281,7 +284,7 @@ public class CcrsAgent {
 
     private String fetchStartCellFromMaze() throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(MAZE_URI))
-                .timeout(Duration.ofSeconds(10))
+                .timeout(REQUEST_TIMEOUT)
                 .GET()
             .header("Authorization", agentName)
                 .header("Accept", "text/turtle")
@@ -306,7 +309,7 @@ public class CcrsAgent {
         String agentIri = buildAgentIri(fromCell);
         String turtle = "<" + agentIri + "> <" + MazeVocab.ENTERS_FROM + "> <" + fromCell + "> .\n";
         HttpRequest request = HttpRequest.newBuilder(URI.create(toCell))
-                .timeout(Duration.ofSeconds(10))
+                .timeout(REQUEST_TIMEOUT)
                 .header("Authorization", agentName)
                 .header("Content-Type", "text/turtle")
                 .POST(HttpRequest.BodyPublishers.ofString(turtle))
@@ -340,7 +343,7 @@ public class CcrsAgent {
 
         String turtle = "<" + parsedCell.lockTargetCell() + "> <" + KEY_VALUE + "> \"" + keyValue + "\" .\n";
         HttpRequest request = HttpRequest.newBuilder(URI.create(parsedCell.lockTargetCell()))
-                .timeout(Duration.ofSeconds(10))
+                .timeout(REQUEST_TIMEOUT)
                 .header("Authorization", agentName)
                 .header("Content-Type", "text/turtle")
                 .POST(HttpRequest.BodyPublishers.ofString(turtle))
@@ -374,6 +377,19 @@ public class CcrsAgent {
 
     private static IRI iri(String value) {
         return SimpleValueFactory.getInstance().createIRI(value);
+    }
+
+    private static long envLong(String name, long defaultValue) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ex) {
+            System.out.println("Ignoring invalid " + name + "=" + value + "; using " + defaultValue);
+            return defaultValue;
+        }
     }
 
     private String buildAgentIri(String cellOrMazeUri) {

@@ -12,6 +12,53 @@ Data: [CcrsMaze.trig](mase-server/data/CcrsMaze.trig)
 
 Infrastructure Agents: [CcrsAgent.java](mase-server/src/main/java/org/maze/examples/CcrsAgent.java)
 
+## Run with Docker Compose
+
+Start the CCRS scenario stack from the repository root:
+
+```shell
+docker compose -f docker-compose.ccrs.yml up --build
+```
+
+This starts:
+
+- `mase-server` with `TASKNAME=sim-CcrsMaze`
+- `ccrs-agent` after a short server startup delay, with Docker-safe request timing
+- `keyholder-agent` roughly one minute after the CCRS infrastructure agents start
+
+The Keyholder A2A endpoint is exposed on http://127.0.0.1:8095.
+
+Start the viewer only when needed:
+
+```shell
+docker compose -f docker-compose.ccrs.yml --profile viewer up --build -d mase-viewer
+```
+
+The viewer is available on http://localhost:3000 and can be left running while the CCRS server and setup agents are reset.
+
+To reset the scenario after one experiment-agent run, stop and remove the stack, then start it again:
+
+```shell
+docker compose -f docker-compose.ccrs.yml rm -sf mase-server ccrs-agent keyholder-agent
+docker compose -f docker-compose.ccrs.yml up --build -d mase-server ccrs-agent keyholder-agent
+```
+
+The startup delays can be adjusted with environment variables:
+
+```shell
+$env:CCRS_AGENT_START_DELAY = "15"
+$env:KEYHOLDER_AGENT_START_DELAY = "75"
+docker compose -f docker-compose.ccrs.yml up --build
+```
+
+The CCRS infrastructure agent keeps the Gradle defaults of 3 seconds between spawned agents and 10 seconds per HTTP request unless overridden. The Docker Compose CCRS file uses more conservative defaults because the server and agents share Docker Desktop resources:
+
+```shell
+$env:CCRS_AGENT_DISPATCH_INTERVAL_MS = "5000"
+$env:CCRS_AGENT_REQUEST_TIMEOUT_SECONDS = "60"
+docker compose -f docker-compose.ccrs.yml up --build
+```
+
 ## Run with Gradle
 
 1. Start the server:

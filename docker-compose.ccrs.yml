@@ -1,0 +1,51 @@
+services:
+  mase-server:
+    build:
+      context: ./mase-server
+      dockerfile: Dockerfile
+    container_name: mase-server-ccrs
+    environment:
+      TASKNAME: sim-CcrsMaze
+    ports:
+      - "8080:8080"
+      - "8095:8095"
+
+  mase-viewer:
+    build:
+      context: ./mase-viewer
+      dockerfile: Dockerfile
+    container_name: mase-viewer-ccrs
+    profiles:
+      - viewer
+    depends_on:
+      - mase-server
+    ports:
+      - "3000:3000"
+
+  ccrs-agent:
+    build:
+      context: ./mase-server
+      dockerfile: Dockerfile
+    environment:
+      CCRS_AGENT_DISPATCH_INTERVAL_MS: ${CCRS_AGENT_DISPATCH_INTERVAL_MS:-5000}
+      CCRS_AGENT_REQUEST_TIMEOUT_SECONDS: ${CCRS_AGENT_REQUEST_TIMEOUT_SECONDS:-60}
+    depends_on:
+      - mase-server
+    network_mode: "service:mase-server"
+    restart: "no"
+    command: >
+      sh -lc "sleep ${CCRS_AGENT_START_DELAY:-15};
+      java -cp '/opt/mase/install/mase-server/lib/*' org.maze.examples.CcrsAgent"
+
+  keyholder-agent:
+    build:
+      context: ./mase-server
+      dockerfile: Dockerfile
+    depends_on:
+      - mase-server
+      - ccrs-agent
+    network_mode: "service:mase-server"
+    restart: "no"
+    command: >
+      sh -lc "sleep ${KEYHOLDER_AGENT_START_DELAY:-75};
+      java -cp '/opt/mase/install/mase-server/lib/*' org.maze.examples.KeyHolderAgent"

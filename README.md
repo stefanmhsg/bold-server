@@ -7,7 +7,7 @@ Run [MASE server](mase-server/README.md) and [MASE viewer](mase-viewer/README.md
 
 ## Quick Start
 ```powershell
-docker compose up --build
+docker compose -f docker-compose.starter.yml up --build
 ```
 
 - Server (entry point): http://127.0.1.1:8080/maze
@@ -18,7 +18,7 @@ Default scenario is `sim-SmallMaze`.
 
 ```powershell
 $env:TASKNAME="sim-MidMaze"
-docker compose up --build
+docker compose -f docker-compose.starter.yml up --build
 ```
 
 For each scenario, a `.properties` file is available (e.g., [sim-SmallMaze.properties](mase-server/sim-SmallMaze.properties)) that defines the maze dataset and the execution order in which the rules (SPARQL Queries, see below) are applied. 
@@ -44,7 +44,7 @@ Pass both values in `TASKNAME` (equivalent to Gradle `--args="sim-SmallMaze Stig
 
 ```powershell
 $env:TASKNAME="sim-SmallMaze Stigmergy"
-docker compose up --build
+docker compose -f docker-compose.starter.yml up --build
 ```
 
 Rules are SPARQL Queries that are executed after initilaization and during the processing of each HTTP GET and POST request to the MASE-server by an agent. This can be used to customize the environment and to evolve it in response to the effects of agents' operations. For example, the `Stigmergy` ruleset adds stigmergic markers to the maze cells counting the traffic of agents. The ruleset is applied to the `sim-SmallMaze` scenario in the example above, but it can be applied to any maze scenario by passing `Stigmergy` as a second value in `TASKNAME`.
@@ -86,7 +86,7 @@ gradle runBobAgent
 
 Run the same agent with Docker (server must already be running):
 ```powershell
-docker compose exec mase-server sh -lc "java -cp '/opt/mase/install/mase-server/lib/*' org.maze.examples.SampleDfsAgentBob"
+docker compose -f docker-compose.starter.yml exec mase-server sh -lc "java -cp '/opt/mase/install/mase-server/lib/*' org.maze.examples.SampleDfsAgentBob"
 ```
 
 The sample agent always sends `Authorization: bob`, starts with `GET /maze`, enters the discovered start cell with `dyn:entersFrom`, then navigates in depth-first-search ordered by `west, north, east, south`. If the current cell is locked and `dyn:needsAction` requires a key type that was previously observed via `GET`, it posts `dyn:keyValue` to unlock and re-checks the cell. It finishes when it reaches `/cells/999` via `maze:exit`.
