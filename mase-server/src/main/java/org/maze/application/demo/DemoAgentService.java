@@ -104,6 +104,10 @@ public class DemoAgentService {
         return toResponse();
     }
 
+    public synchronized void setPreferGreenSignifiers(boolean requestedPreferGreenSignifiers) {
+        this.preferGreenSignifiers = requestedPreferGreenSignifiers;
+    }
+
     public synchronized DemoAgentStepResponseDto next() {
         if (phase == Phase.COMPLETE || phase == Phase.ERROR) {
             return toResponse();
@@ -276,8 +280,7 @@ public class DemoAgentService {
         }
 
         if (preferGreenSignifiers && parsed.greenTarget() != null
-                && parsed.isTraversableTarget(parsed.greenTarget())
-                && !visited.contains(parsed.greenTarget())) {
+                && parsed.isTraversableTarget(parsed.greenTarget())) {
             pendingMove = new PendingMove(currentCell, parsed.greenTarget(), MoveKind.GREEN);
             phase = Phase.MOVE;
             decision = "Following maze:green signifier to " + shortCell(parsed.greenTarget()) + ".";

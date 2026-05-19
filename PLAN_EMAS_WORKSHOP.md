@@ -32,6 +32,7 @@ The visible deliverables are a root-level `Workshop.md`, a one-slide concept for
 - [x] (2026-05-19 20:35Z) Validated `docker-compose.emas-workshop.yml` with `docker compose --profile viewer config` and validated server packaging with `./gradlew installDist`.
 - [x] (2026-05-19 20:45Z) Removed the background admin URL from `Workshop.md`, cleaned unused Turtle prefixes in the Demo Agent transcript view, and fixed the SmallMaze key UI projection rule.
 - [x] (2026-05-19 20:50Z) Validated the Demo Agent panel with `npm run check` and forced the focused SmallMaze scenario startup test with `./gradlew test --tests org.maze.infrastructure.scenario.ScenarioPackageStartupTest --rerun-tasks`.
+- [x] (2026-05-19 21:00Z) Fixed the Demo Agent green-signifier toggle so each `Next Request` sends the current preference and `maze:green` can override DFS even when the target was already visited.
 - [ ] Validate the full workshop path with a fresh run of server, viewer, EMAS workshop CCRS scenario reset, and at least one demo-agent step.
 
 ## Surprises & Discoveries
@@ -110,6 +111,8 @@ The workshop now has a dedicated CCRS-derived showcase package under `mase-serve
 Validation confirmed that `docker-compose.emas-workshop.yml` parses with the viewer profile enabled and that the Gradle distribution includes `scenarios/emas-workshop/scenario.properties`. The first sandboxed `./gradlew installDist` attempt could not download the Gradle wrapper because network access was restricted; the escalated rerun completed successfully.
 
 The current cleanup pass removed a presenter-irrelevant admin URL from `Workshop.md`, made `DemoAgentPanel.svelte` strip unused `@prefix` declarations like the cell inspector does, and fixed the SmallMaze key UI rule by adding explicit prefixes, scheduling `ui-keys*` in the scenario rule order, and asserting that startup rules project green and red key UI markers.
+
+The Demo Agent green-signifier preference is now live during a session. The viewer sends the current checkbox value on every `Next Request`, and the server updates the in-memory demo session before deciding the next action. Green signifiers are no longer filtered out only because their target cell was previously visited, which lets signifier-guided loops override normal DFS behavior during the workshop.
 
 ## Context and Orientation
 
@@ -462,3 +465,5 @@ Revision note, 2026-05-19: Reframed `Workshop.md` around the requested participa
 Revision note, 2026-05-19: Added the dedicated `emas-workshop` CCRS-derived scenario package and Docker Compose file, and revised `Workshop.md` to use MASE-paper terminology, a flexible demo-agent moment table, one access-control failure example, and a required CCRS showcase section.
 
 Revision note, 2026-05-19: Removed the server admin URL from the workshop preflight table, cleaned unused prefixes in Demo Agent request/response bodies, fixed the SmallMaze key UI projection rule, and added focused startup-test coverage for the key UI markers.
+
+Revision note, 2026-05-19: Made the Demo Agent `Prefer green signifiers` checkbox effective throughout a running session and allowed `maze:green` targets to override the visited-set guard used by DFS.

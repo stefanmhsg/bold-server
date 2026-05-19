@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.Response;
 import java.util.Map;
 
 import org.maze.api.dto.DemoAgentResetRequest;
+import org.maze.api.dto.DemoAgentStepRequest;
 import org.maze.application.demo.DemoAgentService;
 import org.maze.infrastructure.web.WebServerFactory;
 
@@ -49,10 +50,14 @@ public class DemoAgentResource {
 
     @POST
     @Path("/next")
-    public Response next() {
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response next(DemoAgentStepRequest request) {
         DemoAgentService service = demoAgentService();
         if (service == null) {
             return missingService();
+        }
+        if (request != null && request.preferGreenSignifiers() != null) {
+            service.setPreferGreenSignifiers(request.preferGreenSignifiers());
         }
         return Response.ok(service.next()).build();
     }

@@ -74,7 +74,15 @@
     }
 
     async function nextRequest(): Promise<void> {
-        await callDemoEndpoint('/next', { method: 'POST' });
+        await callDemoEndpoint('/next', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                preferGreenSignifiers
+            })
+        });
     }
 
     async function callDemoEndpoint(path: string, init: DemoFetchOptions): Promise<void> {
