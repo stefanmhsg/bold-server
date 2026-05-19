@@ -15,10 +15,12 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.geom.Path2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Map;
 import java.util.Optional;
 
 public final class MazeEditorPanel extends JPanel {
@@ -27,7 +29,9 @@ public final class MazeEditorPanel extends JPanel {
     private static final Color EMPTY_BORDER = new Color(218, 224, 218);
     private static final Color CELL_FILL = new Color(181, 221, 174);
     private static final Color OPTIMAL_ROUTE_FILL = new Color(255, 195, 255, 175);
-    private static final Color GREEN_ROUTE_FILL = new Color(38, 151, 76, 180);
+    private static final Color GREEN_ARROW_FILL = new Color(21, 138, 72);
+    private static final Color GREEN_ARROW_OUTLINE = new Color(5, 83, 45);
+    private static final Color GREEN_ARROW_HALO = new Color(237, 255, 242, 230);
     private static final Color CUSTOM_CONTENT_MARKER = new Color(224, 144, 38);
     private static final Color WALL_COLOR = Color.BLACK;
     private static final Color MARKER_COLOR = new Color(22, 76, 55);
@@ -138,17 +142,7 @@ public final class MazeEditorPanel extends JPanel {
             g.fillRect(rect.x() + 4, rect.y() + 4, cellSize - 8, cellSize - 8);
         }
 
-        g.setColor(GREEN_ROUTE_FILL);
-        for (java.util.List<CellCoordinate> route : model.greenRoutes()) {
-            for (CellCoordinate coordinate : route) {
-                if (!model.hasCell(coordinate)) {
-                    continue;
-                }
-                RectanglePixels rect = rectangleFor(coordinate);
-                int inset = Math.max(7, cellSize / 4);
-                g.fillRect(rect.x() + inset, rect.y() + inset, cellSize - inset * 2, cellSize - inset * 2);
-            }
-        }
+        paintGreenRouteArrows(g);
 
         g.setColor(CUSTOM_CONTENT_MARKER);
         for (MazeCell cell : model.cells()) {
@@ -167,6 +161,102 @@ public final class MazeEditorPanel extends JPanel {
         }
 
         paintMarkers(g);
+    }
+
+    private void paintGreenRouteArrows(Graphics2D g) {
+        for (Map.Entry<CellCoordinate, CellCoordinate> successor : model.greenSuccessors().entrySet()) {
+            CellCoordinate source = successor.getKey();
+            if (!model.hasCell(source)) {
+                continue;
+            }
+            directionToward(source, successor.getValue())
+                    .ifPresent(direction -> drawGreenArrow(g, rectangleFor(source), direction));
+        }
+    }
+
+    private Optional<Direction> directionToward(CellCoordinate source, CellCoordinate target) {
+        Optional<Direction> adjacentDirection = source.directionTo(target);
+        if (adjacentDirection.isPresent()) {
+            return adjacentDirection;
+        }
+
+        int deltaX = target.x() - source.x();
+        int deltaY = target.y() - source.y();
+        if (deltaX == 0 && deltaY == 0) {
+            return Optional.empty();
+        }
+        if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+            return Optional.of(deltaX < 0 ? Direction.NORTH : Direction.SOUTH);
+        }
+        return Optional.of(deltaY < 0 ? Direction.WEST : Direction.EAST);
+    }
+
+    private void drawGreenArrow(Graphics2D g, RectanglePixels rect, Direction direction) {
+        Path2D arrow = greenArrowShape(rect, direction);
+        g.setStroke(new BasicStroke(Math.max(2f, cellSize / 12f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(GREEN_ARROW_HALO);
+        g.draw(arrow);
+        g.setColor(GREEN_ARROW_FILL);
+        g.fill(arrow);
+        g.setStroke(new BasicStroke(Math.max(1.4f, cellSize / 20f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(GREEN_ARROW_OUTLINE);
+        g.draw(arrow);
+    }
+
+    private Path2D greenArrowShape(RectanglePixels rect, Direction direction) {
+        double left = rect.x() + Math.max(4.0, cellSize * 0.14);
+        double right = rect.x() + cellSize - Math.max(4.0, cellSize * 0.14);
+        double top = rect.y() + Math.max(4.0, cellSize * 0.14);
+        double bottom = rect.y() + cellSize - Math.max(4.0, cellSize * 0.14);
+        double centerX = rect.x() + cellSize / 2.0;
+        double centerY = rect.y() + cellSize / 2.0;
+        double halfTailWidth = Math.max(4.0, cellSize * 0.17);
+        double headBaseX = rect.x() + cellSize * 0.58;
+        double headBaseY = rect.y() + cellSize * 0.58;
+
+        Path2D arrow = new Path2D.Double();
+        switch (direction) {
+            case EAST -> {
+                arrow.moveTo(left, centerY - halfTailWidth);
+                arrow.lineTo(headBaseX, centerY - halfTailWidth);
+                arrow.lineTo(headBaseX, top);
+                arrow.lineTo(right, centerY);
+                arrow.lineTo(headBaseX, bottom);
+                arrow.lineTo(headBaseX, centerY + halfTailWidth);
+                arrow.lineTo(left, centerY + halfTailWidth);
+            }
+            case WEST -> {
+                double mirroredHeadBaseX = rect.x() + cellSize - (headBaseX - rect.x());
+                arrow.moveTo(right, centerY - halfTailWidth);
+                arrow.lineTo(mirroredHeadBaseX, centerY - halfTailWidth);
+                arrow.lineTo(mirroredHeadBaseX, top);
+                arrow.lineTo(left, centerY);
+                arrow.lineTo(mirroredHeadBaseX, bottom);
+                arrow.lineTo(mirroredHeadBaseX, centerY + halfTailWidth);
+                arrow.lineTo(right, centerY + halfTailWidth);
+            }
+            case SOUTH -> {
+                arrow.moveTo(centerX - halfTailWidth, top);
+                arrow.lineTo(centerX - halfTailWidth, headBaseY);
+                arrow.lineTo(left, headBaseY);
+                arrow.lineTo(centerX, bottom);
+                arrow.lineTo(right, headBaseY);
+                arrow.lineTo(centerX + halfTailWidth, headBaseY);
+                arrow.lineTo(centerX + halfTailWidth, top);
+            }
+            case NORTH -> {
+                double mirroredHeadBaseY = rect.y() + cellSize - (headBaseY - rect.y());
+                arrow.moveTo(centerX - halfTailWidth, bottom);
+                arrow.lineTo(centerX - halfTailWidth, mirroredHeadBaseY);
+                arrow.lineTo(left, mirroredHeadBaseY);
+                arrow.lineTo(centerX, top);
+                arrow.lineTo(right, mirroredHeadBaseY);
+                arrow.lineTo(centerX + halfTailWidth, mirroredHeadBaseY);
+                arrow.lineTo(centerX + halfTailWidth, bottom);
+            }
+        }
+        arrow.closePath();
+        return arrow;
     }
 
     private void paintWalls(Graphics2D g, MazeCell cell, RectanglePixels rect) {

@@ -145,10 +145,10 @@ Open discussion questions:
   - Click and drag across existing cells only.
   - Does not create cells.
   - Does not require or create wall connections.
-  - Renders a small dark-green overlay in the editor.
+  - Renders a dark-green arrow in each source cell to show the direction of its `maze:green` successor.
   - Serializes route successors as `maze:green </cells/x/y>` predicates inside the corresponding cell graphs.
   - Loaded files may contain multiple disconnected `maze:green` zones; the parser preserves and renders all of them.
-  - Drawing a new `maze:green` route from the tool replaces the loaded route set with the newly drawn route.
+  - Drawing a new `maze:green` route from the tool adds another route. A one-step drag creates a single `maze:green` successor predicate.
   - Can be cleared independently from the maze with the `Clear maze:green` action.
 
 ## Parsing Existing TriG
@@ -327,6 +327,7 @@ The durable server contract is documented in [mase-server README.md](../mase-ser
 - Serializer emits directions in the fixed `north`, `west`, `south`, `east` order.
 - Serializer emits optimal-route `#Correct plan` comments without changing cell graph predicates.
 - Serializer emits `maze:green` route successors only for the separate `maze:green` tool.
+- Serializer emits multiple independently drawn `maze:green` routes.
 - Parser loads one-line and multiline named graph cell bodies.
 - Parser tolerates extra predicates such as `maze:green`.
 - Parser preserves custom same-subject predicates such as `maze:orange`.

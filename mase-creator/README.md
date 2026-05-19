@@ -28,7 +28,7 @@ Editor data lives under `app/data/editor`:
 Route tools mark only existing cells. They do not create cells and do not open or close walls.
 
 - **Optimal Route** exports a `#Correct plan` comment list only.
-- **maze:green** exports `maze:green </cells/x/y>` successor predicates inside cell graphs. Existing files can contain multiple disconnected `maze:green` zones; loading preserves all active zones, while drawing a new `maze:green` route replaces them with the newly drawn route.
+- **maze:green** exports `maze:green </cells/x/y>` successor predicates inside cell graphs. Existing files can contain multiple disconnected `maze:green` zones; loading preserves all active zones, and drawing a new `maze:green` route adds another zone. A one-step drag creates a single successor predicate.
 
 The viewer's optimal-route overlay is hardcoded in [optimalRoutes.ts](../mase-viewer/src/lib/optimalRoutes.ts); it does not read the `#Correct plan` section from TriG. To show an exported route in the viewer, copy the generated comment cells into that TypeScript route list for the target scenario.
 

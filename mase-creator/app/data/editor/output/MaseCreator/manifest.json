@@ -1,0 +1,33 @@
+{
+  "contractVersion": "0.1",
+  "id": "masecreator",
+  "name": "MaseCreator",
+  "generator": "mase-creator",
+  "generatedOn": "2026-05-19",
+  "entrypoint": "scenario.properties",
+  "start": "/cells/1/1",
+  "exit": "/cells/12/5 -> /cells/999",
+  "files": {
+    "data": ["data/MaseCreator.trig"],
+    "rules": ["rules/**/*.rq"]
+  },
+  "generatedFiles": [
+    "data/MaseCreator.trig",
+    "rules/global/move.rq",
+    "rules/global/move_start.rq",
+    "rules/global/normalize_maze_locks.rq",
+    "rules/global/normalize_maze_maps.rq",
+    "rules/global/ui-stigmergy-footsteps.rq",
+    "rules/global/ui.rq",
+    "scenario.properties",
+    "manifest.json",
+    "README.md",
+    ".env.example",
+    "rules-disabled/README.md",
+    "validation/README.md",
+    "agents/README.md"
+  ],
+  "warnings": [
+    "Scenario-specific rules are not generated yet; rules/scenario is intentionally empty."
+  ]
+}

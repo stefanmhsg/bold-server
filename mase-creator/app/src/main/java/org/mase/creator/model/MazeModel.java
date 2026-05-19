@@ -1,8 +1,11 @@
 package org.mase.creator.model;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -97,6 +100,20 @@ public final class MazeModel {
         return greenRoutes.stream().anyMatch(route -> route.contains(coordinate));
     }
 
+    public Map<CellCoordinate, CellCoordinate> greenSuccessors() {
+        Map<CellCoordinate, CellCoordinate> successors = new LinkedHashMap<>();
+        for (List<CellCoordinate> route : greenRoutes) {
+            for (int index = 0; index < route.size() - 1; index++) {
+                CellCoordinate source = route.get(index);
+                CellCoordinate target = route.get(index + 1);
+                if (hasCell(source)) {
+                    successors.put(source, target);
+                }
+            }
+        }
+        return Collections.unmodifiableMap(successors);
+    }
+
     public void addChangeListener(Runnable listener) {
         changeListeners.add(listener);
     }
@@ -158,18 +175,17 @@ public final class MazeModel {
             return Optional.empty();
         }
 
-        boolean changed = greenRoutes.size() != 1 || !greenRoutes.get(0).equals(List.of(coordinate));
-        greenRoutes.clear();
+        int routeIndex = greenRoutes.size();
         greenRoutes.add(new ArrayList<>(List.of(coordinate)));
-        notifyIfChanged(changed);
-        return Optional.of(new PathStroke(coordinate, true));
+        notifyChanged();
+        return Optional.of(new PathStroke(coordinate, true, routeIndex));
     }
 
     public void continueGreenRoute(PathStroke stroke, CellCoordinate target) {
-        if (greenRoutes.isEmpty()) {
+        if (stroke.routeIndex() < 0 || stroke.routeIndex() >= greenRoutes.size()) {
             return;
         }
-        continueExistingCellRoute(greenRoutes.get(0), stroke, target);
+        continueExistingCellRoute(greenRoutes.get(stroke.routeIndex()), stroke, target);
     }
 
     public void clearGreenRoute() {

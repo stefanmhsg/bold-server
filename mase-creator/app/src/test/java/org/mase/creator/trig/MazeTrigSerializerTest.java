@@ -93,17 +93,24 @@ class MazeTrigSerializerTest {
         CellCoordinate first = new CellCoordinate(1, 1);
         CellCoordinate second = new CellCoordinate(1, 2);
         CellCoordinate third = new CellCoordinate(2, 2);
+        CellCoordinate fourth = new CellCoordinate(3, 1);
+        CellCoordinate fifth = new CellCoordinate(3, 2);
         model.createCell(first);
         model.createCell(second);
         model.createCell(third);
+        model.createCell(fourth);
+        model.createCell(fifth);
         PathStroke greenStroke = model.beginGreenRoute(first).orElseThrow();
         model.continueGreenRoute(greenStroke, second);
         model.continueGreenRoute(greenStroke, third);
+        PathStroke secondGreenStroke = model.beginGreenRoute(fourth).orElseThrow();
+        model.continueGreenRoute(secondGreenStroke, fifth);
 
         String trig = new MazeTrigSerializer().serialize(model);
 
         assertTrue(trig.contains("maze:green </cells/1/2> . }"));
         assertTrue(trig.contains("maze:green </cells/2/2> . }"));
+        assertTrue(trig.contains("maze:green </cells/3/2> . }"));
         assertFalse(trig.contains("#Correct plan"));
     }
 }

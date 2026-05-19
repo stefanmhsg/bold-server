@@ -8,7 +8,6 @@ import org.mase.creator.model.MazeModel;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public final class MazeTrigSerializer {
 
@@ -40,7 +39,7 @@ public final class MazeTrigSerializer {
         appendMazeGraph(trig, model);
         trig.append(System.lineSeparator());
         trig.append("#NAMED_GRAPHS_START").append(System.lineSeparator());
-        Map<CellCoordinate, CellCoordinate> greenSuccessors = greenSuccessors(model);
+        Map<CellCoordinate, CellCoordinate> greenSuccessors = model.greenSuccessors();
 
         model.cells().stream()
                 .sorted(Comparator.comparing(MazeCell::coordinate))
@@ -171,13 +170,6 @@ public final class MazeTrigSerializer {
                 .filter(target -> cell.coordinate().isAdjacent(target))
                 .map(CellCoordinate::iri)
                 .orElseGet(() -> cell.preservedDirectionTarget(direction).orElse("maze:Wall"));
-    }
-
-    private Map<CellCoordinate, CellCoordinate> greenSuccessors(MazeModel model) {
-        return model.greenRoutes().stream()
-                .flatMap(route -> java.util.stream.IntStream.range(0, Math.max(0, route.size() - 1))
-                        .mapToObj(index -> Map.entry(route.get(index), route.get(index + 1))))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignored) -> first));
     }
 
     private void appendCorrectPlan(StringBuilder trig, MazeModel model) {

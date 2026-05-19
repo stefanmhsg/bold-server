@@ -165,4 +165,31 @@ class MazeModelTest {
 
         assertEquals(List.of(first), model.greenRoute());
     }
+
+    @Test
+    void greenRouteDrawingAppendsIndependentRoutes() {
+        MazeModel model = MazeModel.blank(4, 4);
+        CellCoordinate first = new CellCoordinate(1, 1);
+        CellCoordinate second = new CellCoordinate(1, 2);
+        CellCoordinate third = new CellCoordinate(2, 1);
+        CellCoordinate fourth = new CellCoordinate(2, 2);
+        model.createCell(first);
+        model.createCell(second);
+        model.createCell(third);
+        model.createCell(fourth);
+
+        PathStroke firstStroke = model.beginGreenRoute(first).orElseThrow();
+        model.continueGreenRoute(firstStroke, second);
+        PathStroke secondStroke = model.beginGreenRoute(third).orElseThrow();
+        model.continueGreenRoute(secondStroke, fourth);
+
+        assertEquals(List.of(
+                List.of(first, second),
+                List.of(third, fourth)
+        ), model.greenRoutes());
+        assertEquals(second, model.greenSuccessors().get(first));
+        assertEquals(fourth, model.greenSuccessors().get(third));
+        assertFalse(model.cell(first).orElseThrow().connection(Direction.EAST).isPresent());
+        assertFalse(model.cell(third).orElseThrow().connection(Direction.EAST).isPresent());
+    }
 }
