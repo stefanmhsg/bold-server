@@ -14,9 +14,11 @@ import org.glassfish.jersey.jackson.JacksonFeature;
 import org.maze.api.ld.CorsFilter;
 import org.maze.api.ld.LinkedDataDereferenceResource;
 import org.maze.api.sparql.SparqlResource;
+import org.maze.api.admin.DemoAgentResource;
 import org.maze.api.admin.MazeAdminResource;
 import org.maze.api.vocab.VocabularyResource;
 import org.maze.application.AccessValidator;
+import org.maze.application.demo.DemoAgentService;
 import org.maze.application.MazeMutationCoordinator;
 import org.maze.application.MazeResetService;
 import org.maze.application.MazeRuleService;
@@ -42,6 +44,7 @@ public class WebServerFactory {
     public static final String SPARQL_SERVICE_SERVLET_ATTRIBUTE = "SPARQL_SERVICE_SERVLET_ATTRIBUTE";
     public static final String MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE = "MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE";
     public static final String RESOURCE_IRI_RESOLVER_SERVLET_ATTRIBUTE = "RESOURCE_IRI_RESOLVER_SERVLET_ATTRIBUTE";
+    public static final String DEMO_AGENT_SERVICE_SERVLET_ATTRIBUTE = "DEMO_AGENT_SERVICE_SERVLET_ATTRIBUTE";
     
     /**
      * Create and configure a web server.
@@ -112,6 +115,7 @@ public class WebServerFactory {
             config.getTransactionTraceMode(),
             mutationCoordinator,
             accessValidator);
+        DemoAgentService demoAgentService = new DemoAgentService(rdfBaseUri);
         
         // Share repository, game engine, and services via ServletContext
         context.setAttribute(SAIL_REPOSITORY_SERVLET_ATTRIBUTE, repository);
@@ -121,6 +125,7 @@ public class WebServerFactory {
         context.setAttribute(SPARQL_SERVICE_SERVLET_ATTRIBUTE, sparqlService);
         context.setAttribute(MAZE_RESET_SERVICE_SERVLET_ATTRIBUTE, resetService);
         context.setAttribute(RESOURCE_IRI_RESOLVER_SERVLET_ATTRIBUTE, resourceIriResolver);
+        context.setAttribute(DEMO_AGENT_SERVICE_SERVLET_ATTRIBUTE, demoAgentService);
         log.info("Canonical RDF resource base URI: {}", resourceIriResolver.canonicalBaseUri());
         
         // Configure JAX-RS resources
@@ -128,6 +133,7 @@ public class WebServerFactory {
         ldConfig.register(VocabularyResource.class);
         ldConfig.register(LinkedDataDereferenceResource.class);
         ldConfig.register(SparqlResource.class);
+        ldConfig.register(DemoAgentResource.class);
         ldConfig.register(MazeAdminResource.class);
         ldConfig.register(CorsFilter.class);
         ldConfig.register(JacksonFeature.class);

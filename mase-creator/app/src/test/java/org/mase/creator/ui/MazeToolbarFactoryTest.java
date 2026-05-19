@@ -21,8 +21,9 @@ class MazeToolbarFactoryTest {
         JToolBar toolbar = createToolbar(new MazeEditorPanel(MazeModel.blank(4, 4)));
 
         assertTrue(indexOf(toolbar, "toolbar-group-file") < indexOf(toolbar, "toolbar-group-reset"));
-        assertTrue(indexOf(toolbar, "toolbar-group-reset") < indexOf(toolbar, "toolbar-group-tools"));
-        assertTrue(indexOf(toolbar, "toolbar-group-tools") < indexOf(toolbar, "toolbar-group-grid"));
+        assertTrue(indexOf(toolbar, "toolbar-group-reset") < indexOf(toolbar, "toolbar-group-mode"));
+        assertTrue(indexOf(toolbar, "toolbar-group-mode") < indexOf(toolbar, "toolbar-group-target"));
+        assertTrue(indexOf(toolbar, "toolbar-group-target") < indexOf(toolbar, "toolbar-group-grid"));
 
         assertTrue(indexOf(toolbar, "toolbar-action-new") < indexOf(toolbar, "toolbar-action-open"));
         assertTrue(indexOf(toolbar, "toolbar-action-open") < indexOf(toolbar, "toolbar-action-restore-auto-save"));
@@ -51,25 +52,34 @@ class MazeToolbarFactoryTest {
         JToolBar toolbar = createToolbar(new MazeEditorPanel(MazeModel.blank(4, 4)));
 
         assertEquals("Create Package", findButton(toolbar, "toolbar-action-create-package").getText());
-        assertEquals("Draw Maze", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.DRAW_PATH)).getText());
-        assertEquals("Delete", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.DELETE_CELL)).getText());
-        assertEquals("Optimal", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.DRAW_OPTIMAL_ROUTE)).getText());
+        assertEquals("Draw", findButton(toolbar, MazeToolbarFactory.modeButtonName(EditMode.DRAW)).getText());
+        assertEquals("Delete", findButton(toolbar, MazeToolbarFactory.modeButtonName(EditMode.DELETE)).getText());
+        assertEquals("Cell", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.CELL)).getText());
+        assertEquals("Wall", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.WALL)).getText());
+        assertEquals("Optimal", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.OPTIMAL_ROUTE)).getText());
+        assertEquals("maze:green", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.GREEN_ROUTE)).getText());
     }
 
     @Test
-    void actionButtonsDoNotChangeSelectedDrawingTool() {
+    void actionButtonsDoNotChangeSelectedModeOrTarget() {
         MazeEditorPanel editorPanel = new MazeEditorPanel(MazeModel.blank(4, 4));
         JToolBar toolbar = createToolbar(editorPanel);
 
-        JToggleButton wallButton = (JToggleButton) findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.DRAW_WALL));
+        JToggleButton deleteButton = (JToggleButton) findButton(toolbar, MazeToolbarFactory.modeButtonName(EditMode.DELETE));
+        JToggleButton wallButton = (JToggleButton) findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.WALL));
+        deleteButton.doClick();
         wallButton.doClick();
-        assertEquals(EditorTool.DRAW_WALL, editorPanel.tool());
+        assertEquals(EditMode.DELETE, editorPanel.editMode());
+        assertEquals(EditorTool.WALL, editorPanel.tool());
+        assertTrue(deleteButton.isSelected());
         assertTrue(wallButton.isSelected());
 
         findButton(toolbar, "toolbar-action-erase-all").doClick();
         findButton(toolbar, "toolbar-action-new").doClick();
 
-        assertEquals(EditorTool.DRAW_WALL, editorPanel.tool());
+        assertEquals(EditMode.DELETE, editorPanel.editMode());
+        assertEquals(EditorTool.WALL, editorPanel.tool());
+        assertTrue(deleteButton.isSelected());
         assertTrue(wallButton.isSelected());
     }
 

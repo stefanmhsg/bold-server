@@ -4,6 +4,7 @@
     import { onDestroy, onMount } from 'svelte';
     import type { PageData } from './$types';
     import MazeCanvas from '$lib/components/MazeCanvas.svelte';
+    import DemoAgentPanel from '$lib/components/DemoAgentPanel.svelte';
     import AgentEventLog from '$lib/components/AgentEventLog.svelte';
     import CellEventLog from '$lib/components/CellEventLog.svelte';
     import { showOptimalRoute } from '$lib/routeOverlayStore';
@@ -605,6 +606,11 @@
                 {isExportingLogs ? 'Exporting...' : 'Export Logs'}
             </button>
         </div>
+
+        <DemoAgentPanel
+            serverHttpBaseUrl={data.serverConfig.httpBaseUrl}
+            disabled={isResetting || isExportingLogs}
+        />
 
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Agent Movements</h3>

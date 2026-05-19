@@ -133,6 +133,26 @@ class MazeModelTest {
     }
 
     @Test
+    void removingOptimalAtRemovesSelectedRouteCell() {
+        MazeModel model = MazeModel.blank(4, 4);
+        CellCoordinate first = new CellCoordinate(1, 1);
+        CellCoordinate second = new CellCoordinate(1, 2);
+        CellCoordinate third = new CellCoordinate(1, 3);
+        CellCoordinate missing = new CellCoordinate(1, 4);
+        model.createCell(first);
+        model.createCell(second);
+        model.createCell(third);
+
+        PathStroke stroke = model.beginOptimalRoute(first).orElseThrow();
+        model.continueOptimalRoute(stroke, second);
+        model.continueOptimalRoute(stroke, third);
+
+        assertTrue(model.removeOptimalAt(second));
+        assertEquals(List.of(first, third), model.optimalRoute());
+        assertFalse(model.removeOptimalAt(missing));
+    }
+
+    @Test
     void greenRouteOnlyUsesExistingCellsAndDoesNotOpenWalls() {
         MazeModel model = MazeModel.blank(4, 4);
         CellCoordinate first = new CellCoordinate(1, 1);
@@ -191,5 +211,92 @@ class MazeModelTest {
         assertEquals(fourth, model.greenSuccessors().get(third));
         assertFalse(model.cell(first).orElseThrow().connection(Direction.EAST).isPresent());
         assertFalse(model.cell(third).orElseThrow().connection(Direction.EAST).isPresent());
+    }
+
+    @Test
+    void removingGreenAtSourceRemovesSelectedSuccessorAndPreservesOtherSegments() {
+        MazeModel model = MazeModel.blank(4, 4);
+        CellCoordinate first = new CellCoordinate(1, 1);
+        CellCoordinate second = new CellCoordinate(1, 2);
+        CellCoordinate third = new CellCoordinate(1, 3);
+        CellCoordinate fourth = new CellCoordinate(1, 4);
+        model.createCell(first);
+        model.createCell(second);
+        model.createCell(third);
+        model.createCell(fourth);
+        PathStroke stroke = model.beginGreenRoute(first).orElseThrow();
+        model.continueGreenRoute(stroke, second);
+        model.continueGreenRoute(stroke, third);
+        model.continueGreenRoute(stroke, fourth);
+
+        assertTrue(model.removeGreenAt(second));
+
+        assertEquals(List.of(
+                List.of(first, second),
+                List.of(third, fourth)
+        ), model.greenRoutes());
+        assertEquals(second, model.greenSuccessors().get(first));
+        assertFalse(model.greenSuccessors().containsKey(second));
+        assertEquals(fourth, model.greenSuccessors().get(third));
+    }
+
+    @Test
+    void removingGreenAtTailRemovesIncomingSuccessor() {
+        MazeModel model = MazeModel.blank(4, 4);
+        CellCoordinate first = new CellCoordinate(1, 1);
+        CellCoordinate second = new CellCoordinate(1, 2);
+        model.createCell(first);
+        model.createCell(second);
+        PathStroke stroke = model.beginGreenRoute(first).orElseThrow();
+        model.continueGreenRoute(stroke, second);
+
+        assertTrue(model.removeGreenAt(second));
+
+        assertTrue(model.greenRoutes().isEmpty());
+        assertTrue(model.greenSuccessors().isEmpty());
+    }
+
+    @Test
+    void removingGreenAtCellWithoutSuccessorDoesNotConsumeNextRouteStart() {
+        MazeModel model = MazeModel.blank(4, 4);
+        CellCoordinate first = new CellCoordinate(1, 1);
+        CellCoordinate second = new CellCoordinate(1, 2);
+        CellCoordinate third = new CellCoordinate(2, 1);
+        CellCoordinate fourth = new CellCoordinate(2, 2);
+        model.createCell(first);
+        model.createCell(second);
+        model.createCell(third);
+        model.createCell(fourth);
+
+        model.beginGreenRoute(first);
+
+        assertFalse(model.removeGreenAt(third));
+        PathStroke stroke = model.beginGreenRoute(third).orElseThrow();
+        model.continueGreenRoute(stroke, fourth);
+
+        assertEquals(List.of(List.of(third, fourth)), model.greenRoutes());
+    }
+
+    @Test
+    void clearStartAndExitOnlyRemoveMatchingMarkers() {
+        MazeModel model = MazeModel.blank(4, 4);
+        CellCoordinate start = new CellCoordinate(1, 1);
+        CellCoordinate exit = new CellCoordinate(1, 2);
+        CellCoordinate other = new CellCoordinate(2, 1);
+        model.createCell(start);
+        model.createCell(exit);
+        model.createCell(other);
+        model.placeStart(start);
+        model.placeExit(exit);
+
+        assertFalse(model.clearStartAt(other));
+        assertFalse(model.clearExitAt(other));
+        assertEquals(start, model.startCell().orElseThrow());
+        assertEquals(exit, model.exitSourceCell().orElseThrow());
+
+        assertTrue(model.clearStartAt(start));
+        assertTrue(model.clearExitAt(exit));
+        assertTrue(model.startCell().isEmpty());
+        assertTrue(model.exitSourceCell().isEmpty());
     }
 }

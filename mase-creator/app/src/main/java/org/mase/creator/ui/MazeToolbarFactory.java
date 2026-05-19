@@ -37,7 +37,23 @@ final class MazeToolbarFactory {
         toolbar.add(actionButton("Clear maze:green", "toolbar-action-clear-green", "Remove maze:green route predicates from output.", actions.clearGreenRoute()));
 
         addGroupSeparator(toolbar);
-        addGroupLabel(toolbar, "Tools", "toolbar-group-tools");
+        addGroupLabel(toolbar, "Mode", "toolbar-group-mode");
+        ButtonGroup modes = new ButtonGroup();
+        for (EditMode mode : EditMode.values()) {
+            JToggleButton button = new JToggleButton(mode.label());
+            button.setName(modeButtonName(mode));
+            button.setToolTipText(mode.tooltip());
+            button.setFocusable(false);
+            button.addActionListener(event -> editorPanel.setEditMode(mode));
+            modes.add(button);
+            toolbar.add(button);
+            if (mode == EditMode.DRAW) {
+                button.setSelected(true);
+            }
+        }
+
+        addGroupSeparator(toolbar);
+        addGroupLabel(toolbar, "Target", "toolbar-group-target");
         ButtonGroup tools = new ButtonGroup();
         for (EditorTool tool : EditorTool.values()) {
             JToggleButton button = new JToggleButton(tool.label());
@@ -47,7 +63,7 @@ final class MazeToolbarFactory {
             button.addActionListener(event -> editorPanel.setTool(tool));
             tools.add(button);
             toolbar.add(button);
-            if (tool == EditorTool.DRAW_PATH) {
+            if (tool == EditorTool.CELL) {
                 button.setSelected(true);
             }
         }
@@ -68,6 +84,10 @@ final class MazeToolbarFactory {
 
     static String toolButtonName(EditorTool tool) {
         return "toolbar-tool-" + tool.name();
+    }
+
+    static String modeButtonName(EditMode mode) {
+        return "toolbar-mode-" + mode.name();
     }
 
     private static JButton actionButton(String label, String name, String tooltip, Runnable action) {

@@ -111,21 +111,26 @@ Open discussion questions:
 - Created cells render mid-light-green.
 - Walls render as thicker black borders.
 - Connected sides do not render a black wall between cells.
-- `Draw Path`:
+- **Draw + Cell**:
   - Clicking or dragging over empty tiles creates cells.
   - Consecutive adjacent cells in the same drag stroke are connected.
   - A stroke that starts inside an existing cell connects the new tunnel to that cell.
   - A stroke that starts in an empty tile does not auto-connect to unrelated adjacent existing cells.
   - Dragging through two existing adjacent cells opens the wall between them.
-- `Draw Wall`:
+- **Draw + Wall**:
   - Clicks are interpreted only near a cell boundary.
-  - Removing a wall means deleting the connection on both sides.
-- `Delete Cell`:
+  - Adds a wall by deleting the connection on both sides.
+- **Delete + Wall**:
+  - Clicks are interpreted only near a cell boundary.
+  - Removes the selected wall by connecting both adjacent existing cells.
+- **Delete + Cell**:
   - Removes the cell and all incoming/outgoing neighbor connections.
   - Leaves an empty walled space.
-- `Place Start`:
+- **Draw + Start**:
   - Marks an existing coordinate cell as `xhv:start`.
-- `Place Exit`:
+- **Delete + Start**:
+  - Clears `xhv:start` when the selected cell currently holds the marker.
+- **Draw + Exit**:
   - Marks an existing coordinate cell with `maze:exit </cells/999>`.
   - Generated output includes the dedicated exit graph:
 
@@ -133,7 +138,9 @@ Open discussion questions:
     </cells/999> { </cells/999> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south maze:Wall; maze:east maze:Wall . }
     ```
 
-- `Optimal Route`:
+- **Delete + Exit**:
+  - Clears `maze:exit` when the selected cell currently holds the marker.
+- **Draw + Optimal**:
   - Click and drag across existing cells only.
   - Does not create cells.
   - Does not require or create wall connections; the route may cross walls because runtime wall state can change.
@@ -141,15 +148,19 @@ Open discussion questions:
   - Appends a `#Correct plan` comment list with absolute cell URLs, matching the comment convention visible in [CcrsMazeV1.trig](../mase-server/data/CcrsMazeV1.trig).
   - Can be cleared independently from the maze with the `Clear Optimal` action.
   - The viewer does not read this comment section from TriG. To show it in the viewer overlay, copy the exported route cells into [optimalRoutes.ts](../mase-viewer/src/lib/optimalRoutes.ts) for the target scenario.
-- `maze:green`:
+- **Delete + Optimal**:
+  - Removes optimal-route cells under the click or drag path.
+- **Draw + maze:green**:
   - Click and drag across existing cells only.
   - Does not create cells.
   - Does not require or create wall connections.
   - Renders a dark-green arrow in each source cell to show the direction of its `maze:green` successor.
   - Serializes route successors as `maze:green </cells/x/y>` predicates inside the corresponding cell graphs.
   - Loaded files may contain multiple disconnected `maze:green` zones; the parser preserves and renders all of them.
-  - Drawing a new `maze:green` route from the tool adds another route. A one-step drag creates a single `maze:green` successor predicate.
+  - Drawing a new `maze:green` route adds another route. A one-step drag creates a single `maze:green` successor predicate.
   - Can be cleared independently from the maze with the `Clear maze:green` action.
+- **Delete + maze:green**:
+  - Removes selected `maze:green` successors under the click or drag path.
 
 ## Parsing Existing TriG
 
@@ -316,13 +327,15 @@ The durable server contract is documented in [mase-server README.md](../mase-ser
 
 ## Test Cases
 
-- `Draw Path` creates cells and connects consecutive adjacent cells.
+- **Draw + Cell** creates cells and connects consecutive adjacent cells.
 - A new path starting in an empty tile next to an existing cell does not auto-connect to that existing cell.
 - A path starting inside an existing cell connects the next adjacent cell.
 - Drawing through two existing adjacent cells opens a wall.
-- `Draw Wall` removes a connection on both cells.
-- `Delete Cell` removes the cell and all neighbor references.
-- `Place Start` and `Place Exit` persist in serialized TriG.
+- **Draw + Wall** removes a connection on both cells.
+- **Delete + Wall** connects adjacent existing cells through the selected wall.
+- **Delete + Cell** removes the cell and all neighbor references.
+- **Draw + Start** and **Draw + Exit** persist in serialized TriG.
+- **Delete + Start**, **Delete + Exit**, **Delete + Optimal**, and **Delete + maze:green** remove only matching selected content.
 - Serializer emits one coordinate cell per line and sorts by X, then Y.
 - Serializer emits directions in the fixed `north`, `west`, `south`, `east` order.
 - Serializer emits optimal-route `#Correct plan` comments without changing cell graph predicates.
@@ -344,7 +357,7 @@ The durable server contract is documented in [mase-server README.md](../mase-ser
 - Parser ignores non-coordinate named graphs without failing.
 - Boundary hit testing only selects a wall when the click is within the configured margin.
 - Auto-save writes a restorable TriG file.
-- Current UI shell test: toolbar controls are grouped by workflow, all action/tool buttons expose tooltips, and the active drawing tool remains visually clear.
+- Current UI shell test: toolbar controls are grouped by workflow, all action/mode/target buttons expose tooltips, and the active mode plus target remain visually clear.
 - Fixture round trip: parse [CcrsMazeV1.trig](app/src/test/resources/fixtures/CcrsMazeV1.trig), serialize it, and verify active `maze:green` successors plus representative comments, non-coordinate graphs, legacy direction targets, custom cell payloads, and raw correct-plan comments survive whitespace-insensitively.
 - Package export test: create a scenario package and verify it contains data, properties, global and scenario rule folders, README, manifest, and `.env.example`.
 - Package export test: generated package paths are relative to the package root and contain no user-local absolute paths or secrets.
@@ -383,9 +396,10 @@ Goal: make the existing Swing editor easier to use before adding deeper scenario
 - [x] Group toolbar actions by workflow:
   - file/session actions: `New`, `Open`, `Restore Auto-Save`, `Create Package`;
   - destructive/reset actions: `Erase All`, `Clear Optimal`, `Clear maze:green`;
-  - drawing tools: path, wall, delete, start, exit, optimal route, `maze:green`;
+  - mode controls: `Draw`, `Delete`;
+  - target controls: cell, wall, start, exit, optimal route, `maze:green`;
   - grid size controls: X/Y spinners.
-- [x] Add tooltips to every action and drawing tool.
+- [x] Add tooltips to every action, mode, and target control.
 - [x] Use clearer labels where the current wording is ambiguous.
 - [x] Add visual separators or small titled groups so the toolbar no longer reads as one long button row.
 - [x] Keep keyboard focus and selected-tool state predictable after clicking action buttons.

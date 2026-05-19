@@ -40,7 +40,8 @@ public final class MazeEditorPanel extends JPanel {
 
     private final GridHitTester hitTester = new GridHitTester();
     private MazeModel model;
-    private EditorTool tool = EditorTool.DRAW_PATH;
+    private EditMode editMode = EditMode.DRAW;
+    private EditorTool tool = EditorTool.CELL;
     private PathStroke activeStroke;
     private PathStroke activeOptimalRouteStroke;
     private PathStroke activeGreenRouteStroke;
@@ -54,7 +55,7 @@ public final class MazeEditorPanel extends JPanel {
         MouseAdapter mouseAdapter = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent event) {
-                handleMousePressed(event.getPoint());
+                handleMousePressed(event);
             }
 
             @Override
@@ -80,6 +81,17 @@ public final class MazeEditorPanel extends JPanel {
         activeGreenRouteStroke = null;
         revalidate();
         repaint();
+    }
+
+    public void setEditMode(EditMode editMode) {
+        this.editMode = editMode;
+        activeStroke = null;
+        activeOptimalRouteStroke = null;
+        activeGreenRouteStroke = null;
+    }
+
+    public EditMode editMode() {
+        return editMode;
     }
 
     public void setTool(EditorTool tool) {
@@ -295,28 +307,52 @@ public final class MazeEditorPanel extends JPanel {
         return new RectanglePixels(yIndex * cellSize, xIndex * cellSize);
     }
 
-    private void handleMousePressed(Point point) {
+    private void handleMousePressed(MouseEvent event) {
+        Point point = event.getPoint();
+        if (editMode == EditMode.DRAW) {
+            handleDrawPressed(point);
+        } else {
+            handleDeletePressed(point);
+        }
+        repaint();
+    }
+
+    private void handleDrawPressed(Point point) {
         switch (tool) {
-            case DRAW_PATH -> hitTester.cellAt(point, model.bounds(), cellSize)
+            case CELL -> hitTester.cellAt(point, model.bounds(), cellSize)
                     .ifPresent(coordinate -> activeStroke = model.beginPath(coordinate));
-            case DRAW_OPTIMAL_ROUTE -> hitTester.cellAt(point, model.bounds(), cellSize)
+            case OPTIMAL_ROUTE -> hitTester.cellAt(point, model.bounds(), cellSize)
                     .filter(model::hasCell)
                     .flatMap(model::beginOptimalRoute)
                     .ifPresent(stroke -> activeOptimalRouteStroke = stroke);
-            case DRAW_GREEN_ROUTE -> hitTester.cellAt(point, model.bounds(), cellSize)
+            case GREEN_ROUTE -> hitTester.cellAt(point, model.bounds(), cellSize)
                     .filter(model::hasCell)
                     .flatMap(model::beginGreenRoute)
                     .ifPresent(stroke -> activeGreenRouteStroke = stroke);
-            case DRAW_WALL -> hitTester.boundaryAt(point, model.bounds(), cellSize, WALL_MARGIN)
+            case WALL -> hitTester.boundaryAt(point, model.bounds(), cellSize, WALL_MARGIN)
                     .ifPresent(hit -> model.drawWall(hit.coordinate(), hit.direction()));
-            case DELETE_CELL -> hitTester.cellAt(point, model.bounds(), cellSize)
-                    .ifPresent(model::deleteCell);
-            case PLACE_START -> hitTester.cellAt(point, model.bounds(), cellSize)
+            case START -> hitTester.cellAt(point, model.bounds(), cellSize)
                     .ifPresent(model::placeStart);
-            case PLACE_EXIT -> hitTester.cellAt(point, model.bounds(), cellSize)
+            case EXIT -> hitTester.cellAt(point, model.bounds(), cellSize)
                     .ifPresent(model::placeExit);
         }
-        repaint();
+    }
+
+    private void handleDeletePressed(Point point) {
+        switch (tool) {
+            case CELL -> hitTester.cellAt(point, model.bounds(), cellSize)
+                    .ifPresent(model::deleteCell);
+            case WALL -> hitTester.boundaryAt(point, model.bounds(), cellSize, WALL_MARGIN)
+                    .ifPresent(this::deleteWall);
+            case START -> hitTester.cellAt(point, model.bounds(), cellSize)
+                    .ifPresent(model::clearStartAt);
+            case EXIT -> hitTester.cellAt(point, model.bounds(), cellSize)
+                    .ifPresent(model::clearExitAt);
+            case OPTIMAL_ROUTE -> hitTester.cellAt(point, model.bounds(), cellSize)
+                    .ifPresent(model::removeOptimalAt);
+            case GREEN_ROUTE -> hitTester.cellAt(point, model.bounds(), cellSize)
+                    .ifPresent(model::removeGreenAt);
+        }
     }
 
     private void handleMouseDragged(Point point) {
@@ -325,23 +361,52 @@ public final class MazeEditorPanel extends JPanel {
             return;
         }
 
-        if (tool == EditorTool.DRAW_PATH && activeStroke != null) {
-            model.continuePath(activeStroke, coordinate.get());
-            repaint();
-        } else if (tool == EditorTool.DRAW_OPTIMAL_ROUTE && activeOptimalRouteStroke != null) {
-            if (model.hasCell(coordinate.get())) {
-                model.continueOptimalRoute(activeOptimalRouteStroke, coordinate.get());
+        if (editMode == EditMode.DRAW) {
+            if (tool == EditorTool.CELL && activeStroke != null) {
+                model.continuePath(activeStroke, coordinate.get());
+                repaint();
+            } else if (tool == EditorTool.WALL) {
+                hitTester.boundaryAt(point, model.bounds(), cellSize, WALL_MARGIN)
+                        .ifPresent(hit -> model.drawWall(hit.coordinate(), hit.direction()));
+                repaint();
+            } else if (tool == EditorTool.OPTIMAL_ROUTE && activeOptimalRouteStroke != null) {
+                if (model.hasCell(coordinate.get())) {
+                    model.continueOptimalRoute(activeOptimalRouteStroke, coordinate.get());
+                    repaint();
+                }
+            } else if (tool == EditorTool.GREEN_ROUTE && activeGreenRouteStroke != null) {
+                if (model.hasCell(coordinate.get())) {
+                    model.continueGreenRoute(activeGreenRouteStroke, coordinate.get());
+                    repaint();
+                }
+            }
+        } else {
+            if (tool == EditorTool.CELL) {
+                model.deleteCell(coordinate.get());
+                repaint();
+            } else if (tool == EditorTool.WALL) {
+                hitTester.boundaryAt(point, model.bounds(), cellSize, WALL_MARGIN)
+                        .ifPresent(this::deleteWall);
+                repaint();
+            } else if (tool == EditorTool.START) {
+                model.clearStartAt(coordinate.get());
+                repaint();
+            } else if (tool == EditorTool.EXIT) {
+                model.clearExitAt(coordinate.get());
+                repaint();
+            } else if (tool == EditorTool.OPTIMAL_ROUTE) {
+                model.removeOptimalAt(coordinate.get());
+                repaint();
+            } else if (tool == EditorTool.GREEN_ROUTE) {
+                model.removeGreenAt(coordinate.get());
                 repaint();
             }
-        } else if (tool == EditorTool.DRAW_GREEN_ROUTE && activeGreenRouteStroke != null) {
-            if (model.hasCell(coordinate.get())) {
-                model.continueGreenRoute(activeGreenRouteStroke, coordinate.get());
-                repaint();
-            }
-        } else if (tool == EditorTool.DELETE_CELL) {
-            model.deleteCell(coordinate.get());
-            repaint();
         }
+    }
+
+    private void deleteWall(BoundaryHit hit) {
+        CellCoordinate neighbor = hit.direction().move(hit.coordinate());
+        model.connectIfAdjacent(hit.coordinate(), neighbor);
     }
 
     private record RectanglePixels(int x, int y) {

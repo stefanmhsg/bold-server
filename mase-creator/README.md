@@ -13,7 +13,7 @@ The current implementation plan and open follow-up items live in [MASE-CREATOR.m
 .\gradlew.bat run
 ```
 
-This opens the desktop maze editor with a blank X/Y grid. The editor supports loading an existing `.trig` file, drawing paths, drawing a commented optimal route, drawing `maze:green` route predicates, drawing walls, deleting cells, placing the start, placing the exit, auto-saving drafts, restoring an auto-save when needed, clearing route metadata, clearing the canvas with **Erase All**, and exporting a generated scenario package.
+This opens the desktop maze editor with a blank X/Y grid. The toolbar separates the interaction mode from the target: choose **Draw** or **Delete**, then choose **Cell**, **Wall**, **Start**, **Exit**, **Optimal**, or **maze:green**. The editor also supports loading an existing `.trig` file, auto-saving drafts, restoring an auto-save when needed, clearing route metadata, clearing the canvas with **Erase All**, and exporting a generated scenario package.
 
 When loading customized maze files, the editor preserves additional RDF inside coordinate cell named graphs, such as lock operations, key records, extra same-subject predicates, and trailing comments. Cells with preserved custom payload show a small amber corner marker. The editor still regenerates the canonical maze directions from the visible walls, so review custom references after changing or deleting customized cells.
 
@@ -25,10 +25,10 @@ Editor data lives under `app/data/editor`:
 
 **Create Package** writes a server-ready scenario package. The default package is `app/data/editor/output/MaseCreator`, with the maze TriG file at `data/MaseCreator.trig`, runtime settings in `scenario.properties`, package metadata in `manifest.json`, active global SPARQL rules under `rules/global`, and an intentionally empty `rules/scenario` folder for future scenario-specific rules. If the default package already exists, the editor asks whether to overwrite it or create a differently named package in the same output directory. After export, the editor shows the generated package path.
 
-Route tools mark only existing cells. They do not create cells and do not open or close walls.
+The **Optimal** and **maze:green** targets mark only existing cells. They do not create cells and do not open or close walls.
 
-- **Optimal Route** exports a `#Correct plan` comment list only.
-- **maze:green** exports `maze:green </cells/x/y>` successor predicates inside cell graphs. Existing files can contain multiple disconnected `maze:green` zones; loading preserves all active zones, and drawing a new `maze:green` route adds another zone. A one-step drag creates a single successor predicate.
+- **Optimal** in **Draw** mode exports a `#Correct plan` comment list only. **Delete** mode removes optimal-route cells under the click or drag path.
+- **maze:green** in **Draw** mode exports `maze:green </cells/x/y>` successor predicates inside cell graphs. Existing files can contain multiple disconnected `maze:green` zones; loading preserves all active zones, and drawing a new `maze:green` route adds another zone. A one-step drag creates a single successor predicate. **Delete** mode removes selected `maze:green` successors under the click or drag path.
 
 The viewer's optimal-route overlay is hardcoded in [optimalRoutes.ts](../mase-viewer/src/lib/optimalRoutes.ts); it does not read the `#Correct plan` section from TriG. To show an exported route in the viewer, copy the generated comment cells into that TypeScript route list for the target scenario.
 
