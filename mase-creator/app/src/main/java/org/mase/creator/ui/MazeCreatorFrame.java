@@ -2,6 +2,9 @@ package org.mase.creator.ui;
 
 import org.mase.creator.autosave.AutoSaveService;
 import org.mase.creator.model.MazeModel;
+import org.mase.creator.scenario.ScenarioPackageExportResult;
+import org.mase.creator.scenario.ScenarioPackageExporter;
+import org.mase.creator.scenario.ScenarioPackageNames;
 import org.mase.creator.trig.MazeTrigParser;
 import org.mase.creator.trig.MazeTrigSerializer;
 
@@ -26,10 +29,11 @@ import java.util.Optional;
 public final class MazeCreatorFrame extends JFrame {
 
     private static final Path AUTO_SAVE_PATH = dataPath("editor", "autosave", "MaseCreator-autosave.trig");
-    private static final Path OUTPUT_PATH = dataPath("editor", "output", "MaseCreator.trig");
+    private static final Path OUTPUT_DIRECTORY = dataPath("editor", "output", ScenarioPackageExporter.DEFAULT_PACKAGE_NAME).getParent();
 
     private final MazeTrigParser parser = new MazeTrigParser();
     private final MazeTrigSerializer serializer = new MazeTrigSerializer();
+    private final ScenarioPackageExporter packageExporter = new ScenarioPackageExporter(serializer);
     private final AutoSaveService autoSaveService = new AutoSaveService(AUTO_SAVE_PATH, parser, serializer);
     private final MazeEditorPanel editorPanel;
     private final JLabel statusLabel = new JLabel("Ready");
@@ -81,7 +85,7 @@ public final class MazeCreatorFrame extends JFrame {
                         this::newBlankModel,
                         this::openTrigFile,
                         this::restoreAutoSave,
-                        this::saveTrigFile,
+                        this::saveScenarioPackage,
                         this::eraseAll,
                         this::clearOptimalRoute,
                         this::clearGreenRoute
@@ -168,43 +172,49 @@ public final class MazeCreatorFrame extends JFrame {
         }
     }
 
-    private void saveTrigFile() {
+    private void saveScenarioPackage() {
         try {
-            Files.createDirectories(OUTPUT_PATH.getParent());
-            Optional<Path> selectedPath = selectExportPath();
-            if (selectedPath.isEmpty()) {
-                statusLabel.setText("Create Maze canceled");
+            Files.createDirectories(OUTPUT_DIRECTORY);
+            Optional<PackageSelection> selectedPackage = selectPackageExport();
+            if (selectedPackage.isEmpty()) {
+                statusLabel.setText("Create Package canceled");
                 return;
             }
 
-            Path outputPath = selectedPath.get();
-            Files.writeString(outputPath, serializer.serialize(model));
-            Path absolutePath = outputPath.toAbsolutePath().normalize();
-            statusLabel.setText("Created " + absolutePath);
+            PackageSelection selection = selectedPackage.get();
+            ScenarioPackageExportResult result = packageExporter.export(
+                    model,
+                    OUTPUT_DIRECTORY,
+                    selection.packageName(),
+                    selection.replaceExisting()
+            );
+            Path absolutePath = result.packageRoot();
+            statusLabel.setText("Created package " + absolutePath);
             JOptionPane.showMessageDialog(
                     this,
-                    "Maze file generated:" + System.lineSeparator() + absolutePath,
+                    "Scenario package generated:" + System.lineSeparator() + absolutePath,
                     "MASE Creator",
                     JOptionPane.INFORMATION_MESSAGE
             );
         } catch (IOException e) {
-            showError("Could not create maze file", e);
+            showError("Could not create scenario package", e);
         }
     }
 
-    private Optional<Path> selectExportPath() {
-        if (!Files.exists(OUTPUT_PATH)) {
-            return Optional.of(OUTPUT_PATH);
+    private Optional<PackageSelection> selectPackageExport() {
+        Path defaultPackage = OUTPUT_DIRECTORY.resolve(ScenarioPackageExporter.DEFAULT_PACKAGE_NAME);
+        if (!Files.exists(defaultPackage)) {
+            return Optional.of(new PackageSelection(ScenarioPackageExporter.DEFAULT_PACKAGE_NAME, false));
         }
 
-        String message = "A maze file already exists:" + System.lineSeparator()
-                + OUTPUT_PATH.toAbsolutePath().normalize() + System.lineSeparator()
+        String message = "A scenario package already exists:" + System.lineSeparator()
+                + defaultPackage.toAbsolutePath().normalize() + System.lineSeparator()
                 + System.lineSeparator()
-                + "Overwrite it or create a differently named file in the same output directory?";
+                + "Overwrite it or create a differently named package in the same output directory?";
         int choice = JOptionPane.showOptionDialog(
                 this,
                 message,
-                "Create Maze",
+                "Create Package",
                 JOptionPane.YES_NO_CANCEL_OPTION,
                 JOptionPane.QUESTION_MESSAGE,
                 null,
@@ -213,23 +223,24 @@ public final class MazeCreatorFrame extends JFrame {
         );
 
         if (choice == JOptionPane.YES_OPTION) {
-            return Optional.of(OUTPUT_PATH);
+            return Optional.of(new PackageSelection(ScenarioPackageExporter.DEFAULT_PACKAGE_NAME, true));
         }
         if (choice == JOptionPane.NO_OPTION) {
-            return promptForExportFileName();
+            return promptForPackageName();
         }
         return Optional.empty();
     }
 
-    private Optional<Path> promptForExportFileName() {
-        Path outputDirectory = OUTPUT_PATH.getParent();
-        String suggestedName = ExportFileNames.nextAvailableFileName(outputDirectory, OUTPUT_PATH.getFileName().toString());
+    private Optional<PackageSelection> promptForPackageName() {
+        String suggestedName = ScenarioPackageNames.nextAvailablePackageName(
+                OUTPUT_DIRECTORY,
+                ScenarioPackageExporter.DEFAULT_PACKAGE_NAME);
 
         while (true) {
             Object input = JOptionPane.showInputDialog(
                     this,
-                    "File name in " + outputDirectory.toAbsolutePath().normalize() + ":",
-                    "Create Maze",
+                    "Package folder name in " + OUTPUT_DIRECTORY.toAbsolutePath().normalize() + ":",
+                    "Create Package",
                     JOptionPane.QUESTION_MESSAGE,
                     null,
                     null,
@@ -239,30 +250,33 @@ public final class MazeCreatorFrame extends JFrame {
                 return Optional.empty();
             }
 
-            String fileName;
+            String packageName;
             try {
-                fileName = ExportFileNames.normalizeTrigFileName(input.toString());
+                packageName = ScenarioPackageNames.normalizePackageDirectoryName(input.toString());
             } catch (IllegalArgumentException e) {
                 JOptionPane.showMessageDialog(this, e.getMessage(), "MASE Creator", JOptionPane.WARNING_MESSAGE);
                 continue;
             }
 
-            Path selected = outputDirectory.resolve(fileName);
-            if (!Files.exists(selected) || confirmOverwrite(selected)) {
-                return Optional.of(selected);
+            Path selected = OUTPUT_DIRECTORY.resolve(packageName);
+            if (!Files.exists(selected)) {
+                return Optional.of(new PackageSelection(packageName, false));
             }
-            suggestedName = ExportFileNames.nextAvailableFileName(outputDirectory, fileName);
+            if (confirmOverwrite(selected)) {
+                return Optional.of(new PackageSelection(packageName, true));
+            }
+            suggestedName = ScenarioPackageNames.nextAvailablePackageName(OUTPUT_DIRECTORY, packageName);
         }
     }
 
     private boolean confirmOverwrite(Path path) {
         int choice = JOptionPane.showConfirmDialog(
                 this,
-                "A file already exists:" + System.lineSeparator()
+                "A scenario package already exists:" + System.lineSeparator()
                         + path.toAbsolutePath().normalize() + System.lineSeparator()
                         + System.lineSeparator()
                         + "Overwrite it?",
-                "Create Maze",
+                "Create Package",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE
         );
@@ -307,5 +321,8 @@ public final class MazeCreatorFrame extends JFrame {
     private void showError(String message, IOException e) {
         JOptionPane.showMessageDialog(this, message + System.lineSeparator() + e.getMessage(),
                 "MASE Creator", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private record PackageSelection(String packageName, boolean replaceExisting) {
     }
 }

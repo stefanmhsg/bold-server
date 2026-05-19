@@ -19,7 +19,7 @@ All implementation work for this feature stays inside this `mase-creator` projec
   ```
 
 - Generate a complete maze document with prefixes, the `</maze>` graph, coordinate cell graphs, and optional exit support through `maze:exit </cells/999>`.
-- Future: export a complete MASE scenario package, not only a standalone TriG file.
+- Export a complete MASE scenario package, not only a standalone TriG file.
 - Auto-save edits inside the creator project so work is recoverable.
 - Preserve an extensible design for later custom cell statements, colors, items, locks, keys, or UI annotations.
 
@@ -86,7 +86,7 @@ Future UI technology candidates:
   - Packaging can become more complex than the current Gradle app.
 - **Integrated server-hosted editor**:
   - The creator could eventually run as part of `mase-server`, editing scenario folders directly.
-  - Useful once server-side scenario packages exist.
+  - Useful now that `mase-server` can load scenario folders directly.
   - Risk: editor experiments could become coupled to runtime server behavior too early.
 
 Migration principles:
@@ -101,7 +101,7 @@ Open discussion questions:
 
 - Should the long-term creator be a standalone desktop application, a web UI backed by a local service, or a module inside `mase-server`?
 - Should RDF editing use structured forms only, or also expose an expert text editor for raw cell graph snippets?
-- Should scenario-package generation become the main output path, with standalone TriG export treated as an advanced/debug export?
+- Should standalone TriG export return as an advanced/debug export, or should package export remain the only editor output path?
 - Should LLM-assisted SPARQL drafting live inside the creator UI, or as a separate command/plugin that the creator can call?
 - How much of the current lexical TriG preservation should remain once typed editors cover the major custom scenario features?
 
@@ -200,43 +200,47 @@ The two modes use separate data roots:
 - Editor mode: `app/data/editor`
 - Validation/server mode: `app/data/validation`
 
-Auto-save writes a generated TriG snapshot to `app/data/editor/autosave/MaseCreator-autosave.trig` after model changes. This is a recoverable working draft, not the final export. Startup opens a blank canvas by default; the editor provides a restore action for the auto-save when needed. The `Create Maze` command writes the final `.trig` file to `app/data/editor/output/MaseCreator.trig` without asking for a path.
+Auto-save writes a generated TriG snapshot to `app/data/editor/autosave/MaseCreator-autosave.trig` after model changes. This is a recoverable working draft, not the final export. Startup opens a blank canvas by default; the editor provides a restore action for the auto-save when needed. The **Create Package** command writes a complete scenario package to `app/data/editor/output/MaseCreator` by default, with the maze TriG file inside the package at `data/MaseCreator.trig`.
 
 The SPARQL validation/server mode writes its RDFWriter output to `app/data/validation/output/MaseCreator-validation.trig` so it cannot overwrite the editor's one-line coordinate cell format.
 
-## Scenario Package Vision
+## Scenario Package Export
 
-The current editor exports a single TriG maze file. A later implementation should add a higher-level **Create Scenario Package** workflow that emits a complete scenario directory the user can copy into `mase-server` as one unit.
+The current editor emits a complete scenario directory that `mase-server` can load with `--scenario <package-directory>`.
 
-Envisioned package layout:
+Current package layout:
 
 ```text
 <scenario-name>/
   README.md
   scenario.properties
+  manifest.json
+  .env.example
   data/
     <scenario-name>.trig
   rules/
-    Global/
+    global/
       *.rq
-    CcrsMaze/
-      *.rq
-  ui/
-    ui.rq
-  manifest.json
-  .env.example
+    scenario/
+  rules-disabled/
+    README.md
+  validation/
+    README.md
+  agents/
+    README.md
 ```
 
-The exact names can change during implementation, but the package should include:
+The package includes:
 
 - the generated or edited maze TriG file;
-- a properties document derived from the current `sim-*.properties` pattern;
-- SPARQL rule files needed for movement, UI metadata, dynamic locks, key pickup, redirects, broken cells, and other interaction rules;
-- a scenario `README.md` describing purpose, start/exit, expected route hints, custom mechanics, required server version, and how to run it;
-- a manifest with package metadata, generated file list, rule generation settings, and warnings;
+- a `scenario.properties` file using the server's scenario-folder contract;
+- active global SPARQL rule files copied from [masecreator global rules](../mase-server/scenarios/masecreator/rules/global);
+- an empty `rules/scenario` directory reserved for future scenario-specific rules;
+- a scenario `README.md` describing how to run the package;
+- a manifest with package metadata, start/exit notes, generated file list, and warnings;
 - an `.env.example` for optional LLM configuration, never a real `.env` containing secrets.
 
-This package export should be a separate action from **Create Maze**. **Create Maze** remains the deterministic TriG output path for fast editing. **Create Scenario Package** becomes the richer authoring/export path.
+Package export is currently the main editor output path. Standalone TriG export can be reintroduced later as an advanced/debug action if needed.
 
 ## Custom Scenario Authoring Vision
 
@@ -261,7 +265,7 @@ Planned tools:
   - Lets the user choose known interaction patterns such as key-lock, redirect, broken cell, color marker, pickup item, or single-passage enforcement.
   - Produces RDF snippets and SPARQL rule requirements from structured options instead of forcing manual RDF editing.
 
-The first implementation should prefer deterministic templates based on rule files that already work in this repository. Existing rule files such as [ccrs.rq](../mase-server/src/main/resources/rules/CcrsMaze/ccrs.rq), [unlock-keys.rq](../mase-server/src/main/resources/rules/CcrsMaze/unlock-keys.rq), [move.rq](../mase-server/src/main/resources/rules/Global/move.rq), and [ui.rq](../mase-server/src/main/resources/rules/Global/ui.rq) should be treated as reference material for template extraction.
+The first implementation should prefer deterministic templates based on rule files that already work in this repository. Existing rule files such as [ccrs.rq](../mase-server/scenarios/ccrs/rules/scenario/ccrs.rq), [unlock-keys.rq](../mase-server/scenarios/ccrs/rules/scenario/unlock-keys.rq), [move.rq](../mase-server/scenarios/masecreator/rules/global/move.rq), and [ui.rq](../mase-server/scenarios/masecreator/rules/global/ui.rq) should be treated as reference material for template extraction.
 
 ## SPARQL Rule Generation Vision
 
@@ -286,9 +290,9 @@ Validation for generated rules should include:
 - scenario-specific smoke tests for movement, key pickup, lock opening, redirects, and UI shape output;
 - warnings when rules reference cells, predicates, or prefixes absent from the package.
 
-## MASE Server Scenario Folder Vision
+## MASE Server Scenario Folder Alignment
 
-Server-side changes are not part of the current `mase-creator` implementation, but this is the intended direction for later `mase-server` documentation and implementation.
+Server-side scenario folders are now the `mase-server` baseline. Creator package export targets that contract.
 
 `mase-server` should be simplified so it can load one scenario folder that groups all scenario assets:
 
@@ -299,17 +303,16 @@ Server-side changes are not part of the current `mase-creator` implementation, b
 - README/documentation;
 - optional manifest metadata.
 
-The server should be able to point at a scenario directory, read the manifest or default file names, and load the data/rules/config from that directory. Users should not need to copy a TriG file to one folder, rule files to a second folder, and properties to a third folder manually.
+The server points at a scenario directory, reads `scenario.properties`, and loads data/rules/config from that directory. Users should not need to copy a TriG file to one folder, rule files to a second folder, and properties to a third folder manually.
 
-Expected server behavior:
+Current server behavior:
 
-- accept a scenario folder path in the existing sim/config flow;
+- accept a scenario folder path through `--scenario <folder>` or `MASE_SCENARIO_DIR`;
 - resolve data, rules, and validation files relative to that scenario folder;
-- keep compatibility with the current separate-file setup during migration;
 - report missing required package files with actionable messages;
 - expose package metadata in startup logs and, later, in a simple server endpoint.
 
-This section should eventually move into a dedicated `mase-server` README once the server-side scenario-folder loader is implemented.
+The durable server contract is documented in [mase-server README.md](../mase-server/README.md) and [PLAN_MASE_SERVER.md](../mase-server/PLAN_MASE_SERVER.md).
 
 ## Test Cases
 
@@ -342,13 +345,13 @@ This section should eventually move into a dedicated `mase-server` README once t
 - Auto-save writes a restorable TriG file.
 - Current UI shell test: toolbar controls are grouped by workflow, all action/tool buttons expose tooltips, and the active drawing tool remains visually clear.
 - Fixture round trip: parse [CcrsMazeV1.trig](app/src/test/resources/fixtures/CcrsMazeV1.trig), serialize it, and verify active `maze:green` successors plus representative comments, non-coordinate graphs, legacy direction targets, custom cell payloads, and raw correct-plan comments survive whitespace-insensitively.
-- Future package export test: create a scenario package and verify it contains data, properties, rule folders, README, manifest, and `.env.example`.
-- Future package export test: generated package paths are relative to the package root and contain no user-local absolute paths or secrets.
+- Package export test: create a scenario package and verify it contains data, properties, global and scenario rule folders, README, manifest, and `.env.example`.
+- Package export test: generated package paths are relative to the package root and contain no user-local absolute paths or secrets.
 - Future custom authoring test: key-lock tool emits key RDF, lock RDF, SHACL shape, Hydra operation, and matching SPARQL rule files.
 - Future custom authoring test: custom inline predicate-object additions survive load, edit, package export, and re-import.
 - Future rule-generation test: deterministic rule templates produce syntactically valid SPARQL and pass a dry-run against the generated dataset.
 - Future LLM-assisted rule test: with mocked LLM output, generated draft rules are marked as unvalidated until local validation succeeds.
-- Future server-package smoke test: a scenario folder can be loaded as one unit by the server-side loader once that loader exists.
+- Future server-package smoke test: a generated creator package can be loaded as one unit by `mase-server`.
 
 ## Work Packages
 
@@ -363,7 +366,7 @@ These packages group the remaining work into coherent increments. Packages are i
 - [x] Add deterministic TriG serializer for generated maze files.
 - [x] Add auto-save support.
 - [x] Add Swing editor UI for grid rendering and tool selection.
-- [x] Add fixed-path `Create Maze` export and an `Erase All` canvas reset.
+- [x] Add fixed-path **Create Package** export and an `Erase All` canvas reset.
 - [x] Keep validation export separate from editor export so RDFWriter block formatting cannot replace creator output.
 - [x] Split mode data into `app/data/editor` and `app/data/validation`.
 - [x] Split optimal-route drawing and `maze:green` drawing into separate tools and outputs.
@@ -377,7 +380,7 @@ These packages group the remaining work into coherent increments. Packages are i
 Goal: make the existing Swing editor easier to use before adding deeper scenario-authoring features.
 
 - [x] Group toolbar actions by workflow:
-  - file/session actions: `New`, `Open`, `Restore Auto-Save`, `Create Maze`;
+  - file/session actions: `New`, `Open`, `Restore Auto-Save`, `Create Package`;
   - destructive/reset actions: `Erase All`, `Clear Optimal`, `Clear maze:green`;
   - drawing tools: path, wall, delete, start, exit, optimal route, `maze:green`;
   - grid size controls: X/Y spinners.
@@ -434,11 +437,11 @@ Goal: turn existing working SPARQL rules into reusable creator templates.
 
 Goal: export a complete scenario folder instead of requiring users to manually place data, rules, config, and docs.
 
-- [ ] Add **Create Scenario Package** export with TriG, properties, rules, README, manifest, and `.env.example`.
-- [ ] Add package metadata fields: scenario name, description, start/exit notes, mechanics used, generated files, and warnings.
-- [ ] Generate a properties file derived from the current `sim-*.properties` pattern.
-- [ ] Generate a scenario README from the package metadata.
-- [ ] Ensure generated package paths are relative to the package root and contain no user-local absolute paths.
+- [x] Add **Create Package** export with TriG, properties, global rules, README, manifest, and `.env.example`.
+- [x] Add package metadata fields: scenario name, start/exit notes, generated files, and warnings.
+- [x] Generate a properties file derived from the current scenario-folder contract.
+- [x] Generate a scenario README from the package metadata.
+- [x] Ensure generated package paths are relative to the package root and contain no user-local absolute paths.
 - [ ] Add scenario-package validation that checks data, rules, properties, docs, missing references, and secret leakage.
 
 ### WP7: Optional LLM-Assisted SPARQL Drafting
@@ -455,10 +458,10 @@ Goal: support experimental rule authoring while keeping deterministic templates 
 
 Goal: align future creator packages with a simpler `mase-server` loading model.
 
-- [ ] Define the scenario folder contract in a future `mase-server` README.
-- [ ] Add server-side support for loading data, rules, properties, validation files, and docs from one scenario folder.
-- [ ] Keep compatibility with the current separated data/rules/config setup during migration.
-- [ ] Add server-package smoke tests once the loader exists.
+- [x] Define the scenario folder contract in [mase-server README.md](../mase-server/README.md).
+- [x] Add server-side support for loading data, rules, properties, validation files, and docs from one scenario folder.
+- [x] Align creator package export with the current server scenario-folder contract.
+- [ ] Add server-package smoke tests for generated creator packages.
 
 ### WP9: Editor Ergonomics
 

@@ -22,7 +22,7 @@ With no argument, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defaul
 - [x] Active rules are sorted by slash-normalized, scenario-relative, case-folded names for portable trace order.
 - [x] [MazeLayoutService.java](src/main/java/org/maze/application/MazeLayoutService.java) uses one robust layout algorithm for all scenarios; there is no `maze:CcrsMaze` type switch.
 - [x] [maze.ttl](docs/maze.ttl) has been expanded and is served from `/vocab` with RDF content negotiation.
-- [ ] Align creator WP6 export expectations with this final server contract.
+- [x] Align creator WP6 export expectations with this final server contract.
 - [ ] Add an HTTP-level smoke test for `/vocab` if API integration tests are introduced.
 - [ ] Decide whether the current `https://example.org/...` namespaces for UI, MASE API, A2A, and stigmergy terms should become canonical project-owned IRIs.
 
@@ -33,6 +33,7 @@ With no argument, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defaul
 - `MASE_SERVER_BASE_URI` must remain the canonical RDF identity base. Browser-facing and Docker-facing transport hosts may differ.
 - The old generic layout was a subset of the CCRS layout. The retained algorithm covers outgoing links, incoming-only references, disconnected components, and occupied-position checks.
 - Dynamic Java loading from scenario folders is not implemented. Agents are scenario-owned source files compiled by Gradle and run as separate processes.
+- The creator WP6 package export can satisfy the server resolver with global rules under `rules/global/` and an empty `rules/scenario/` directory because the resolver loads every `.rq` file below `rules/` recursively.
 
 ## Decision Log
 
@@ -56,11 +57,17 @@ With no argument, `Configurator` checks `MASE_SCENARIO_DIR` and otherwise defaul
   Rationale: The server should expose the vocabulary it emits and consumes. The distribution copies [docs](docs) so Docker serves the same file.
   Date/Author: 2026-05-17 / Codex
 
+- Decision: Creator-generated packages target the scenario-folder contract directly.
+  Rationale: The creator should emit a folder that `mase-server` can load without manually moving data, rules, config, and docs. The first WP6 slice includes global rules and reserves an empty `rules/scenario/` folder for future scenario-specific rule generation.
+  Date/Author: 2026-05-19 / Codex
+
 ## Outcomes & Retrospective
 
 The scenario-folder migration is complete and accepted as the current baseline. Future server work should assume scenario-folder-only startup, scenario-local rules, scenario-local data, and Gradle-run scenario agents.
 
 The admin reset flow is complete: reset clears and reloads the active scenario dataset, runs startup rules, serializes against writes, clears stale WebSocket replay data, emits a reset event, and returns a fresh admin snapshot.
+
+The creator WP6 export alignment is complete for the first package slice: `mase-creator` emits a server-ready scenario folder under its editor output directory, including data, `scenario.properties`, `manifest.json`, global rules, documentation stubs, and an empty scenario-rules directory.
 
 ## Context and Orientation
 
@@ -117,19 +124,13 @@ Important endpoints:
 
 Only open work remains:
 
-1. Update creator export expectations:
-
-        rg -n "WP6|scenario folder|scenario package|rules-disabled|scenario.properties|manifest" ../mase-creator
-
-   Align [MASE-CREATOR.md](../mase-creator/MASE-CREATOR.md) with this server contract.
-
-2. Decide vocabulary namespace policy:
+1. Decide vocabulary namespace policy:
 
         rg -n "example.org|UI_NS|MASE_NS|STIGMERGY_NS|a2a:" src scenarios docs
 
    Either accept the `example.org` namespaces as local experimental IRIs or replace them with stable project-owned IRIs before treating `/vocab` as public API.
 
-3. Add `/vocab` HTTP coverage if server API tests are broadened:
+2. Add `/vocab` HTTP coverage if server API tests are broadened:
 
         rg -n "WebServerFactory|VocabularyResource|/vocab|Jersey|Jetty" src/test src/main
 
@@ -189,3 +190,5 @@ If rule behavior differs across platforms, compare the logged final rule order. 
 - [ResourceIriResolver.java](src/main/java/org/maze/infrastructure/web/ResourceIriResolver.java) maps browser-facing request paths back to canonical RDF graph IRIs.
 
 Revision note, 2026-05-17: Compacted this plan after the scenario-folder migration, admin reset, rule sorting, layout consolidation, and vocabulary serving work became the accepted baseline. Historical migration details were removed; open work and durable decisions remain.
+
+Revision note, 2026-05-19: Marked creator WP6 package export alignment complete and recorded the first creator-generated package shape.

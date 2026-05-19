@@ -28,7 +28,7 @@ final class MazeToolbarFactory {
         toolbar.add(actionButton("New", "toolbar-action-new", "Start a blank maze with the current grid size.", actions.newMaze()));
         toolbar.add(actionButton("Open", "toolbar-action-open", "Load an existing .trig maze file for editing.", actions.open()));
         toolbar.add(actionButton("Restore Auto-Save", "toolbar-action-restore-auto-save", "Restore the latest editor auto-save snapshot.", actions.restoreAutoSave()));
-        toolbar.add(actionButton("Create Maze", "toolbar-action-create-maze", "Export the current maze TriG file to the editor output directory.", actions.createMaze()));
+        toolbar.add(actionButton("Create Package", "toolbar-action-create-package", "Export a server-ready scenario package to the editor output directory.", actions.createPackage()));
 
         addGroupSeparator(toolbar);
         addGroupLabel(toolbar, "Reset", "toolbar-group-reset");
@@ -101,7 +101,7 @@ final class MazeToolbarFactory {
             Runnable newMaze,
             Runnable open,
             Runnable restoreAutoSave,
-            Runnable createMaze,
+            Runnable createPackage,
             Runnable eraseAll,
             Runnable clearOptimalRoute,
             Runnable clearGreenRoute

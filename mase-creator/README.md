@@ -2,7 +2,7 @@
 
 MASE Creator now has two parts:
 
-1. A logical maze editor for creating and editing coordinate-based TriG maze files.
+1. A logical maze editor for creating and editing coordinate-based maze packages.
 2. The original SPARQL/Jena validation and server flow for checking real RDF store data.
 
 The current implementation plan and open follow-up items live in [MASE-CREATOR.md](MASE-CREATOR.md).
@@ -13,7 +13,7 @@ The current implementation plan and open follow-up items live in [MASE-CREATOR.m
 .\gradlew.bat run
 ```
 
-This opens the desktop maze editor with a blank X/Y grid. The editor supports loading an existing `.trig` file, drawing paths, drawing a commented optimal route, drawing `maze:green` route predicates, drawing walls, deleting cells, placing the start, placing the exit, auto-saving drafts, restoring an auto-save when needed, clearing route metadata, clearing the canvas with **Erase All**, and exporting the generated TriG file.
+This opens the desktop maze editor with a blank X/Y grid. The editor supports loading an existing `.trig` file, drawing paths, drawing a commented optimal route, drawing `maze:green` route predicates, drawing walls, deleting cells, placing the start, placing the exit, auto-saving drafts, restoring an auto-save when needed, clearing route metadata, clearing the canvas with **Erase All**, and exporting a generated scenario package.
 
 When loading customized maze files, the editor preserves additional RDF inside coordinate cell named graphs, such as lock operations, key records, extra same-subject predicates, and trailing comments. Cells with preserved custom payload show a small amber corner marker. The editor still regenerates the canonical maze directions from the visible walls, so review custom references after changing or deleting customized cells.
 
@@ -21,9 +21,9 @@ Editor data lives under `app/data/editor`:
 
 - Optional editor input files: `app/data/editor/input`
 - Auto-save snapshots: `app/data/editor/autosave/MaseCreator-autosave.trig`
-- **Create Maze** output directory: `app/data/editor/output`
+- **Create Package** output directory: `app/data/editor/output/<package-name>`
 
-If `MaseCreator.trig` already exists, **Create Maze** asks whether to overwrite it or create a differently named `.trig` file in the same output directory. After export, the editor shows the generated file path.
+**Create Package** writes a server-ready scenario package. The default package is `app/data/editor/output/MaseCreator`, with the maze TriG file at `data/MaseCreator.trig`, runtime settings in `scenario.properties`, package metadata in `manifest.json`, active global SPARQL rules under `rules/global`, and an intentionally empty `rules/scenario` folder for future scenario-specific rules. If the default package already exists, the editor asks whether to overwrite it or create a differently named package in the same output directory. After export, the editor shows the generated package path.
 
 Route tools mark only existing cells. They do not create cells and do not open or close walls.
 
@@ -59,10 +59,10 @@ The validation mode will:
 
 ## Using the Output
 
-### Generated File
-The transformed validation dataset is saved to `app/data/validation/output/MaseCreator-validation.trig` in standard TriG format with relative URIs. The editor's **Create Maze** output remains `app/data/editor/output/MaseCreator.trig`; base coordinate cells stay one-line records, while imported cells with preserved multiline custom RDF remain block formatted.
+### Generated Package
+The transformed validation dataset is saved to `app/data/validation/output/MaseCreator-validation.trig` in standard TriG format with relative URIs. The editor's **Create Package** output is a scenario folder under `app/data/editor/output`; base coordinate cells stay one-line records inside the package data file, while imported cells with preserved multiline custom RDF remain block formatted.
 
-Mase-Server can directly use this file as input. Make sure to align sim-File and Rules folder.
+Mase-Server can load the generated package directly with `--scenario <package-directory>`. See the scenario runtime contract in [mase-server README.md](../mase-server/README.md).
 
 ### Accessing Graphs via GSP
 Individual named graphs (cells) are accessible via Graph Store Protocol:

@@ -26,7 +26,7 @@ class MazeToolbarFactoryTest {
 
         assertTrue(indexOf(toolbar, "toolbar-action-new") < indexOf(toolbar, "toolbar-action-open"));
         assertTrue(indexOf(toolbar, "toolbar-action-open") < indexOf(toolbar, "toolbar-action-restore-auto-save"));
-        assertTrue(indexOf(toolbar, "toolbar-action-restore-auto-save") < indexOf(toolbar, "toolbar-action-create-maze"));
+        assertTrue(indexOf(toolbar, "toolbar-action-restore-auto-save") < indexOf(toolbar, "toolbar-action-create-package"));
 
         assertTrue(indexOf(toolbar, "toolbar-action-erase-all") < indexOf(toolbar, "toolbar-action-clear-optimal"));
         assertTrue(indexOf(toolbar, "toolbar-action-clear-optimal") < indexOf(toolbar, "toolbar-action-clear-green"));
@@ -50,6 +50,7 @@ class MazeToolbarFactoryTest {
     void usesClearerToolLabels() {
         JToolBar toolbar = createToolbar(new MazeEditorPanel(MazeModel.blank(4, 4)));
 
+        assertEquals("Create Package", findButton(toolbar, "toolbar-action-create-package").getText());
         assertEquals("Draw Maze", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.DRAW_PATH)).getText());
         assertEquals("Delete", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.DELETE_CELL)).getText());
         assertEquals("Optimal", findButton(toolbar, MazeToolbarFactory.toolButtonName(EditorTool.DRAW_OPTIMAL_ROUTE)).getText());
