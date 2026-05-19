@@ -16,6 +16,7 @@ The current run model is scenario-based. Built-in scenarios live in [mase-server
 - [bigmaze](mase-server/scenarios/bigmaze): large maze dataset.
 - [masecreator](mase-server/scenarios/masecreator): scenario generated from the creator workflow.
 - [ccrs](mase-server/scenarios/ccrs): CCRS demonstration scenario with scenario-local agent notes.
+- [emas-workshop](mase-server/scenarios/emas-workshop): workshop-safe CCRS copy that defaults to the V2 dataset for reliable live demonstration.
 
 ## Quick Start with Docker Compose
 
@@ -30,6 +31,14 @@ This starts the [smallmaze](mase-server/scenarios/smallmaze) scenario and the vi
 - Server entry point: http://localhost:8080/maze
 - Viewer: http://localhost:3000
 
+For the EMAS workshop CCRS showcase, use the dedicated workshop Compose file:
+
+```powershell
+docker compose -f docker-compose.emas-workshop.yml --profile viewer up --build -d mase-viewer
+```
+
+This starts the [emas-workshop](mase-server/scenarios/emas-workshop) scenario and the viewer. The scenario is a workshop-safe CCRS copy that defaults to `CcrsMazeV2.trig`, where the red key is present in the maze data.
+
 ## Run a Scenario with Docker
 
 Build the server image and pass the scenario path as the container command:
@@ -40,7 +49,7 @@ docker build -t mase-server .
 docker run --rm -p 8080:8080 mase-server bin/mase-server --scenario scenarios/midmaze
 ```
 
-Replace `scenarios/midmaze` with any scenario directory that exists inside the image, such as `scenarios/smallmaze`, `scenarios/bigmaze`, `scenarios/masecreator`, or `scenarios/ccrs`.
+Replace `scenarios/midmaze` with any scenario directory that exists inside the image, such as `scenarios/smallmaze`, `scenarios/bigmaze`, `scenarios/masecreator`, `scenarios/ccrs`, or `scenarios/emas-workshop`.
 
 ## Run a Scenario with Gradle
 
@@ -116,6 +125,7 @@ Scenarios can include agent source and launch notes under their `agents/` direct
 
 - [SmallMaze agents README.md](mase-server/scenarios/smallmaze/agents/README.md)
 - [CCRS agents README.md](mase-server/scenarios/ccrs/agents/README.md)
+- [EMAS Workshop agents README.md](mase-server/scenarios/emas-workshop/agents/README.md)
 
 Run the built-in SmallMaze sample agent against a running SmallMaze server:
 

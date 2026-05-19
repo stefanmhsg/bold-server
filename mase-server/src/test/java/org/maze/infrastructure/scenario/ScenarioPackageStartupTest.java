@@ -34,6 +34,10 @@ class ScenarioPackageStartupTest {
                 scenarioPackage.ruleFiles(),
                 scenarioPackage.root(),
                 config.getRuleExecutionOrder());
+        List<String> ruleNames = ruleService.getRules().stream()
+                .map(MazeRule::getName)
+                .toList();
+        assertTrue(ruleNames.contains("rules/scenario/ui-keys"));
 
         try (SailRepositoryConnection conn = repository.getConnection()) {
             conn.begin();
@@ -46,6 +50,10 @@ class ScenarioPackageStartupTest {
         assertEquals(5, layoutService.getMazeLayout().width);
         assertEquals(5, layoutService.getMazeLayout().height);
         assertTrue(layoutService.getUiSnapshot().size() > 0);
+        assertTrue(layoutService.getUiSnapshot().stream()
+                .anyMatch(ui -> ui.id.endsWith("#ui-greenkey")));
+        assertTrue(layoutService.getUiSnapshot().stream()
+                .anyMatch(ui -> ui.id.endsWith("#ui-redkey")));
     }
 
     @Test
@@ -81,7 +89,7 @@ class ScenarioPackageStartupTest {
         ServerConfiguration config = ServerConfiguration.forScenarioPackage(Path.of("scenarios/smallmaze"));
 
         assertTrue(config.isScenarioPackageMode());
-        assertEquals(TransactionTraceMode.SUMMARY, config.getTransactionTraceMode());
+        assertEquals(TransactionTraceMode.FULL, config.getTransactionTraceMode());
         assertTrue(config.getRawProperties().stringPropertyNames().stream()
                 .noneMatch("mase.server.protocol"::equals));
     }

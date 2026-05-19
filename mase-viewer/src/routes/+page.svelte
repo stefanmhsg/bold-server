@@ -36,6 +36,7 @@
     let pendingOperationText = $state<string | null>(null);
     let resetDialogOpen = $state(false);
     let exportDialogOpen = $state(false);
+    let demoAgentOpen = $state(false);
     let canvasRevision = $state(0);
     let resetMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
     let resetMessageTimer: ReturnType<typeof setTimeout> | null = null;
@@ -98,6 +99,15 @@
     function closeExportDialog() {
         if (isResetting || isExportingLogs) return;
         exportDialogOpen = false;
+    }
+
+    function openDemoAgentView() {
+        if (isResetting || isExportingLogs) return;
+        demoAgentOpen = true;
+    }
+
+    function closeDemoAgentView() {
+        demoAgentOpen = false;
     }
 
     function createDefaultExportTypeSelection(): Record<ArchiveEventType, boolean> {
@@ -605,12 +615,23 @@
                 {/if}
                 {isExportingLogs ? 'Exporting...' : 'Export Logs'}
             </button>
+            <button
+                type="button"
+                class="rounded border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                onclick={openDemoAgentView}
+                disabled={isExportingLogs || isResetting}
+            >
+                Demo Agent
+            </button>
         </div>
 
-        <DemoAgentPanel
-            serverHttpBaseUrl={data.serverConfig.httpBaseUrl}
-            disabled={isResetting || isExportingLogs}
-        />
+        {#if demoAgentOpen}
+            <DemoAgentPanel
+                serverHttpBaseUrl={data.serverConfig.httpBaseUrl}
+                disabled={isResetting || isExportingLogs}
+                onClose={closeDemoAgentView}
+            />
+        {/if}
 
         <div>
             <h3 class="font-semibold mb-2 text-gray-700">Agent Movements</h3>

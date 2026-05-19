@@ -1,0 +1,21 @@
+PREFIX dyn:  <https://paul.ti.rw.fau.de/~am52etar/dynmaze/dynmaze#>
+PREFIX maze: <https://kaefer3000.github.io/2021-02-dagstuhl/vocab#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+INSERT {
+    # add the locked state if not present
+    GRAPH ?g {
+        ?g dyn:state dyn:locked .
+    }
+}
+WHERE {
+    # normalze all locks to have locked state if no state is present
+    GRAPH ?g {
+        ?cell a maze:Cell , dyn:Lock .
+
+        OPTIONAL { ?cell dyn:state ?oldState . }
+    }
+    
+FILTER( !BOUND(?oldState) ) # only if no state is present
+
+}

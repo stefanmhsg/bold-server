@@ -1,0 +1,31 @@
+{
+  "contractVersion": "0.1",
+  "id": "emas-workshop",
+  "name": "EMAS Workshop CCRS Maze",
+  "entrypoint": "scenario.properties",
+  "files": {
+    "data": ["data/CcrsMazeV1.trig", "data/CcrsMazeV2.trig"],
+    "rules": ["rules/**/*.rq"]
+  },
+  "mechanics": ["movement", "dynamic-locks", "key-pickup", "a2a-keyholder"],
+  "agents": [
+    {
+      "id": "ccrs-agent",
+      "type": "java-main",
+      "mainClass": "org.maze.scenarios.ccrs.agents.CcrsAgent"
+    },
+    {
+      "id": "keyholder-agent",
+      "type": "java-main",
+      "mainClass": "org.maze.scenarios.ccrs.agents.KeyHolderAgent"
+    },
+    {
+      "id": "a2a-key-seeker",
+      "type": "java-main",
+      "mainClass": "org.maze.scenarios.ccrs.agents.A2AKeySeekerAgent"
+    }
+  ],
+  "warnings": [
+    "Workshop copy of the CCRS scenario. It defaults to CcrsMazeV2.trig so the red key is available in the maze data and the main showcase does not depend on A2A keyholder timing."
+  ]
+}
