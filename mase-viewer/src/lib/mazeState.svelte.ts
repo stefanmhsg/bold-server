@@ -66,6 +66,11 @@ export interface TransactionEvent extends BaseEvent {
 }
 
 export type MazeEvent = AgentMovedEvent | UiUpsertEvent | UiDeleteEvent | TransactionEvent;
+type MazeEventPayload =
+    | Omit<AgentMovedEvent, 'timestamp'>
+    | Omit<UiUpsertEvent, 'timestamp'>
+    | Omit<UiDeleteEvent, 'timestamp'>
+    | Omit<TransactionEvent, 'timestamp'>;
 export type RuntimeCanvasEvent = AgentMovedEvent | UiUpsertEvent | UiDeleteEvent;
 
 const HOT_AGENT_EVENT_LIMIT = 50;
@@ -175,7 +180,7 @@ export class MazeStore {
         }
     }
 
-    private signatureForPayload(payload: Omit<MazeEvent, 'timestamp'>): string {
+    private signatureForPayload(payload: MazeEventPayload): string {
         return JSON.stringify(payload);
     }
 
@@ -500,7 +505,7 @@ export class MazeStore {
         };
     }
 
-    private shouldSuppressResetTransaction(payload: Omit<MazeEvent, 'timestamp'>): boolean {
+    private shouldSuppressResetTransaction(payload: MazeEventPayload): boolean {
         return Date.now() <= this.suppressResetTransactionsUntil
             && payload.type === 'TRANSACTION'
             && payload.trigger === 'RESET';
@@ -520,7 +525,7 @@ export class MazeStore {
     }
 }
 
-function isMazeEventPayload(payload: any): payload is Omit<MazeEvent, 'timestamp'> {
+function isMazeEventPayload(payload: any): payload is MazeEventPayload {
     if (!payload || typeof payload !== 'object' || typeof payload.type !== 'string') {
         return false;
     }

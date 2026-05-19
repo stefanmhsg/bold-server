@@ -28,6 +28,7 @@
     let cellUiFillById: Map<string, string> = new Map();
     let agents: Map<string, Konva.Star> = new Map();
     let agentColors: Map<string, string> = new Map();
+    let nextAgentColorIndex = 0;
     let agentPositions: Map<string, string> = new Map();
     let uiNodes: Map<string, Konva.Shape | Konva.Group> = new Map();
     let uiPathImageCache: Map<string, CachedPathRender> = new Map();
@@ -614,7 +615,8 @@
                 agents.delete(agentId);
             }
             agentPositions.delete(agentId);
-            agentColors.delete(agentId);
+            // Keep the color assignment cached after exit so replayed or restarted
+            // agents retain their marker color and new agents continue the palette.
             
             // Re-layout old cell if it existed
             if (oldCellId) {
@@ -673,11 +675,7 @@
             let star = agents.get(aid);
             if (!star) {
                 // Create new star
-                let color = agentColors.get(aid);
-                if (!color) {
-                    color = AGENT_COLORS[agentColors.size % AGENT_COLORS.length];
-                    agentColors.set(aid, color);
-                }
+                const color = getAgentColor(aid);
 
                 star = new Konva.Star({
                     x: markerX,
@@ -702,6 +700,18 @@
 				});
             }
         });
+    }
+
+    function getAgentColor(agentId: string): string {
+        const existingColor = agentColors.get(agentId);
+        if (existingColor) {
+            return existingColor;
+        }
+
+        const color = AGENT_COLORS[nextAgentColorIndex % AGENT_COLORS.length];
+        nextAgentColorIndex += 1;
+        agentColors.set(agentId, color);
+        return color;
     }
 
     function applyUiUpsert(cmd: UiCommand) {
