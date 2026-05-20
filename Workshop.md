@@ -71,7 +71,7 @@ Open the inline demo panel from the viewer and use it as a request boundary mark
 | Control | Value |
 | --- | --- |
 | Button | `Demo Agent` |
-| Agent name | `demo-agent` |
+| Agent name | `demo-agent` *name has to be unique in mase |
 | Prefer green signifiers | Enabled |
 | Reset action | `Reset Demo Agent` |
 | Step action | `Next Request` |
