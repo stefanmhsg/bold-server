@@ -4,6 +4,8 @@
     import type { MazeLayout, Cell } from '$lib/types';
     import { mazeState, type RuntimeCanvasEvent, type UiCommand } from '$lib/mazeState.svelte';
     import { getOptimalRouteOverlay } from '$lib/optimalRoutes';
+    import type { PathAnalysisStep } from '$lib/pathAnalysis';
+    import { pathAnalysisOverlay, type PathAnalysisOverlayState } from '$lib/pathAnalysisOverlayStore';
     import { showOptimalRoute } from '$lib/routeOverlayStore';
 
     let { maze, uiSnapshot, scenarioName, onCellSelect } = $props<{ 
@@ -17,6 +19,7 @@
     let stage: Konva.Stage;
     let mazeLayer: Konva.Layer;
     let uiLayer: Konva.Layer;
+    let pathAnalysisLayer: Konva.Layer;
 
     let agentLayer: Konva.Layer;
     let tooltipLayer: Konva.Layer;
@@ -36,11 +39,22 @@
     let uiPathRenderKeysById: Map<string, string> = new Map();
     let pendingLayerDraws: Set<Konva.Layer> = new Set();
     let drawFrameHandle: number | null = null;
+    let lastPathFitRequest = 0;
 
     type CachedPathRender = {
         image: HTMLImageElement;
         bounds: { x: number; y: number; width: number; height: number };
         pad: number;
+    };
+
+    type Point = { x: number; y: number };
+
+    type RenderedPathStep = PathAnalysisStep & {
+        x: number;
+        y: number;
+        baseX: number;
+        baseY: number;
+        color: string;
     };
 
 
@@ -274,6 +288,9 @@
 
         uiLayer = new Konva.Layer();
         stage.add(uiLayer);
+
+        pathAnalysisLayer = new Konva.Layer({ listening: false });
+        stage.add(pathAnalysisLayer);
 
         agentLayer = new Konva.Layer();
         stage.add(agentLayer);
@@ -602,6 +619,20 @@
         if (!mazeLayer) return;
         refreshAllCellFills();
     });
+
+    $effect(() => {
+        const overlayState = $pathAnalysisOverlay;
+        if (!pathAnalysisLayer) return;
+        drawPathAnalysisOverlay(overlayState);
+    });
+
+    $effect(() => {
+        const overlayState = $pathAnalysisOverlay;
+        if (!stage || overlayState.fitRequest === lastPathFitRequest) return;
+
+        lastPathFitRequest = overlayState.fitRequest;
+        fitToPathAnalysis(overlayState.steps);
+    });
     
     function updateAgentPosition(agentId: string, cellId: string) {
         const oldCellId = agentPositions.get(agentId);
@@ -638,6 +669,292 @@
         }
         
         agentLayer.draw();
+    }
+
+    function drawPathAnalysisOverlay(state: PathAnalysisOverlayState) {
+        pathAnalysisLayer.destroyChildren();
+
+        if (!state.visible || state.steps.length === 0) {
+            pathAnalysisLayer.batchDraw();
+            return;
+        }
+
+        try {
+            const renderedSteps = computePathStepPositions(state.steps);
+            const currentStep = state.currentStep ?? renderedSteps[renderedSteps.length - 1]?.step ?? null;
+            const transitionOccurrences: Record<string, number> = {};
+
+            for (let index = 1; index < renderedSteps.length; index += 1) {
+                const from = renderedSteps[index - 1];
+                const to = renderedSteps[index];
+
+                if (to.sequenceIndex !== from.sequenceIndex + 1) {
+                    continue;
+                }
+
+                drawPathTransition(from, to, currentStep, state.dimFutureSteps, transitionOccurrences);
+            }
+
+            for (const step of renderedSteps) {
+                drawPathVisitMarker(step, currentStep, state.dimFutureSteps);
+            }
+        } catch (error) {
+            console.warn('Path analysis overlay render failed', error);
+            pathAnalysisLayer.destroyChildren();
+        }
+
+        pathAnalysisLayer.batchDraw();
+    }
+
+    function computePathStepPositions(steps: readonly PathAnalysisStep[]): RenderedPathStep[] {
+        const cellById: Record<string, Cell> = {};
+        maze.cells.forEach((cell: Cell) => {
+            cellById[cell.id] = cell;
+        });
+        const visitsByCell: Record<string, number> = {};
+        const totalSteps = Math.max(1, steps.length);
+        const rendered: RenderedPathStep[] = [];
+
+        steps.forEach((step, index) => {
+            const cell = cellById[step.cellId];
+            if (!cell) {
+                return;
+            }
+
+            const visitIndex = visitsByCell[step.cellId] ?? 0;
+            visitsByCell[step.cellId] = visitIndex + 1;
+
+            const baseX = cell.x * CELL_SIZE + PADDING + CELL_SIZE / 2;
+            const baseY = cell.y * CELL_SIZE + PADDING + CELL_SIZE / 2;
+            const offset = visitMarkerOffset(visitIndex);
+
+            rendered.push({
+                ...step,
+                x: baseX + offset.x,
+                y: baseY + offset.y,
+                baseX,
+                baseY,
+                color: pathColor(index, totalSteps)
+            });
+        });
+
+        return rendered;
+    }
+
+    function drawPathTransition(
+        from: RenderedPathStep,
+        to: RenderedPathStep,
+        currentStep: number | null,
+        dimFutureSteps: boolean,
+        transitionOccurrences: Record<string, number>
+    ) {
+        const lane = transitionLaneOffset(from, to, transitionOccurrences);
+        const rawStart = { x: from.x + lane.x, y: from.y + lane.y };
+        const rawEnd = { x: to.x + lane.x, y: to.y + lane.y };
+        const segment = shortenSegment(rawStart, rawEnd, 12);
+        const isFuture = dimFutureSteps && currentStep !== null && to.step > currentStep;
+        const isCurrent = currentStep !== null && to.step === currentStep;
+
+        if (!segment) {
+            return;
+        }
+
+        const arrow = new Konva.Arrow({
+            points: [segment.start.x, segment.start.y, segment.end.x, segment.end.y],
+            stroke: to.color,
+            fill: to.color,
+            strokeWidth: isCurrent ? 4 : 3,
+            pointerLength: isCurrent ? 9 : 7,
+            pointerWidth: isCurrent ? 9 : 7,
+            lineCap: 'round',
+            lineJoin: 'round',
+            opacity: isFuture ? 0.18 : 0.82
+        });
+        pathAnalysisLayer.add(arrow);
+
+        if (lane.capped) {
+            drawTransitionRepeatBadge(segment.start, segment.end, lane.repetition);
+        }
+    }
+
+    function drawPathVisitMarker(step: RenderedPathStep, currentStep: number | null, dimFutureSteps: boolean) {
+        const label = String(step.step);
+        const radius = Math.min(16, Math.max(10, 7 + label.length * 3));
+        const isFuture = dimFutureSteps && currentStep !== null && step.step > currentStep;
+        const isCurrent = currentStep !== null && step.step === currentStep;
+        const group = new Konva.Group({
+            x: step.x,
+            y: step.y,
+            opacity: isFuture ? 0.28 : 0.96,
+            listening: false
+        });
+
+        group.add(new Konva.Circle({
+            radius,
+            fill: step.color,
+            stroke: isCurrent ? '#111827' : '#ffffff',
+            strokeWidth: isCurrent ? 3 : 1.5,
+            shadowColor: '#111827',
+            shadowBlur: isCurrent ? 8 : 3,
+            shadowOpacity: isCurrent ? 0.24 : 0.12,
+            shadowOffset: { x: 0, y: 1 }
+        }));
+
+        group.add(new Konva.Text({
+            x: -radius,
+            y: -5,
+            width: radius * 2,
+            text: label,
+            align: 'center',
+            fontFamily: 'Arial',
+            fontSize: label.length > 3 ? 7 : label.length > 2 ? 8 : 9,
+            fontStyle: 'bold',
+            fill: '#ffffff',
+            listening: false
+        }));
+
+        pathAnalysisLayer.add(group);
+    }
+
+    function drawTransitionRepeatBadge(start: Point, end: Point, repetition: number) {
+        const x = (start.x + end.x) / 2;
+        const y = (start.y + end.y) / 2;
+        const label = `x${repetition}`;
+        const width = Math.max(18, label.length * 7 + 8);
+        const group = new Konva.Group({ x, y, listening: false });
+
+        group.add(new Konva.Rect({
+            x: -width / 2,
+            y: -8,
+            width,
+            height: 16,
+            cornerRadius: 8,
+            fill: '#111827',
+            opacity: 0.82
+        }));
+        group.add(new Konva.Text({
+            x: -width / 2,
+            y: -5,
+            width,
+            text: label,
+            align: 'center',
+            fontFamily: 'Arial',
+            fontSize: 9,
+            fontStyle: 'bold',
+            fill: '#ffffff'
+        }));
+
+        pathAnalysisLayer.add(group);
+    }
+
+    function visitMarkerOffset(visitIndex: number): Point {
+        if (visitIndex === 0) {
+            return { x: 0, y: 0 };
+        }
+
+        const ringIndex = visitIndex - 1;
+        const slots = 8;
+        const ring = Math.floor(ringIndex / slots);
+        const angle = ((ringIndex % slots) / slots) * Math.PI * 2 - Math.PI / 2;
+        const radius = Math.min(22, 10 + ring * 5);
+
+        return {
+            x: Math.cos(angle) * radius,
+            y: Math.sin(angle) * radius
+        };
+    }
+
+    function transitionLaneOffset(
+        from: RenderedPathStep,
+        to: RenderedPathStep,
+        transitionOccurrences: Record<string, number>
+    ): Point & { repetition: number; capped: boolean } {
+        const directionKey = `${from.cellId}\u0000${to.cellId}`;
+        const occurrence = transitionOccurrences[directionKey] ?? 0;
+        transitionOccurrences[directionKey] = occurrence + 1;
+
+        const dx = to.baseX - from.baseX;
+        const dy = to.baseY - from.baseY;
+        const length = Math.hypot(dx, dy);
+        if (length < 1) {
+            return { x: 0, y: 0, repetition: occurrence + 1, capped: occurrence >= 3 };
+        }
+
+        const normalX = -dy / length;
+        const normalY = dx / length;
+        const directionSign = from.cellId <= to.cellId ? 1 : -1;
+        const laneIndex = Math.min(occurrence, 3);
+        const magnitude = 7 + laneIndex * 4;
+
+        return {
+            x: normalX * directionSign * magnitude,
+            y: normalY * directionSign * magnitude,
+            repetition: occurrence + 1,
+            capped: occurrence >= 3
+        };
+    }
+
+    function shortenSegment(start: Point, end: Point, inset: number): { start: Point; end: Point } | null {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const length = Math.hypot(dx, dy);
+        if (length <= inset * 1.5) {
+            return null;
+        }
+
+        const unitX = dx / length;
+        const unitY = dy / length;
+
+        return {
+            start: {
+                x: start.x + unitX * inset,
+                y: start.y + unitY * inset
+            },
+            end: {
+                x: end.x - unitX * inset,
+                y: end.y - unitY * inset
+            }
+        };
+    }
+
+    function pathColor(index: number, totalSteps: number): string {
+        const progress = totalSteps <= 1 ? 0 : index / (totalSteps - 1);
+        const hue = Math.round(205 - progress * 165);
+        return `hsl(${hue}, 78%, 43%)`;
+    }
+
+    function fitToPathAnalysis(steps: readonly PathAnalysisStep[]) {
+        if (!stage || steps.length === 0) {
+            return;
+        }
+
+        const cells = steps
+            .map((step) => maze.cells.find((cell: Cell) => cell.id === step.cellId))
+            .filter((cell): cell is Cell => Boolean(cell));
+
+        if (cells.length === 0) {
+            return;
+        }
+
+        const minX = Math.min(...cells.map((cell) => cell.x * CELL_SIZE + PADDING));
+        const minY = Math.min(...cells.map((cell) => cell.y * CELL_SIZE + PADDING));
+        const maxX = Math.max(...cells.map((cell) => cell.x * CELL_SIZE + PADDING + CELL_SIZE));
+        const maxY = Math.max(...cells.map((cell) => cell.y * CELL_SIZE + PADDING + CELL_SIZE));
+        const viewportPadding = 36;
+        const boxWidth = Math.max(1, maxX - minX + viewportPadding * 2);
+        const boxHeight = Math.max(1, maxY - minY + viewportPadding * 2);
+        const scale = Math.min(2, stage.width() / boxWidth, stage.height() / boxHeight);
+
+        if (!Number.isFinite(scale) || scale <= 0) {
+            return;
+        }
+
+        stage.scale({ x: scale, y: scale });
+        stage.position({
+            x: (stage.width() - boxWidth * scale) / 2 - (minX - viewportPadding) * scale,
+            y: (stage.height() - boxHeight * scale) / 2 - (minY - viewportPadding) * scale
+        });
+        stage.batchDraw();
     }
 
     function layoutAgentsInCell(cellId: string) {

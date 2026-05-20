@@ -1,4 +1,4 @@
-import type { MazeEvent } from './mazeState.svelte';
+import type { AgentMovedEvent, MazeEvent } from './mazeState.svelte';
 
 const DB_NAME = 'mase-viewer-event-archive';
 const DB_VERSION = 2;
@@ -28,6 +28,16 @@ export interface ArchivedMazeEvent {
     graph?: string | null;
     transactionId?: number | null;
     event: MazeEvent;
+}
+
+export interface MovementPathSource {
+    runId: string;
+    agent: string;
+    count: number;
+    firstTimestamp?: number;
+    lastTimestamp?: number;
+    firstArchivedAt?: number;
+    lastArchivedAt?: number;
 }
 
 export interface ArchivedEventPage<T extends MazeEvent> {
@@ -181,6 +191,106 @@ class EventArchive {
             };
 
             request.onerror = () => reject(request.error ?? new Error('Failed to read archived events'));
+        });
+    }
+
+    async listMovementPathSources(): Promise<MovementPathSource[]> {
+        if (!this.isAvailable()) {
+            return [];
+        }
+
+        const db = await this.openDb();
+
+        return new Promise<MovementPathSource[]>((resolve, reject) => {
+            const summaries = new Map<string, MovementPathSource>();
+            const tx = db.transaction(EVENT_STORE, 'readonly');
+            const index = tx.objectStore(EVENT_STORE).index('typeArchiveId');
+            const range = IDBKeyRange.bound(['AGENT_MOVED', 0], ['AGENT_MOVED', Number.MAX_SAFE_INTEGER]);
+            const request = index.openCursor(range, 'next');
+
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) {
+                    resolve([...summaries.values()].sort((a, b) => {
+                        const aLast = a.lastArchivedAt ?? a.lastTimestamp ?? 0;
+                        const bLast = b.lastArchivedAt ?? b.lastTimestamp ?? 0;
+                        return bLast - aLast;
+                    }));
+                    return;
+                }
+
+                const record = cursor.value as ArchivedMazeEvent;
+                const event = record.event as MazeEvent;
+                const agent = record.agent || (event.type === 'AGENT_MOVED' ? event.agent : '');
+
+                if (agent) {
+                    const key = `${record.runId}\u0000${agent}`;
+                    const existing = summaries.get(key);
+
+                    if (existing) {
+                        existing.count += 1;
+                        existing.firstTimestamp = minDefined(existing.firstTimestamp, record.timestamp);
+                        existing.lastTimestamp = maxDefined(existing.lastTimestamp, record.timestamp);
+                        existing.firstArchivedAt = minDefined(existing.firstArchivedAt, record.archivedAt);
+                        existing.lastArchivedAt = maxDefined(existing.lastArchivedAt, record.archivedAt);
+                    } else {
+                        summaries.set(key, {
+                            runId: record.runId,
+                            agent,
+                            count: 1,
+                            firstTimestamp: record.timestamp,
+                            lastTimestamp: record.timestamp,
+                            firstArchivedAt: record.archivedAt,
+                            lastArchivedAt: record.archivedAt
+                        });
+                    }
+                }
+
+                cursor.continue();
+            };
+
+            request.onerror = () => reject(request.error ?? new Error('Failed to list archived movement paths'));
+        });
+    }
+
+    async getAgentMovementPath(runId: string, agent: string): Promise<AgentMovedEvent[]> {
+        if (!runId || !agent || !this.isAvailable()) {
+            return [];
+        }
+
+        const db = await this.openDb();
+
+        return new Promise<AgentMovedEvent[]>((resolve, reject) => {
+            const records: ArchivedMazeEvent[] = [];
+            const tx = db.transaction(EVENT_STORE, 'readonly');
+            const index = tx.objectStore(EVENT_STORE).index('typeArchiveId');
+            const range = IDBKeyRange.bound(['AGENT_MOVED', 0], ['AGENT_MOVED', Number.MAX_SAFE_INTEGER]);
+            const request = index.openCursor(range, 'next');
+
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) {
+                    records.sort((a, b) => {
+                        const aArchive = a.archiveId ?? 0;
+                        const bArchive = b.archiveId ?? 0;
+                        return aArchive - bArchive || a.timestamp - b.timestamp;
+                    });
+                    resolve(records.map((record) => record.event as AgentMovedEvent));
+                    return;
+                }
+
+                const record = cursor.value as ArchivedMazeEvent;
+                const event = record.event as MazeEvent;
+                const recordAgent = record.agent || (event.type === 'AGENT_MOVED' ? event.agent : '');
+
+                if (record.runId === runId && recordAgent === agent) {
+                    records.push(record);
+                }
+
+                cursor.continue();
+            };
+
+            request.onerror = () => reject(request.error ?? new Error('Failed to load archived movement path'));
         });
     }
 
@@ -453,3 +563,15 @@ class EventArchive {
 }
 
 export const eventArchive = new EventArchive();
+
+function minDefined(current: number | undefined, value: number | undefined): number | undefined {
+    if (current === undefined) return value;
+    if (value === undefined) return current;
+    return Math.min(current, value);
+}
+
+function maxDefined(current: number | undefined, value: number | undefined): number | undefined {
+    if (current === undefined) return value;
+    if (value === undefined) return current;
+    return Math.max(current, value);
+}

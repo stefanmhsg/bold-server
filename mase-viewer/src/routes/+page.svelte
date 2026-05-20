@@ -5,9 +5,11 @@
     import type { PageData } from './$types';
     import MazeCanvas from '$lib/components/MazeCanvas.svelte';
     import DemoAgentPanel from '$lib/components/DemoAgentPanel.svelte';
+    import PathAnalysisPanel from '$lib/components/PathAnalysisPanel.svelte';
     import AgentEventLog from '$lib/components/AgentEventLog.svelte';
     import CellEventLog from '$lib/components/CellEventLog.svelte';
     import { showOptimalRoute } from '$lib/routeOverlayStore';
+    import { pathAnalysisOverlay } from '$lib/pathAnalysisOverlayStore';
     import { ARCHIVE_EVENT_TYPES, type ArchiveEventType } from '$lib/eventArchive';
 
     const EVENT_TYPE_LABELS: Record<ArchiveEventType, string> = {
@@ -37,6 +39,7 @@
     let resetDialogOpen = $state(false);
     let exportDialogOpen = $state(false);
     let demoAgentOpen = $state(false);
+    let pathAnalysisOpen = $state(false);
     let canvasRevision = $state(0);
     let resetMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
     let resetMessageTimer: ReturnType<typeof setTimeout> | null = null;
@@ -108,6 +111,15 @@
 
     function closeDemoAgentView() {
         demoAgentOpen = false;
+    }
+
+    function openPathAnalysisView() {
+        if (isResetting || isExportingLogs) return;
+        pathAnalysisOpen = true;
+    }
+
+    function closePathAnalysisView() {
+        pathAnalysisOpen = false;
     }
 
     function createDefaultExportTypeSelection(): Record<ArchiveEventType, boolean> {
@@ -278,6 +290,8 @@
         isPosting = false;
         postMessage = null;
         eventFilterText = '';
+        pathAnalysisOpen = false;
+        pathAnalysisOverlay.clearPath();
 
         await mazeState.resetForNewRun();
         await invalidateAll();
@@ -495,6 +509,14 @@
                     {isResetting ? 'Working...' : isExportingLogs ? 'Exporting...' : 'Reset Store'}
                 </button>
                 <button
+                    onclick={openPathAnalysisView}
+                    class="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                    disabled={isResetting || isExportingLogs || !data.maze}
+                >
+                    Path Analysis
+                </button>
+                <button
                     onclick={() => showOptimalRoute.update((v) => !v)}
                     class="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white hover:bg-gray-50"
                     type="button"
@@ -531,6 +553,14 @@
                     <div class="mt-2 text-sm text-red-600">{data.loadError}</div>
                 {/if}
             </div>
+        {/if}
+
+        {#if pathAnalysisOpen && data.maze}
+            <PathAnalysisPanel
+                maze={data.maze}
+                disabled={isResetting || isExportingLogs}
+                onClose={closePathAnalysisView}
+            />
         {/if}
 
         <!-- Cell Data Inspector -->
@@ -585,7 +615,7 @@
         <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
             <span class="font-medium text-gray-600">Archive: {mazeState.archiveCount}</span>
             <span class="font-mono" title={mazeState.archiveRunId}>Run: {formatArchiveRunId(mazeState.archiveRunId)}</span>
-            {#each ARCHIVE_EVENT_TYPES as type}
+            {#each ARCHIVE_EVENT_TYPES as type (type)}
                 <span>{EVENT_TYPE_LABELS[type]}: {eventTypeCount(type)}</span>
             {/each}
         </div>
@@ -759,7 +789,7 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {#each ARCHIVE_EVENT_TYPES as type}
+                    {#each ARCHIVE_EVENT_TYPES as type (type)}
                         <label class="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm">
                             <span class="flex items-center gap-2">
                                 <input
@@ -845,7 +875,7 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {#each ARCHIVE_EVENT_TYPES as type}
+                    {#each ARCHIVE_EVENT_TYPES as type (type)}
                         <label class="flex items-center justify-between gap-2 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm">
                             <span class="flex items-center gap-2">
                                 <input
