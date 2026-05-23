@@ -38,6 +38,7 @@
     let pendingOperationText = $state<string | null>(null);
     let resetDialogOpen = $state(false);
     let exportDialogOpen = $state(false);
+    let archiveSettingsOpen = $state(false);
     let demoAgentOpen = $state(false);
     let pathAnalysisOpen = $state(false);
     let canvasRevision = $state(0);
@@ -135,6 +136,14 @@
         exportTypeSelection = { ...exportTypeSelection, [type]: selected };
     }
 
+    function setArchiveTypeSelection(type: ArchiveEventType, selected: boolean) {
+        mazeState.setArchiveEventTypeSelected(type, selected);
+    }
+
+    function closeArchiveSettings() {
+        archiveSettingsOpen = false;
+    }
+
     function selectAllExportTypes() {
         exportTypeSelection = createDefaultExportTypeSelection();
     }
@@ -150,6 +159,10 @@
 
     function eventTypeCount(type: ArchiveEventType): number {
         return mazeState.archiveTypeCounts[type] ?? 0;
+    }
+
+    function archiveTypeEnabled(type: ArchiveEventType): boolean {
+        return mazeState.archiveEventTypeSelection[type] === true;
     }
 
     function visibleHotRows(totalRows: number, coldRows: number): number {
@@ -612,12 +625,64 @@
             </span>
         </div>
 
-        <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+        <div class="relative flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
             <span class="font-medium text-gray-600">Archive: {mazeState.archiveCount}</span>
+            <button
+                type="button"
+                class="inline-flex h-6 w-6 items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                title="Archive settings"
+                aria-label="Archive settings"
+                onclick={() => archiveSettingsOpen = !archiveSettingsOpen}
+            >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.3 7A2 2 0 1 1 7.1 4.2l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 20.1 7l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1z"></path>
+                </svg>
+            </button>
             <span class="font-mono" title={mazeState.archiveRunId}>Run: {formatArchiveRunId(mazeState.archiveRunId)}</span>
             {#each ARCHIVE_EVENT_TYPES as type (type)}
                 <span>{EVENT_TYPE_LABELS[type]}: {eventTypeCount(type)}</span>
             {/each}
+
+            {#if archiveSettingsOpen}
+                <div class="absolute left-0 top-8 z-20 w-72 rounded border border-gray-200 bg-white p-3 text-sm text-gray-700 shadow-lg">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                        <div class="font-medium text-gray-900">Archive Event Types</div>
+                        <button
+                            type="button"
+                            class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                            onclick={closeArchiveSettings}
+                        >
+                            Close
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        {#each ARCHIVE_EVENT_TYPES as type (type)}
+                            <label class="flex items-center justify-between gap-3 rounded border border-gray-200 px-2 py-1.5">
+                                <span class="flex min-w-0 items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={archiveTypeEnabled(type)}
+                                        onchange={(event) => setArchiveTypeSelection(type, (event.currentTarget as HTMLInputElement).checked)}
+                                    />
+                                    <span class="truncate">{EVENT_TYPE_LABELS[type]}</span>
+                                </span>
+                                <span class="shrink-0 text-xs text-gray-500">{eventTypeCount(type)}</span>
+                            </label>
+                        {/each}
+                    </div>
+                    <div class="mt-3 flex items-center justify-between gap-2">
+                        <span class="text-xs text-gray-500">Applies to new events.</span>
+                        <button
+                            type="button"
+                            class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                            onclick={() => mazeState.resetArchiveEventTypeSelection()}
+                        >
+                            Defaults
+                        </button>
+                    </div>
+                </div>
+            {/if}
         </div>
 
         <div class="flex flex-col sm:flex-row gap-2">

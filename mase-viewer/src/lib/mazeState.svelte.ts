@@ -1,5 +1,6 @@
 import {
     eventArchive,
+    ARCHIVE_EVENT_TYPES,
     emptyArchiveEventTypeCounts,
     type ArchiveEventType,
     type ArchiveEventTypeCounts,
@@ -79,6 +80,9 @@ const COLD_EVENT_PAGE_SIZE = 100;
 const HOT_UI_EVENT_LIMIT = 50;
 const REPLAY_DEDUPE_WINDOW_MS = 3000;
 const REPLAY_DEDUPE_MAX_SIGNATURES = 2000;
+const ARCHIVE_EVENT_TYPE_STORAGE_KEY = 'maze-viewer.archive-event-types.v1';
+
+export type ArchiveEventTypeSelection = Record<ArchiveEventType, boolean>;
 
 export class MazeStore {
     agentEvents = $state<AgentMovedEvent[]>([]);
@@ -90,6 +94,7 @@ export class MazeStore {
     archiveTypeCounts = $state<ArchiveEventTypeCounts>(emptyArchiveEventTypeCounts());
     archiveError = $state<string | null>(null);
     archiveRunId = $state(eventArchive.getCurrentRunId());
+    archiveEventTypeSelection = $state<ArchiveEventTypeSelection>(loadArchiveEventTypeSelection());
     agentEventsHasMore = $state(false);
     transactionEventsHasMore = $state(false);
     isLoadingAgentEvents = $state(false);
@@ -224,6 +229,18 @@ export class MazeStore {
         this.flushQueuedEventsNow();
         await this.waitForArchiveWrites();
         return eventArchive.exportNdjson({ eventTypes });
+    }
+
+    setArchiveEventTypeSelected(type: ArchiveEventType, selected: boolean): void {
+        const next = { ...this.archiveEventTypeSelection, [type]: selected };
+        this.archiveEventTypeSelection = next;
+        saveArchiveEventTypeSelection(next);
+    }
+
+    resetArchiveEventTypeSelection(): void {
+        const next = defaultArchiveEventTypeSelection();
+        this.archiveEventTypeSelection = next;
+        saveArchiveEventTypeSelection(next);
     }
 
     async resetForNewRun(): Promise<void> {
@@ -423,11 +440,16 @@ export class MazeStore {
     }
 
     private archiveEvents(events: MazeEvent[]): void {
+        const archivedEvents = events.filter((event) => this.shouldArchiveEvent(event));
+        if (archivedEvents.length === 0) {
+            return;
+        }
+
         this.archiveWrite = this.archiveWrite
-            .then(() => eventArchive.appendEvents(events, this.currentRunId))
+            .then(() => eventArchive.appendEvents(archivedEvents, this.currentRunId))
             .then((archivedCount) => {
                 this.archiveCount += archivedCount;
-                this.archiveTypeCounts = this.addEventTypeCounts(this.archiveTypeCounts, events);
+                this.archiveTypeCounts = this.addEventTypeCounts(this.archiveTypeCounts, archivedEvents);
                 this.updateHasMoreFromCounts();
                 this.archiveError = null;
             })
@@ -435,6 +457,10 @@ export class MazeStore {
                 this.archiveError = error instanceof Error ? error.message : String(error);
                 console.warn('Failed to archive events', error);
             });
+    }
+
+    private shouldArchiveEvent(event: MazeEvent): boolean {
+        return this.archiveEventTypeSelection[event.type as ArchiveEventType] === true;
     }
 
     connect(webSocketUrl = "ws://localhost:8080/ws") {
@@ -551,6 +577,56 @@ function isMazeEventPayload(payload: any): payload is MazeEventPayload {
     }
 
     return false;
+}
+
+function defaultArchiveEventTypeSelection(): ArchiveEventTypeSelection {
+    return {
+        AGENT_MOVED: true,
+        TRANSACTION: true,
+        UI_UPSERT: false,
+        UI_DELETE: false
+    };
+}
+
+function loadArchiveEventTypeSelection(): ArchiveEventTypeSelection {
+    const defaults = defaultArchiveEventTypeSelection();
+
+    if (typeof window === 'undefined') {
+        return defaults;
+    }
+
+    try {
+        const raw = window.localStorage.getItem(ARCHIVE_EVENT_TYPE_STORAGE_KEY);
+        if (!raw) {
+            return defaults;
+        }
+
+        const parsed = JSON.parse(raw) as Partial<Record<ArchiveEventType, unknown>>;
+        const next = { ...defaults };
+
+        for (const type of ARCHIVE_EVENT_TYPES) {
+            if (typeof parsed[type] === 'boolean') {
+                next[type] = parsed[type];
+            }
+        }
+
+        return next;
+    } catch (error) {
+        console.warn('Failed to load archive event type settings', error);
+        return defaults;
+    }
+}
+
+function saveArchiveEventTypeSelection(selection: ArchiveEventTypeSelection): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    try {
+        window.localStorage.setItem(ARCHIVE_EVENT_TYPE_STORAGE_KEY, JSON.stringify(selection));
+    } catch (error) {
+        console.warn('Failed to save archive event type settings', error);
+    }
 }
 
 export const mazeState = new MazeStore();
