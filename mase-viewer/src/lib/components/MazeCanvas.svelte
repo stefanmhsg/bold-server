@@ -8,11 +8,12 @@
     import { pathAnalysisOverlay, type PathAnalysisOverlayState } from '$lib/pathAnalysisOverlayStore';
     import { showOptimalRoute } from '$lib/routeOverlayStore';
 
-    let { maze, uiSnapshot, scenarioName, onCellSelect } = $props<{ 
+    let { maze, uiSnapshot, scenarioName, onCellSelect, onCanvasExportReady } = $props<{ 
         maze: MazeLayout,
         uiSnapshot: UiCommand[],
         scenarioName?: string | null,
-        onCellSelect?: (cellId: string) => void 
+        onCellSelect?: (cellId: string) => void,
+        onCanvasExportReady?: (exporter: (() => Promise<Blob>) | null) => void
     }>();
 
     let container: HTMLDivElement;
@@ -90,6 +91,7 @@
     const CELL_SIZE = 60;
     const WALL_THICKNESS = 4;
     const PADDING = 20;
+    const EXPORT_PIXEL_RATIO = 3;
 
     const optimalRouteOverlay = $derived(getOptimalRouteOverlay(scenarioName));
     const optimalRouteColor = $derived(optimalRouteOverlay?.color ?? '#ffc3ff');
@@ -125,6 +127,42 @@
             }
 
             pendingLayerDraws.clear();
+        });
+    }
+
+    function flushPendingDraws() {
+        if (drawFrameHandle !== null) {
+            cancelAnimationFrame(drawFrameHandle);
+            drawFrameHandle = null;
+        }
+
+        for (const layerToDraw of pendingLayerDraws) {
+            layerToDraw.draw();
+        }
+
+        pendingLayerDraws.clear();
+        stage?.draw();
+    }
+
+    async function exportCanvasImage(): Promise<Blob> {
+        if (!stage) {
+            throw new Error("Maze canvas is not ready yet.");
+        }
+
+        flushPendingDraws();
+
+        return new Promise((resolve, reject) => {
+            stage.toBlob({
+                mimeType: "image/png",
+                pixelRatio: EXPORT_PIXEL_RATIO,
+                callback: (blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error("Konva did not return image data for the canvas export."));
+                    }
+                }
+            });
         });
     }
 
@@ -309,6 +347,7 @@
         unsubscribeRuntimeCanvasEvents = mazeState.subscribeRuntimeCanvasEvents(handleRuntimeCanvasEvent);
 
         fitToView(width, height);
+        onCanvasExportReady?.(exportCanvasImage);
 
         stage.on('wheel', (e) => {
             e.evt.preventDefault();
@@ -351,6 +390,7 @@
 
         return () => {
             resizeObserver.disconnect();
+            onCanvasExportReady?.(null);
         };
     });
 
@@ -382,6 +422,7 @@
         }
         pendingLayerDraws.clear();
         if (stage) stage.destroy();
+        onCanvasExportReady?.(null);
     });
 
     function drawMaze() {

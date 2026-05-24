@@ -41,6 +41,8 @@
     let archiveSettingsOpen = $state(false);
     let demoAgentOpen = $state(false);
     let pathAnalysisOpen = $state(false);
+    let isExportingCanvas = $state(false);
+    let mazeCanvasExporter = $state<(() => Promise<Blob>) | null>(null);
     let canvasRevision = $state(0);
     let resetMessage = $state<{ type: 'success' | 'error', text: string } | null>(null);
     let resetMessageTimer: ReturnType<typeof setTimeout> | null = null;
@@ -121,6 +123,10 @@
 
     function closePathAnalysisView() {
         pathAnalysisOpen = false;
+    }
+
+    function setMazeCanvasExporter(exporter: (() => Promise<Blob>) | null) {
+        mazeCanvasExporter = exporter;
     }
 
     function createDefaultExportTypeSelection(): Record<ArchiveEventType, boolean> {
@@ -212,6 +218,50 @@
         return count > 0
             ? `Exported ${count} log events${fileName ? ` to ${fileName}` : ''}${selectedLabels ? ` (${selectedLabels})` : ''}.`
             : 'No logs were available to export for the selected event types.';
+    }
+
+    function createCanvasExportFileName(): string {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const safeScenario = (data.scenarioName ?? 'maze').replace(/[^a-zA-Z0-9._-]/g, '-');
+        return `mase-viewer-${safeScenario}-${timestamp}.png`;
+    }
+
+    function downloadBlob(blob: Blob, fileName: string) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    async function handleExportCanvas() {
+        if (isExportingCanvas) return;
+
+        if (!mazeCanvasExporter) {
+            showResetMessage({ type: 'error', text: 'Maze canvas is not ready to export yet.' }, false);
+            return;
+        }
+
+        isExportingCanvas = true;
+        clearResetMessage();
+
+        try {
+            const blob = await mazeCanvasExporter();
+            const fileName = createCanvasExportFileName();
+            downloadBlob(blob, fileName);
+            showResetMessage({ type: 'success', text: `Exported maze canvas to ${fileName}.` });
+        } catch (e) {
+            showResetMessage({
+                type: 'error',
+                text: `Canvas export failed: ${e instanceof Error ? e.message : String(e)}`
+            }, false);
+        } finally {
+            isExportingCanvas = false;
+        }
     }
 
     async function handleAdminReset(action: 'export' | 'discard') {
@@ -507,6 +557,24 @@
                         Scenario: {data.scenarioName}
                     </span>
                 {/if}
+                <button
+                    type="button"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    title="Export maze canvas as PNG"
+                    aria-label="Export maze canvas as PNG"
+                    onclick={handleExportCanvas}
+                    disabled={isExportingCanvas || !data.maze || !mazeCanvasExporter}
+                >
+                    {#if isExportingCanvas}
+                        <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                    {:else}
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <path d="M7 10l5 5 5-5"></path>
+                            <path d="M12 15V3"></path>
+                        </svg>
+                    {/if}
+                </button>
             </div>
             <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <button
@@ -556,7 +624,13 @@
         {#if data.maze}
             <div class="h-[600px] min-w-0 max-w-full resize overflow-hidden rounded border-2 border-gray-300 bg-white">
                 {#key canvasRevision}
-                    <MazeCanvas maze={data.maze} uiSnapshot={data.uiSnapshot || []} scenarioName={data.scenarioName} onCellSelect={handleCellSelect} />
+                    <MazeCanvas
+                        maze={data.maze}
+                        uiSnapshot={data.uiSnapshot || []}
+                        scenarioName={data.scenarioName}
+                        onCellSelect={handleCellSelect}
+                        onCanvasExportReady={setMazeCanvasExporter}
+                    />
                 {/key}
             </div>
         {:else}
