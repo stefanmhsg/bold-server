@@ -126,11 +126,7 @@
 </cells/7/31> {   </cells/7/31> a maze:Cell ; maze:north maze:Wall; maze:west </cells/7/30>; maze:south  maze:Wall; maze:east </cells/7/32> .  }
 </cells/7/32> {   </cells/7/32> a maze:Cell ; maze:north maze:Wall; maze:west </cells/7/31>; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/8/2> { </cells/8/2> a maze:Cell ; maze:north </cells/7/2>; maze:west maze:Wall; maze:south  </cells/9/2>; maze:east maze:Wall; maze:green </cells/9/2> . }
-</cells/8/4> {   </cells/8/4> a maze:Cell ; maze:north </cells/7/4>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/8/5> .  
-    </cells/8/4#key> a dyn:GreenKey;
-        dyn:fitsInLock </cells/12/5> ;
-        dyn:keyValue "greenkey-4852" .
-}
+</cells/8/4> {   </cells/8/4> a maze:Cell ; maze:north </cells/7/4>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/8/5> .  }
 </cells/8/5> {   </cells/8/5> a maze:Cell ; maze:north maze:Wall; maze:west </cells/8/4>; maze:south  maze:Wall; maze:east </cells/8/6> .  }
 </cells/8/6> {   </cells/8/6> a maze:Cell ; maze:north </cells/7/6>; maze:west </cells/8/5>; maze:south  </cells/9/6>; maze:east </cells/8/7> .  }
 </cells/8/7> {   </cells/8/7> a maze:Cell ; maze:north maze:Wall; maze:west </cells/8/6>; maze:south  maze:Wall; maze:east </cells/8/8> .  }
@@ -198,36 +194,7 @@
 </cells/12/2> {   </cells/12/2> a maze:Cell ; maze:north maze:Wall; maze:west </cells/12/1>; maze:south  maze:Wall; maze:east </cells/12/3> .  }
 </cells/12/3> { </cells/12/3> a maze:Cell ; maze:north </cells/11/3>; maze:west </cells/12/2>; maze:south  maze:Wall; maze:east </cells/12/4>; maze:green </cells/12/4> . }
 </cells/12/4> { </cells/12/4> a maze:Cell ; maze:north maze:Wall; maze:west </cells/12/3>; maze:south  maze:Wall; maze:east </cells/12/5>; maze:green </cells/12/5> . }
-
-# </cells/12/5> { </cells/12/5> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/12/5#greenAction>; maze:north </cells/11/5>; maze:west </cells/12/4>; maze:east maze:Wall . # maze:south  </cells/13/5>; maze:green </cells/13/5> 
-#  <http://127.0.1.1:8080/cells/12/5#greenAction> dyn:hasStatus dyn:open ;
-#         http:requestURI <http://127.0.1.1:8080/cells/12/5>;
-#         http:mthd httpm:POST;
-#         http:body [ 
-#             dyn:foundAt dyn:GreenKey ; 
-#             dyn:needsProperty dyn:keyValue 
-#         ] .
-# }
-
-</cells/12/5> { </cells/12/5> a maze:Cell, dyn:Lock ; hydra:operation <http://127.0.1.1:8080/cells/12/5#greenAction> ; maze:north </cells/11/5>; maze:west </cells/12/4>; maze:east maze:Wall . # maze:south  </cells/13/5>; maze:green </cells/13/5> 
- <http://127.0.1.1:8080/cells/12/5#greenAction> a hydra:Operation ;
-        hydra:method "POST" ;
-        hydra:target <http://127.0.1.1:8080/cells/12/5> ;
-        hydra:expects dyn:GreenKeyBodyShape ;
-        hydra:returns dyn:UnlockedLock ;
-        dyn:acceptsKeyType dyn:GreenKey ;
-        dyn:hasStatus dyn:open .
-
- dyn:GreenKeyBodyShape
-        a sh:NodeShape ;
-        sh:targetNode <http://127.0.1.1:8080/cells/12/5> ;
-        sh:property [
-            sh:path dyn:keyValue ;
-            sh:datatype xsd:string ;
-            sh:minCount 1 ;
-        ] .
-}
-
+</cells/12/5> { </cells/12/5> a maze:Cell ; maze:north </cells/11/5>; maze:west </cells/12/4>; maze:south </cells/13/5>; maze:east maze:Wall; maze:green </cells/13/5> . }
 </cells/12/9> {   </cells/12/9> a maze:Cell ; maze:north </cells/11/9>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/12/11> {   </cells/12/11> a maze:Cell ; maze:north </cells/11/11>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/12/12> {   </cells/12/12> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/13/12>; maze:east maze:Wall .  }
@@ -506,34 +473,6 @@
 </cells/28/10> {   </cells/28/10> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/9>; maze:south  maze:Wall; maze:east </cells/28/11> .  }
 </cells/28/11> { </cells/28/11> a maze:Cell ; maze:north </cells/27/11>; maze:west </cells/28/10>; maze:south  maze:Wall; maze:east </cells/28/12>; maze:green </cells/28/12> . }
 </cells/28/12> { </cells/28/12> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/11>; maze:south  maze:Wall; maze:east </cells/28/13>; maze:green </cells/28/13> . }
-# </cells/28/13> { </cells/28/13> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/28/13#blueAction>; maze:north maze:Wall; maze:west </cells/28/12>; maze:south  maze:Wall . #maze:east </cells/28/14>; maze:green </cells/28/14> 
-#     <http://127.0.1.1:8080/cells/28/13#blueAction> dyn:hasStatus dyn:open ;
-#         http:requestURI <http://127.0.1.1:8080/cells/28/13>;
-#         http:mthd httpm:POST;
-#         http:body [ 
-#             dyn:foundAt dyn:BlueKey ; 
-#             dyn:needsProperty dyn:keyValue 
-#         ] .
-# }
-#
-# </cells/28/13> { </cells/28/13> a maze:Cell, dyn:Lock ; hydra:operation <http://127.0.1.1:8080/cells/28/13#blueAction> ; maze:north maze:Wall; maze:west </cells/28/12>; maze:south  maze:Wall . #maze:east </cells/28/14>; maze:green </cells/28/14> 
-#     <http://127.0.1.1:8080/cells/28/13#blueAction> a hydra:Operation ;
-#         hydra:method "POST" ;
-#         hydra:target <http://127.0.1.1:8080/cells/28/13> ;
-#         hydra:expects dyn:BlueKeyBodyShape ;
-#         hydra:returns dyn:UnlockedLock ;
-#         dyn:acceptsKeyType dyn:BlueKey ;
-#         dyn:hasStatus dyn:open .
-# 
-#  dyn:BlueKeyBodyShape
-#         a sh:NodeShape ;
-#         sh:targetNode <http://127.0.1.1:8080/cells/28/13> ;
-#         sh:property [
-#             sh:path dyn:keyValue ;
-#             sh:datatype xsd:string ;
-#             sh:minCount 1 ;
-#         ] .
-# }
 </cells/28/13> { </cells/28/13> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/12>; maze:south maze:Wall ; maze:east </cells/28/14> . } #; maze:green </cells/28/14> 
 </cells/28/14> { </cells/28/14> a maze:Cell ; maze:north maze:Wall; maze:west </cells/28/13>; maze:south  maze:Wall; maze:east </cells/28/15>; maze:green </cells/28/15> . }
 </cells/28/15> { </cells/28/15> a maze:Cell ; maze:north </cells/27/15>; maze:west </cells/28/14>; maze:south  </cells/29/15>; maze:east maze:Wall; maze:green </cells/29/15> . }
@@ -576,11 +515,7 @@
 </cells/31/22> {   </cells/31/22> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/32/22>; maze:east maze:Wall .  }
 </cells/31/24> {   </cells/31/24> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/32/24>; maze:east </cells/31/25> .  }
 </cells/31/25> {   </cells/31/25> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/24>; maze:south  maze:Wall; maze:east </cells/31/26> .  }
-</cells/31/26> {   </cells/31/26> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/25>; maze:south  maze:Wall; maze:east </cells/31/27> .  
-     </cells/31/26#key> a dyn:RedKey;
-         dyn:fitsInLock </cells/36/36> ;
-         dyn:keyValue "redkey-1670" .
- }
+</cells/31/26> {   </cells/31/26> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/25>; maze:south  maze:Wall; maze:east </cells/31/27> .  }
 </cells/31/27> {   </cells/31/27> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/26>; maze:south  maze:Wall; maze:east </cells/31/28> .  }
 </cells/31/28> {   </cells/31/28> a maze:Cell ; maze:north maze:Wall; maze:west </cells/31/27>; maze:south  maze:Wall; maze:east </cells/31/29> .  }
 </cells/31/29> {   </cells/31/29> a maze:Cell ; maze:north </cells/30/29>; maze:west </cells/31/28>; maze:south  maze:Wall; maze:east </cells/31/30> .  }
@@ -670,34 +605,7 @@
 </cells/36/23> { </cells/36/23> a maze:Cell ; maze:north </cells/35/23>; maze:west </cells/36/22>; maze:south  </cells/37/23>; maze:east maze:Wall; maze:green </cells/37/23> . }
 </cells/36/31> {   </cells/36/31> a maze:Cell ; maze:north </cells/35/31>; maze:west maze:Wall; maze:south  </cells/37/31>; maze:east </cells/36/32> .  }
 </cells/36/32> {   </cells/36/32> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/31>; maze:south  maze:Wall; maze:east maze:Wall .  }
-# </cells/36/36> { </cells/36/36> a maze:Cell, dyn:Lock ; dyn:needsAction <http://127.0.1.1:8080/cells/36/36#redAction> ; maze:north </cells/35/36>; maze:west maze:Wall; maze:south  </cells/37/36> . #maze:east </cells/36/37>; maze:green </cells/36/37>
-#  <http://127.0.1.1:8080/cells/36/36#redAction> dyn:hasStatus dyn:open ;
-#         http:requestURI <http://127.0.1.1:8080/cells/36/36>;
-#         http:mthd httpm:POST;
-#         http:body [ 
-#             dyn:foundAt dyn:RedKey ; 
-#             dyn:needsProperty dyn:keyValue 
-#         ] .
-# }
-
-</cells/36/36> { </cells/36/36> a maze:Cell, dyn:Lock ; hydra:operation <http://127.0.1.1:8080/cells/36/36#redAction> ; maze:north </cells/35/36>; maze:west maze:Wall; maze:south  </cells/37/36> . #maze:east </cells/36/37>; maze:green </cells/36/37>
- <http://127.0.1.1:8080/cells/36/36#redAction> a hydra:Operation ;
-        hydra:method "POST" ;
-        hydra:target <http://127.0.1.1:8080/cells/36/36> ;
-        hydra:expects dyn:RedKeyBodyShape ;
-        hydra:returns dyn:UnlockedLock ;
-        dyn:acceptsKeyType dyn:RedKey ;
-        dyn:hasStatus dyn:open .
-
- dyn:RedKeyBodyShape
-        a sh:NodeShape ;
-        sh:targetNode <http://127.0.1.1:8080/cells/36/36> ;
-        sh:property [
-            sh:path dyn:keyValue ;
-            sh:datatype xsd:string ;
-            sh:minCount 1 ;
-        ] .
-}
+</cells/36/36> { </cells/36/36> a maze:Cell ; maze:north </cells/35/36>; maze:west maze:Wall; maze:south  </cells/37/36> ; maze:east </cells/36/37>; maze:green </cells/36/37> . }
 </cells/36/37> { </cells/36/37> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/36>; maze:south  maze:Wall; maze:east </cells/36/38>; maze:green </cells/36/38> . }
 </cells/36/38> { </cells/36/38> a maze:Cell ; maze:north maze:Wall; maze:west </cells/36/37>; maze:south  maze:Wall; maze:east </cells/36/39>; maze:green </cells/36/39> . }
 </cells/36/39> { </cells/36/39> a maze:Cell ; maze:north </cells/35/39>; maze:west </cells/36/38>; maze:south  maze:Wall; maze:east </cells/36/40>; maze:green </cells/36/40> . }
@@ -732,96 +640,30 @@
 </cells/39/32> { </cells/39/32> a maze:Cell ; maze:north </cells/38/32>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/39/33>; maze:green </cells/39/33> . }
 </cells/39/33> { </cells/39/33> a maze:Cell ; maze:north maze:Wall; maze:west </cells/39/32>; maze:south  </cells/40/33>; maze:east </cells/39/34>; maze:green </cells/39/34> . }
 </cells/39/34> { </cells/39/34> a maze:Cell ; maze:north </cells/38/34>; maze:west </cells/39/33>; maze:south  maze:Wall; maze:east maze:Wall; maze:green </cells/38/34> . }
-</cells/39/38> {   </cells/39/38> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/40/38>; maze:east maze:Wall .  }
-</cells/39/40> {   </cells/39/40> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/39/41> .  }
-</cells/39/41> {   </cells/39/41> a maze:Cell ; maze:north maze:Wall; maze:west </cells/39/40>; maze:south  maze:Wall; maze:east </cells/39/42> .  }
-</cells/39/42> {   </cells/39/42> a maze:Cell ; maze:north maze:Wall; maze:west </cells/39/41>; maze:south  maze:Wall; maze:east </cells/39/43> .  }
 </cells/39/43> { </cells/39/43> a maze:Cell ; maze:north </cells/38/43>; maze:west </cells/39/42>; maze:south  maze:Wall; maze:east </cells/39/44>; maze:green </cells/39/44> . }
 </cells/39/44> { </cells/39/44> a maze:Cell ; maze:north maze:Wall; maze:west </cells/39/43>; maze:south  </cells/40/44>; maze:east maze:Wall; maze:green </cells/40/44> . }
-</cells/40/28> {   </cells/40/28> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/41/28>; maze:east maze:Wall .  }
-</cells/40/30> {   </cells/40/30> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/41/30>; maze:east maze:Wall .  }
 </cells/40/33> {   </cells/40/33> a maze:Cell ; maze:north </cells/39/33>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
-</cells/40/36> {   </cells/40/36> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/40/37> .  }
-</cells/40/37> {   </cells/40/37> a maze:Cell ; maze:north maze:Wall; maze:west </cells/40/36>; maze:south  maze:Wall; maze:east </cells/40/38> .  }
-</cells/40/38> {   </cells/40/38> a maze:Cell ; maze:north </cells/39/38>; maze:west </cells/40/37>; maze:south  </cells/41/38>; maze:east maze:Wall .  }
 </cells/40/44> { </cells/40/44> a maze:Cell ; maze:north </cells/39/44>; maze:west maze:Wall; maze:south  </cells/41/44>; maze:east maze:Wall; maze:green </cells/41/44> . }
-</cells/40/46> {   </cells/40/46> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/41/46>; maze:east </cells/40/47> .  }
-</cells/40/47> {   </cells/40/47> a maze:Cell ; maze:north maze:Wall; maze:west </cells/40/46>; maze:south  maze:Wall; maze:east maze:Wall .  }
-</cells/41/28> {   </cells/41/28> a maze:Cell ; maze:north </cells/40/28>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/41/29> .  }
-</cells/41/29> {   </cells/41/29> a maze:Cell ; maze:north maze:Wall; maze:west </cells/41/28>; maze:south  maze:Wall; maze:east </cells/41/30> .  }
-</cells/41/30> {   </cells/41/30> a maze:Cell ; maze:north </cells/40/30>; maze:west </cells/41/29>; maze:south  maze:Wall; maze:east </cells/41/31> .  }
-</cells/41/31> {   </cells/41/31> a maze:Cell ; maze:north maze:Wall; maze:west </cells/41/30>; maze:south  </cells/42/31>; maze:east maze:Wall .  }
-</cells/41/38> {   </cells/41/38> a maze:Cell ; maze:north </cells/40/38>; maze:west maze:Wall; maze:south  </cells/42/38>; maze:east maze:Wall .  }
-</cells/41/40> {   </cells/41/40> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/42/40>; maze:east maze:Wall .  }
 </cells/41/43> { </cells/41/43> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/42/43>; maze:east </cells/41/44>; maze:green </cells/42/43> . }
-</cells/41/44> { </cells/41/44> a maze:Cell ; maze:north </cells/40/44>; maze:west </cells/41/43>; maze:south  maze:Wall; maze:east </cells/41/45>; maze:green </cells/41/43> . }
-</cells/41/45> {   </cells/41/45> a maze:Cell ; maze:north maze:Wall; maze:west </cells/41/44>; maze:south  maze:Wall; maze:east </cells/41/46> .  }
-</cells/41/46> {   </cells/41/46> a maze:Cell ; maze:north </cells/40/46>; maze:west </cells/41/45>; maze:south  maze:Wall; maze:east maze:Wall .  }
-</cells/42/31> {   </cells/42/31> a maze:Cell ; maze:north </cells/41/31>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/42/32> .  }
-</cells/42/32> {   </cells/42/32> a maze:Cell ; maze:north maze:Wall; maze:west </cells/42/31>; maze:south  </cells/43/32>; maze:east maze:Wall .  }
-</cells/42/34> {   </cells/42/34> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/43/34>; maze:east maze:Wall .  }
-</cells/42/36> {   </cells/42/36> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/43/36>; maze:east maze:Wall .  }
-</cells/42/38> {   </cells/42/38> a maze:Cell ; maze:north </cells/41/38>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/42/39> .  }
-</cells/42/39> {   </cells/42/39> a maze:Cell ; maze:north maze:Wall; maze:west </cells/42/38>; maze:south  maze:Wall; maze:east </cells/42/40> .  }
-</cells/42/40> {   </cells/42/40> a maze:Cell ; maze:north </cells/41/40>; maze:west </cells/42/39>; maze:south  maze:Wall; maze:east </cells/42/41> .  }
-</cells/42/41> {   </cells/42/41> a maze:Cell ; maze:north maze:Wall; maze:west </cells/42/40>; maze:south  </cells/43/41>; maze:east </cells/42/42> .  }
+</cells/41/44> { </cells/41/44> a maze:Cell ; maze:north </cells/40/44>; maze:west </cells/41/43>; maze:south  maze:Wall; maze:east maze:Wall; maze:green </cells/41/43> . }
 # </cells/42/41> {   </cells/42/41> a maze:Cell ; maze:north maze:Wall; maze:west </cells/42/40>; maze:south  </cells/43/41>; maze:east </cells/42/42> .  # Replaced by key-holder-agent
 #     </cells/42/41#key> a dyn:BlueKey;
 #         dyn:fitsInLock </cells/44/45> ;
 #         dyn:keyValue "bluekey-9347" .
 # }
-</cells/42/42> {   </cells/42/42> a maze:Cell ; maze:north maze:Wall; maze:west </cells/42/41>; maze:south  maze:Wall; maze:east </cells/42/43> .  }
+</cells/42/42> {   </cells/42/42> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/42/43> .  }
 </cells/42/43> { </cells/42/43> a maze:Cell ; maze:north </cells/41/43>; maze:west </cells/42/42>; maze:south  </cells/43/43>; maze:east maze:Wall; maze:green </cells/43/43> . }
 </cells/42/48> {   </cells/42/48> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/43/48>; maze:east maze:Wall .  }
-</cells/43/32> {   </cells/43/32> a maze:Cell ; maze:north </cells/42/32>; maze:west maze:Wall; maze:south  </cells/44/32>; maze:east maze:Wall .  }
-</cells/43/34> {   </cells/43/34> a maze:Cell ; maze:north </cells/42/34>; maze:west maze:Wall; maze:south  </cells/44/34>; maze:east maze:Wall .  }
-</cells/43/36> {   </cells/43/36> a maze:Cell ; maze:north </cells/42/36>; maze:west maze:Wall; maze:south  </cells/44/36>; maze:east maze:Wall .  }
-</cells/43/41> {   </cells/43/41> a maze:Cell ; maze:north </cells/42/41>; maze:west maze:Wall; maze:south  </cells/44/41>; maze:east maze:Wall .  }
 </cells/43/43> { </cells/43/43> a maze:Cell ; maze:north </cells/42/43>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/43/44>; maze:green </cells/43/44> . }
 </cells/43/44> { </cells/43/44> a maze:Cell ; maze:north maze:Wall; maze:west </cells/43/43>; maze:south  maze:Wall; maze:east </cells/43/45>; maze:green </cells/43/45> . }
 </cells/43/45> { </cells/43/45> a maze:Cell ; maze:north maze:Wall; maze:west </cells/43/44>; maze:south  </cells/44/45>; maze:east maze:Wall; maze:green </cells/44/45> . }
 </cells/43/48> {   </cells/43/48> a maze:Cell ; maze:north </cells/42/48>; maze:west maze:Wall; maze:south  </cells/44/48>; maze:east maze:Wall .  }
 </cells/43/50> {   </cells/43/50> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/44/50>; maze:east maze:Wall .  }
-</cells/44/31> {   </cells/44/31> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/45/31>; maze:east </cells/44/32> .  }
-</cells/44/32> {   </cells/44/32> a maze:Cell ; maze:north </cells/43/32>; maze:west </cells/44/31>; maze:south  maze:Wall; maze:east </cells/44/33> .  }
-</cells/44/33> {   </cells/44/33> a maze:Cell ; maze:north maze:Wall; maze:west </cells/44/32>; maze:south  maze:Wall; maze:east </cells/44/34> .  }
-</cells/44/34> {   </cells/44/34> a maze:Cell ; maze:north </cells/43/34>; maze:west </cells/44/33>; maze:south  </cells/45/34>; maze:east </cells/44/35> .  }
-</cells/44/35> {   </cells/44/35> a maze:Cell ; maze:north maze:Wall; maze:west </cells/44/34>; maze:south  maze:Wall; maze:east </cells/44/36> .  }
-</cells/44/36> {   </cells/44/36> a maze:Cell ; maze:north </cells/43/36>; maze:west </cells/44/35>; maze:south  </cells/45/36>; maze:east </cells/44/37> .  }
-</cells/44/37> {   </cells/44/37> a maze:Cell ; maze:north maze:Wall; maze:west </cells/44/36>; maze:south  maze:Wall; maze:east </cells/44/38> .  }
-</cells/44/38> {   </cells/44/38> a maze:Cell ; maze:north maze:Wall; maze:west </cells/44/37>; maze:south  maze:Wall; maze:east </cells/44/39> .  }
-</cells/44/39> {   </cells/44/39> a maze:Cell ; maze:north maze:Wall; maze:west </cells/44/38>; maze:south  maze:Wall; maze:east </cells/44/40> .  }
-</cells/44/40> {   </cells/44/40> a maze:Cell ; maze:north maze:Wall; maze:west </cells/44/39>; maze:south  </cells/45/40>; maze:east </cells/44/41> .  }
-</cells/44/41> {   </cells/44/41> a maze:Cell ; maze:north </cells/43/41>; maze:west </cells/44/40>; maze:south  maze:Wall; maze:east maze:Wall .  }
-
-</cells/44/45> { </cells/44/45> a maze:Cell, dyn:Lock ; hydra:operation <http://127.0.1.1:8080/cells/44/45#blueAction> ; maze:north </cells/43/45>; maze:west maze:Wall; maze:east maze:Wall . # maze:south  </cells/45/45>; maze:green </cells/45/45>
-
-    <http://127.0.1.1:8080/cells/44/45#blueAction> a hydra:Operation ;
-        hydra:method "POST" ;
-        hydra:target <http://127.0.1.1:8080/cells/44/45> ;
-        hydra:expects dyn:BlueKeyBodyShape ;
-        hydra:returns dyn:UnlockedLock ;
-        dyn:acceptsKeyType dyn:BlueKey ;
-        dyn:hasStatus dyn:open .
-
- dyn:BlueKeyBodyShape
-        a sh:NodeShape ;
-        sh:targetNode <http://127.0.1.1:8080/cells/44/45> ;
-        sh:property [
-            sh:path dyn:keyValue ;
-            sh:datatype xsd:string ;
-            sh:minCount 1 ;
-        ] .
-}
-
+</cells/44/45> { </cells/44/45> a maze:Cell ; maze:north </cells/43/45>; maze:west maze:Wall; maze:south  </cells/45/45>; maze:east maze:Wall . } # maze:south  </cells/45/45>; maze:green </cells/45/45>
 </cells/44/48> {   </cells/44/48> a maze:Cell ; maze:north </cells/43/48>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/44/49> .  }
 </cells/44/49> {   </cells/44/49> a maze:Cell ; maze:north maze:Wall; maze:west </cells/44/48>; maze:south  maze:Wall; maze:east </cells/44/50> .  }
 </cells/44/50> {   </cells/44/50> a maze:Cell ; maze:north </cells/43/50>; maze:west </cells/44/49>; maze:south  </cells/45/50>; maze:east maze:Wall .  }
 </cells/44/52> {   </cells/44/52> a maze:Cell ; maze:north maze:Wall; maze:west maze:Wall; maze:south  </cells/45/52>; maze:east maze:Wall .  }
-</cells/45/31> {   </cells/45/31> a maze:Cell ; maze:north </cells/44/31>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
-</cells/45/34> {   </cells/45/34> a maze:Cell ; maze:north </cells/44/34>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
-</cells/45/36> {   </cells/45/36> a maze:Cell ; maze:north </cells/44/36>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
-</cells/45/40> {   </cells/45/40> a maze:Cell ; maze:north </cells/44/40>; maze:west maze:Wall; maze:south  maze:Wall; maze:east maze:Wall .  }
 </cells/45/45> { </cells/45/45> a maze:Cell ; maze:north </cells/44/45>; maze:west maze:Wall; maze:south  </cells/46/45>; maze:east maze:Wall; maze:green </cells/46/45> . }
 </cells/45/50> {   </cells/45/50> a maze:Cell ; maze:north </cells/44/50>; maze:west maze:Wall; maze:south  maze:Wall; maze:east </cells/45/51> .  }
 </cells/45/51> {   </cells/45/51> a maze:Cell ; maze:north maze:Wall; maze:west </cells/45/50>; maze:south  maze:Wall; maze:east </cells/45/52> .  }
